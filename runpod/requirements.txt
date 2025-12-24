@@ -1,10 +1,15 @@
 # RunPod Python Dependencies
 runpod==1.6.2
+
+# Image Processing
 Pillow==10.4.0
 numpy==1.26.4
 opencv-python-headless==4.10.0.84
 
-# Optional: Add additional computer vision libraries if needed
-# scikit-image==0.24.0
-# torch==2.3.1
-# torchvision==0.18.1
+# YOLO Model (required for photostrip detection)
+ultralytics>=8.0.0
+
+# PyTorch (required by ultralytics)
+# Note: Adjust based on your CUDA version or use CPU version
+torch>=2.0.0
+torchvision>=0.15.0

@@ -74,11 +74,11 @@ const AnnouncementBanner = () => (
     <BannerIcon icon={CircleAlert} />
     <BannerTitle>
       v2.0 is coming soon with exciting new features! e.g. a canvas to store
-      your photostrip memories...
+      your photo strip memories...
     </BannerTitle>
     <BannerAction
       onClick={() => {
-        window.open("https://rereel.userjot.com/", "_blank");
+        window.open("https://restrip.userjot.com/", "_blank");
       }}
     >
       Suggest a feature
@@ -105,13 +105,13 @@ const CropEnhanceSwitch = () => (
     <div className="flex flex-1 flex-col gap-1">
       <div className="flex items-center justify-between gap-4">
         <Label className="font-medium" htmlFor="feature-toggle">
-          Enable auto-crop & enhance
+          Enable auto-crop
         </Label>
         <Switch id="feature-toggle" />
       </div>
       <p className="text-muted-foreground text-sm text-left">
-        Auto crops out photo strip and enhances it just like it had been
-        scanned.
+        Auto crops out photo strip just like it had been scanned. (Recommended
+        for physical copy)
       </p>
     </div>
   </div>
@@ -176,7 +176,7 @@ export default function MainPage() {
         <div className="text-center mb-12">
           {/* Brand */}
           <h1 className="font-display text-5xl md:text-6xl font-bold mb-3">
-            ReReel
+            ReStrip
           </h1>
           {/* Headline */}
           <ShinyText
@@ -187,7 +187,7 @@ export default function MainPage() {
           />
           {/* Subheadline */}
           <p className="font-body text-grey mb-6">
-            Upload your photostrip, pick a future period, and we'll send you a
+            Upload your photo strip, pick a future period, and we'll send you a
             surprise email then. That's it.
           </p>
           <AnnouncementPill />
@@ -198,7 +198,7 @@ export default function MainPage() {
           <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
             {/* Upload Area */}
             <h3 className="font-display text-xl font-bold text-soft-black mb-1">
-              1. take photo/upload your photostrip
+              1. take photo/upload your photo strip
             </h3>
             <UploadImage />
             <CropEnhanceSwitch />
@@ -208,7 +208,7 @@ export default function MainPage() {
               2. write a caption
             </h3>
             <div className="mt-6 flex gap-4 justify-center">
-              <Textarea placeholder="Type caption here for your photostrip." />
+              <Textarea placeholder="Type caption here for your photo strip." />
             </div>
 
             {/* Period Picker */}
@@ -263,10 +263,10 @@ export default function MainPage() {
               baseRotation={0}
               blurStrength={10}
             >
-              We live in a world where memories are fleeting, photostrips pile
-              up, and feelings fade. ReReel slows time down. You capture a
+              We live in a world where memories are fleeting, photo strips pile
+              up, and feelings fade. ReStrip slows time down. You capture a
               moment today and, months later, it comes back to make you smile.
-              ReReel is a time machine for your happiest moments.
+              ReStrip is a time machine for your happiest moments.
             </ScrollReveal>
           </div>
         </div>
@@ -276,7 +276,7 @@ export default function MainPage() {
       <footer className="bg-soft-black text-warm-beige py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReReel, made with ❤️, by{" "}
+            &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
             <a
               href="https://www.linkedin.com/in/bek-joon-hao/"
               className="hover:underline transition-all hover:text-pastel-blue"

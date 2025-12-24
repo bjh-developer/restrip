@@ -89,7 +89,7 @@ export default function PrivacyPage() {
               What we collect
             </h2>
             <p className="font-body text-grey mb-4">
-              When you use ReReel, we collect:
+              When you use ReStrip, we collect:
             </p>
             <ul className="font-body text-grey space-y-2 ml-4">
               <li>• Your photo/photostrip (the image you upload)</li>

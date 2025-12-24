@@ -34,7 +34,7 @@ export default function ContactPage() {
       icon: Github,
       label: "GitHub",
       description: "Issues & open source",
-      href: "https://github.com/bjh-developer/rereel",
+      href: "https://github.com/bjh-developer/restrip",
       target: "_blank",
       color: "text-soft-black",
     },
@@ -95,7 +95,7 @@ export default function ContactPage() {
           <div className="flex items-center gap-3 mb-6">
             <MessageCircle className="w-6 h-6 text-blush-pink" />
             <h2 className="font-display text-2xl md:text-3xl font-bold text-soft-black">
-              Help shape ReReel
+              Help shape ReStrip
             </h2>
           </div>
 
@@ -106,19 +106,19 @@ export default function ContactPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <a
-              href="https://rereel.userjot.com/"
+              href="https://restrip.userjot.com/"
               className="inline-block bg-blush-pink text-soft-black rounded-lg px-6 py-3 font-body font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 text-center"
             >
               Share Feedback
             </a>
             <a
-              href="https://rereel.userjot.com/roadmap"
+              href="https://restrip.userjot.com/roadmap"
               className="inline-block bg-pastel-blue text-soft-black rounded-lg px-6 py-3 font-body font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 text-center"
             >
               View Roadmap
             </a>
             <a
-              href="https://rereel.userjot.com/updates"
+              href="https://restrip.userjot.com/updates"
               className="inline-block bg-mist-grey text-soft-black rounded-lg px-6 py-3 font-body font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 text-center"
             >
               View Updates
