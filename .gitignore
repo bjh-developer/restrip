@@ -79,6 +79,8 @@ runpod/test_output.png
 runpod/test.png
 runpod/*.pt
 runpod/yolo*.pt
+runpod/test_handler.py
+runpod/test_endpoint.py
 
 # YOLO / Ultralytics
 yolov5/

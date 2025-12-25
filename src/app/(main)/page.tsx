@@ -1,15 +1,18 @@
 "use client";
-import {
-  Dropzone,
-  DropzoneContent,
-  DropzoneEmptyState,
-} from "../../components/ui/shadcn-io/dropzone";
-import { useState, useEffect } from "react";
-import ShinyText from "../../components/ShinyText";
-import { PeriodPicker } from "../../components/PeriodPicker";
+import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Switch } from "../../../components/ui/switch";
 import { Textarea } from "../../../components/ui/textarea";
+import { PeriodPicker } from "../../components/PeriodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
+import ShinyText from "../../components/ShinyText";
+import {
+  Announcement,
+  AnnouncementTag,
+  AnnouncementTitle,
+} from "../../components/ui/shadcn-io/announcement";
 import {
   Banner,
   BannerAction,
@@ -17,20 +20,24 @@ import {
   BannerIcon,
   BannerTitle,
 } from "../../components/ui/shadcn-io/banner";
-import { CircleAlert } from "lucide-react";
 import {
-  Announcement,
-  AnnouncementTag,
-  AnnouncementTitle,
-} from "../../components/ui/shadcn-io/announcement";
-import { ArrowUpRightIcon } from "lucide-react";
-import { Brush } from "lucide-react";
-import { Label } from "../../../components/ui/label";
-import { Switch } from "../../../components/ui/switch";
+  Dropzone,
+  DropzoneContent,
+  DropzoneEmptyState,
+} from "../../components/ui/shadcn-io/dropzone";
+import { Spinner } from "../../components/ui/shadcn-io/spinner";
 
 type PeriodOption = "surprise" | "custom period" | "custom date";
 
-const UploadImage = () => {
+const UploadImage = ({
+  displayImage,
+  onImageUpload,
+  isLoading,
+}: {
+  displayImage?: string;
+  onImageUpload?: (base64Image: string) => void;
+  isLoading?: boolean;
+}) => {
   const [files, setFiles] = useState<File[] | undefined>();
   const [filePreview, setFilePreview] = useState<string | undefined>();
   const handleDrop = (files: File[]) => {
@@ -41,6 +48,8 @@ const UploadImage = () => {
       reader.onload = (e) => {
         if (typeof e.target?.result === "string") {
           setFilePreview(e.target?.result);
+          // Pass the image to parent component
+          onImageUpload?.(e.target?.result);
         }
       };
       reader.readAsDataURL(files[0]);
@@ -55,13 +64,23 @@ const UploadImage = () => {
     >
       <DropzoneEmptyState />
       <DropzoneContent>
-        {filePreview && (
-          <div className="w-full flex items-center justify-center py-4">
+        {(displayImage || filePreview) && (
+          <div className="w-full flex items-center justify-center py-4 relative">
             <img
               alt="Preview"
               className="max-w-full max-h-96 object-contain rounded-md"
-              src={filePreview}
+              src={displayImage || filePreview}
             />
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-soft-black/50 rounded-md z-10">
+                <Spinner
+                  variant="pinwheel"
+                  className="text-pastel-blue"
+                  size={128}
+                  style={{ width: "128px", height: "128px" }}
+                />
+              </div>
+            )}
           </div>
         )}
       </DropzoneContent>
@@ -97,7 +116,15 @@ const AnnouncementPill = () => (
   </Announcement>
 );
 
-const CropEnhanceSwitch = () => (
+const AutoCropSwitch = ({
+  autoCropEnabled,
+  onToggle,
+  isProcessing,
+}: {
+  autoCropEnabled: boolean;
+  onToggle: (checked: boolean) => void;
+  isProcessing: boolean;
+}) => (
   <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
       <Brush className="size-5 text-soft-black" />
@@ -105,9 +132,14 @@ const CropEnhanceSwitch = () => (
     <div className="flex flex-1 flex-col gap-1">
       <div className="flex items-center justify-between gap-4">
         <Label className="font-medium" htmlFor="feature-toggle">
-          Enable auto-crop
+          Enable auto-crop {isProcessing && "(Processing...)"}
         </Label>
-        <Switch id="feature-toggle" />
+        <Switch
+          id="feature-toggle"
+          checked={autoCropEnabled}
+          onCheckedChange={onToggle}
+          disabled={isProcessing}
+        />
       </div>
       <p className="text-muted-foreground text-sm text-left">
         Auto crops out photo strip just like it had been scanned. (Recommended
@@ -123,6 +155,91 @@ export default function MainPage() {
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [autoCropEnabled, setAutoCropEnabled] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
+  const [originalImage, setOriginalImage] = useState<string | undefined>();
+  const [croppedImage, setCroppedImage] = useState<string | undefined>();
+
+  // Handle image upload
+  const handleImageUpload = (base64Image: string) => {
+    setOriginalImage(base64Image);
+    // Reset cropped image when new image is uploaded
+    setCroppedImage(undefined);
+    setAutoCropEnabled(false);
+  };
+
+  // Upload image to RunPod and get cropped result
+  const processImageWithRunPod = async (
+    base64Image: string
+  ): Promise<string> => {
+    const apiKey = process.env.NEXT_PUBLIC_RUNPOD_API_KEY;
+    const endpointId = process.env.NEXT_PUBLIC_RUNPOD_ENDPOINT_ID;
+    const url = `https://api.runpod.ai/v2/${endpointId}/runsync`;
+
+    // Remove data URL prefix if present
+    const base64Data = base64Image.split(",")[1] || base64Image;
+
+    const requestConfig = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        input: {
+          image: base64Data,
+        },
+      }),
+    };
+
+    try {
+      const response = await fetch(url, requestConfig);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("RunPod response:", data);
+
+      // Extract the cropped image from output.photostrip
+      if (data.output?.photostrip) {
+        return `data:image/png;base64,${data.output.photostrip}`;
+      } else {
+        throw new Error("No photostrip in response");
+      }
+    } catch (error) {
+      console.error("RunPod processing error:", error);
+      throw error;
+    }
+  };
+
+  // Handle autocrop toggle
+  const handleAutoCropToggle = async (checked: boolean) => {
+    setAutoCropEnabled(checked);
+
+    if (checked && originalImage) {
+      // If we already have the cropped image in memory, use it
+      if (croppedImage) {
+        console.log("Using cached cropped image from memory");
+        return;
+      }
+
+      // Process with RunPod
+      setIsCropping(true);
+      try {
+        const croppedResult = await processImageWithRunPod(originalImage);
+        setCroppedImage(croppedResult);
+        console.log("Image cropped successfully");
+      } catch (error) {
+        console.error("Failed to crop image:", error);
+        alert("Failed to crop image. Please try again.");
+        setAutoCropEnabled(false);
+      } finally {
+        setIsCropping(false);
+      }
+    }
+  };
 
   const handlePeriodSelect = (period: PeriodOption, date?: Date) => {
     setSelectedPeriod(period);
@@ -159,7 +276,7 @@ export default function MainPage() {
     // Initialize UserJot
     const script2 = document.createElement("script");
     script2.innerHTML = `
-      window.uj.init('cmik6o1zx04nt15mqotv6d58d', {
+      window.uj.init('cmjjzikhm01fr15o1n4jg1h93', {
         widget: true,
         position: 'right',
         theme: 'auto'
@@ -200,8 +317,18 @@ export default function MainPage() {
             <h3 className="font-display text-xl font-bold text-soft-black mb-1">
               1. take photo/upload your photo strip
             </h3>
-            <UploadImage />
-            <CropEnhanceSwitch />
+            <UploadImage
+              displayImage={
+                autoCropEnabled && croppedImage ? croppedImage : undefined
+              }
+              onImageUpload={handleImageUpload}
+              isLoading={isCropping}
+            />
+            <AutoCropSwitch
+              autoCropEnabled={autoCropEnabled}
+              onToggle={handleAutoCropToggle}
+              isProcessing={isCropping}
+            />
 
             {/* Journal Caption */}
             <h3 className="font-display text-xl font-bold text-soft-black mt-6">
