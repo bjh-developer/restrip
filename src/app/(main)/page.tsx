@@ -311,6 +311,7 @@ export default function MainPage() {
             <h3 className="font-display text-xl font-bold text-soft-black mb-1">
               1. take photo/upload your photo strip
             </h3>
+            <div className="mt-6 flex gap-4 justify center">
             <UploadImage
               displayImage={
                 autoCropEnabled && croppedImage ? croppedImage : undefined
@@ -318,6 +319,7 @@ export default function MainPage() {
               onImageUpload={handleImageUpload}
               isLoading={isCropping}
             />
+            </div>
             <AutoCropSwitch
               autoCropEnabled={autoCropEnabled}
               onToggle={handleAutoCropToggle}
