@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Frontend (Next.js)
+node_modules/
+.next/
+out/
+build/
+
+# Training data (don't need in production)
+runpod/Document-segmentation*/
+
+# Test files
+runpod/test_files/
+runpod/test_input.json
+runpod/test_output.json
+runpod/test_output.png
+runpod/test.png
+runpod/create_test_input.py
+runpod/test_handler.py
+
+# Training runs (keep only best.pt)
+runpod/runs/segment/train/weights/last.pt
+runpod/runs/segment/train/*.jpg
+runpod/runs/segment/train/*.png
+runpod/runs/segment/train/*.csv
+
+# Git
+.git/
+.gitignore
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Misc
+*.log
+.DS_Store
+README*.txt
+README*.md
+
+# Frontend source (not needed for RunPod)
+src/
+components/
+lib/
+public/
+styles/
+*.json
+!runpod/requirements.txt
+*.config.*
+*.mjs
+*.ts
+!runpod/*.py

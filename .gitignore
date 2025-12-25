@@ -63,7 +63,14 @@ ENV/
 *.ipynb
 
 # RunPod / ML Training
-runpod/runs/
+runpod/runs/*
+!runpod/runs/segment/
+runpod/runs/segment/*
+!runpod/runs/segment/train/
+runpod/runs/segment/train/*
+!runpod/runs/segment/train/weights/
+runpod/runs/segment/train/weights/*
+!runpod/runs/segment/train/weights/best.pt
 runpod/Document-segmentation*/
 runpod/test_files/
 runpod/test_input.json
