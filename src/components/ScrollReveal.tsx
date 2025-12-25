@@ -49,7 +49,10 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
 
     const scroller = scrollContainerRef && scrollContainerRef.current ? scrollContainerRef.current : window;
 
-    gsap.fromTo(
+    // Store references to this component's ScrollTriggers
+    const triggers: ScrollTrigger[] = [];
+
+    const rotationAnimation = gsap.fromTo(
       el,
       { transformOrigin: '0% 50%', rotate: baseRotation },
       {
@@ -64,10 +67,11 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
         }
       }
     );
+    if (rotationAnimation.scrollTrigger) triggers.push(rotationAnimation.scrollTrigger);
 
     const wordElements = el.querySelectorAll<HTMLElement>('.word');
 
-    gsap.fromTo(
+    const opacityAnimation = gsap.fromTo(
       wordElements,
       { opacity: baseOpacity, willChange: 'opacity' },
       {
@@ -83,9 +87,10 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
         }
       }
     );
+    if (opacityAnimation.scrollTrigger) triggers.push(opacityAnimation.scrollTrigger);
 
     if (enableBlur) {
-      gsap.fromTo(
+      const blurAnimation = gsap.fromTo(
         wordElements,
         { filter: `blur(${blurStrength}px)` },
         {
@@ -101,10 +106,15 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
           }
         }
       );
+      if (blurAnimation.scrollTrigger) triggers.push(blurAnimation.scrollTrigger);
     }
 
+    // Refresh ScrollTrigger after setup to recalculate positions
+    ScrollTrigger.refresh();
+
     return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+      // Only kill this component's triggers
+      triggers.forEach(trigger => trigger.kill());
     };
   }, [scrollContainerRef, enableBlur, baseRotation, baseOpacity, rotationEnd, wordAnimationEnd, blurStrength]);
 

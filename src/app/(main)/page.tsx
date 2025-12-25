@@ -1,6 +1,7 @@
 "use client";
 import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Switch } from "../../../components/ui/switch";
@@ -166,6 +167,11 @@ export default function MainPage() {
     // Reset cropped image when new image is uploaded
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
+    
+    // Refresh ScrollTrigger after DOM changes from image upload
+    setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 100);
   };
 
   // Upload image to API route for processing
