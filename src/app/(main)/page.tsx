@@ -172,8 +172,8 @@ export default function MainPage() {
   const processImageWithRunPod = async (
     base64Image: string
   ): Promise<string> => {
-    const apiKey = process.env.NEXT_PUBLIC_RUNPOD_API_KEY;
-    const endpointId = process.env.NEXT_PUBLIC_RUNPOD_ENDPOINT_ID;
+    const apiKey = process.env.NEXT_RUNPOD_API_KEY;
+    const endpointId = process.env.NEXT_RUNPOD_ENDPOINT_ID;
     const url = `https://api.runpod.ai/v2/${endpointId}/runsync`;
 
     // Remove data URL prefix if present
