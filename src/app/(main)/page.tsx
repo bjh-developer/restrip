@@ -122,10 +122,12 @@ const AutoCropSwitch = ({
   autoCropEnabled,
   onToggle,
   isProcessing,
+  imageUploaded,
 }: {
   autoCropEnabled: boolean;
   onToggle: (checked: boolean) => void;
   isProcessing: boolean;
+  imageUploaded?: boolean;
 }) => (
   <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
@@ -134,13 +136,13 @@ const AutoCropSwitch = ({
     <div className="flex flex-1 flex-col gap-1">
       <div className="flex items-center justify-between gap-4">
         <Label className="font-medium" htmlFor="feature-toggle">
-          Enable auto-crop {isProcessing && "(Processing...)"}
+          Enable auto-crop {isProcessing && "(Processing...)" || !imageUploaded && "(Upload image first)"}
         </Label>
         <Switch
           id="feature-toggle"
           checked={autoCropEnabled}
           onCheckedChange={onToggle}
-          disabled={isProcessing}
+          disabled={isProcessing || imageUploaded === false}
         />
       </div>
       <p className="text-muted-foreground text-sm text-left">
@@ -325,6 +327,7 @@ export default function MainPage() {
               autoCropEnabled={autoCropEnabled}
               onToggle={handleAutoCropToggle}
               isProcessing={isCropping}
+              imageUploaded={!!originalImage || !!croppedImage}
             />
 
             {/* Journal Caption */}
