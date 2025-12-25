@@ -62,6 +62,7 @@ const UploadImage = ({
       onDrop={handleDrop}
       onError={console.error}
       src={files}
+      multiple={false}
     >
       <DropzoneEmptyState />
       <DropzoneContent>
