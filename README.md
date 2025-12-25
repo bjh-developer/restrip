@@ -1,122 +1,80 @@
-# 🎬 ReReel
+# 📸 ReStrip
 
-**Capture now. Feel later.**
+**Photo strips that come back to you.**
 
 A nostalgic memory platform that transforms your photostrips into emotional time capsules. Memories resurface when you least expect them, creating joy, nostalgia, and shared experiences.
 
-![ReReel Banner](ReReel_logo_v1.png)
+![ReStrip Banner](ReStrip_logo_v2.png)
 
 ---
 
-## ✨ What is ReReel?
+## ✨ What is ReStrip?
 
-ReReel is a time-delayed memory delivery platform. You upload a photostrip today, and we send it back to you months later via a beautiful surprise email.
+ReStrip is a time-delayed memory delivery platform. You upload a photostrip today, and we send it back to you months later via a beautiful surprise email.
 
 **Core Loop:**
-1. 📷 **Capture** — Take a photo of your photostrip or upload a digital one
-2. ✨ **Process** — AI auto-detects and enhances your photostrip
+1. 📷 **Upload** — Take a photo of your photostrip or upload a digital one
+2. ✨ **Auto-crop** — YOLO AI model detects and crops your photostrip perfectly
 3. 💬 **Caption** — Add a note for your future self
-4. 📅 **Schedule** — Pick a future date (or let us surprise you)
+4. 📅 **Schedule** — Pick a future date (surprise me, custom period, or specific date)
 5. 💌 **Receive** — Months later, open a beautiful email and smile
 
 **That's it. That's the magic.**
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Current Status
 
-### Phase 1: MVP (Live Now)
-One-page website. No login required. Capture → Schedule → Wait → Surprise.
+### Phase 1: MVP (In Development)
+One-page website. No login required. Upload → Auto-crop → Caption → Schedule → Wait → Surprise.
+
+**What's Working:**
+- ✅ Image upload with drag & drop
+- ✅ AI-powered auto-crop (YOLO11 segmentation model)
+- ✅ RunPod serverless GPU processing
+- ✅ Toggle between original/cropped preview
+- ✅ In-memory caching for cropped images
+- ✅ Period picker (surprise/custom period/custom date)
+- ✅ Caption textarea
+- ✅ Email input field
+- ✅ UserJot feedback widget integration
+
+**In Progress:**
+- 🔄 Supabase storage integration
+- 🔄 Email delivery system
+- 🔄 Delivery scheduling & cron jobs
 
 ### Phase 2: Coming Soon
-User accounts, Memory Vault dashboard, social features, face detection, and more.
+- User accounts (optional)
+- Memory Vault dashboard
+- Canvas to store photostrip memories
+- Face detection & social connections
+- User analytics
+- Advanced scheduling options
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Next.js 14+** (App Router, TypeScript)
+- **Next.js 16.0.4** (App Router, TypeScript)
 - **Tailwind CSS** — Styling
-- **React Hook Form** + **Zod** — Form validation
+- **Shadcn UI** — Component library (Spinner, Dropzone, Switch, Banner, etc.)
 - **Lucide React** — Icons
 
 ### Backend
-- **Supabase** — Database, auth, storage, cron jobs
-- **RunPod** — Serverless GPU for Python image processing
-- **Resend** — Email delivery
-- **Vercel** — Hosting & deployment
+- **Supabase** — Database, auth, storage
+- **RunPod Serverless** — GPU-based image processing (YOLO inference)
+- **Vercel** — Frontend hosting & API routes
+- **Next.js API Routes** — Server-side processing (\`/api/crop-image\`)
 
-### Image Processing
-- **Python** + **OpenCV** — Photostrip detection & cropping
-- **Pillow** — Image enhancement
-
----
-
-## 📦 Installation & Setup
-
-### Prerequisites
-- Node.js 18+
-- npm or pnpm
-- Supabase account
-- RunPod account
-- Resend account
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/bjh-developer/rereel.git
-cd rereel
-npm install
-```
-
-### 2. Environment Variables
-
-Create a `.env.local` file:
-
-```bash
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_service_key
-
-# RunPod (Python image processing)
-RUNPOD_ENDPOINT=your_runpod_api_endpoint
-
-# Resend (Email)
-RESEND_API_KEY=your_resend_api_key
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-### 3. Set Up Supabase
-
-```bash
-# Create database tables
-supabase db push
-
-# Create storage buckets
-supabase storage create snaps-original
-supabase storage create snaps-processed
-```
-
-### 4. Deploy RunPod Handler
-
-See `/runpod/handler.py` for the photostrip detection Python code.
-
-1. Create RunPod account
-2. Upload handler code
-3. Deploy
-4. Add endpoint URL to `.env.local`
-
-### 5. Run Locally
-
-```bash
-npm run dev
-```
-
-Visit `http://localhost:3000`
+### Image Processing (Python on RunPod)
+- **Ultralytics YOLO11** — Object detection & segmentation for photostrip detection
+- **PyTorch 2.1.0 + CUDA 11.8** — Deep learning inference
+- **OpenCV** — Image processing & perspective transforms
+- **NumPy 1.26.4** — Array operations
+- **Pillow** — Image handling & format conversion
+- **Docker** — Containerization
 
 ---
 
@@ -127,77 +85,50 @@ rereel/
 ├── src/
 │   ├── app/
 │   │   ├── (main)/
-│   │   │   ├── page.tsx          # Main landing/upload page
-│   │   │   └── layout.tsx
-│   │   ├── (auth)/               # Phase 2: Authentication routes
-│   │   ├── (protected)/          # Phase 2: Dashboard, upload, settings
-│   │   ├── api/
-│   │   │   ├── upload/           # Upload to Supabase Storage
-│   │   │   ├── process-snap/     # Call RunPod for image processing
-│   │   │   └── create-snap/      # Save snap metadata to database
-│   │   └── layout.tsx
+│   │   │   └── page.tsx          # Main landing/upload page (4-step flow)
+│   │   ├── (misc)/
+│   │   │   ├── contact/          # Contact page
+│   │   │   └── privacy-policy/   # Privacy policy
+│   │   └── api/
+│   │       └── crop-image/       # Server-side RunPod API proxy
 │   ├── components/
-│   │   ├── CameraCapture.tsx     # Live camera + capture
-│   │   ├── CaptionForm.tsx       # Caption + email + date form
-│   │   └── shared/               # Reusable components
+│   │   ├── PeriodPicker.tsx      # Date/period selection component
+│   │   ├── ScrollReveal.tsx      # GSAP scroll reveal animation
+│   │   ├── ShinyText.tsx         # Animated shiny text effect
+│   │   └── ui/shadcn-io/         # Shadcn UI components
 │   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts         # Client-side Supabase
-│   │   │   └── server.ts         # Server-side Supabase
-│   │   ├── validators/           # Zod schemas
+│   │   ├── supabase/             # Supabase client & server
 │   │   └── utils.ts              # Helper functions
 │   └── styles/
-│       └── globals.css
-├── public/
-│   ├── logo.svg
-│   └── favicon.ico
+│       └── globals.css           # Global styles + custom colors
 ├── runpod/
-│   ├── handler.py                # Python photostrip detection
-│   └── requirements.txt
-├── .env.local                    # Environment variables (DO NOT COMMIT)
-├── next.config.js
-├── tailwind.config.js
-└── README.md
+│   ├── handler.py                # RunPod serverless handler (YOLO inference)
+│   ├── requirements.txt          # Python dependencies
+│   └── runs/segment/train/weights/
+│       └── best.pt               # YOLO11 trained model weights
+├── Dockerfile                     # Docker config for RunPod deployment
+└── .env.local                     # Environment variables
 ```
 
 ---
 
 ## 🎨 Brand & Design
 
-**Tagline:** "Capture now. Feel later."
+**Tagline:** "Photo strips that come back to you."
 
 **Color Palette:**
-- Warm Beige: `#F3E8D8`
-- Soft Black: `#1C1C1C`
-- Blush Pink: `#FFC9D1`
-- Pastel Blue: `#CFE7FF`
+- Warm Beige: \`#F3E8D8\` (background)
+- Soft Black: \`#1C1C1C\` (text)
+- Blush Pink: \`#FFC9D1\` (primary CTA)
+- Yellow Cream: \`#FFF2C9\` (hover state)
+- Pastel Blue: \`#CFE7FF\` (accent)
+- Grey: \`#6B7280\` (secondary text)
 
-**Typography:**
-- Headlines: Playfair Display
-- Body: Inter
-- Accents: Caveat (handwritten)
-
-See `BRAND.md` for full brand guidelines.
-
----
-
-## 📊 Key Features
-
-### Phase 1 (MVP - Live)
-- ✅ Camera capture + file upload
-- ✅ AI photostrip detection & processing
-- ✅ Caption & scheduling
-- ✅ Email collection
-- ✅ Cron job for email delivery
-- ✅ Beautiful email template
-
-### Phase 2 (Coming Soon)
-- 🔜 User authentication (Google OAuth)
-- 🔜 Memory Vault dashboard
-- 🔜 Face detection & social connections
-- 🔜 User analytics
-- 🔜 Advanced scheduling
-- 🔜 Shareable links
+**Components:**
+- Shadcn UI base
+- Custom animations with GSAP
+- Smooth scroll reveals
+- Pinwheel loading spinner (128px, pastel-blue)
 
 ---
 
@@ -206,33 +137,34 @@ See `BRAND.md` for full brand guidelines.
 **Privacy Promise:**
 - Your photos are yours
 - We never sell or use them for AI training
-- Delete anytime, instantly gone
+- Delete anytime, instantly gone (planned)
 - No aggressive tracking
-- Optional local-only processing
+- Transparent data usage
 
-**Security Measures:**
-- Supabase Row Level Security (RLS) enabled
-- Service key only used on server
-- Environment variables never exposed
-- HTTPS everywhere
-- Rate limiting on API routes
-
-See `PRIVACY.md` for full privacy policy.
+**Security Implementation:**
+- ✅ RunPod API key secured server-side (never exposed to client)
+- ✅ API route \`/api/crop-image\` proxies RunPod calls
+- ✅ Client never sees API keys
+- ✅ Environment variables properly scoped (no \`NEXT_PUBLIC_\` for secrets)
+- ✅ HTTPS everywhere (Vercel + RunPod)
+- 🔄 Supabase Row Level Security (in progress)
+- 🔄 Rate limiting (planned)
 
 ---
 
 ## 📈 Database Schema
 
-### Phase 1 (MVP)
+### Phase 1 (Planned)
 
 ```sql
 -- Email-based snaps table (no user accounts yet)
 CREATE TABLE snaps (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
-  image_url TEXT NOT NULL,
-  processed_image_url TEXT,
+  original_image_url TEXT NOT NULL,
+  cropped_image_url TEXT,
   caption TEXT,
+  period_type VARCHAR(20) NOT NULL,
   send_date DATE NOT NULL,
   delivered BOOLEAN DEFAULT FALSE,
   delivered_at TIMESTAMP,
@@ -241,9 +173,10 @@ CREATE TABLE snaps (
 );
 
 CREATE INDEX snaps_send_date_idx ON snaps(send_date, delivered);
+CREATE INDEX snaps_email_idx ON snaps(email);
 ```
 
-### Phase 2 (Additive)
+### Phase 2 (Future)
 
 ```sql
 -- User profiles
@@ -255,52 +188,9 @@ CREATE TABLE user_profiles (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Social connections
-CREATE TABLE connections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id),
-  connected_user_id UUID NOT NULL REFERENCES auth.users(id),
-  status VARCHAR(20) DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Face detection data
-CREATE TABLE face_detections (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  snap_id UUID NOT NULL REFERENCES snaps(id),
-  face_encoding TEXT,
-  face_x INT, face_y INT, face_w INT, face_h INT,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-```
-
----
-
-## 🧪 Testing
-
-### Manual Testing Checklist
-
-- [ ] Camera captures photo correctly
-- [ ] File upload works on desktop & mobile
-- [ ] Image processing completes successfully
-- [ ] Email form validates correctly
-- [ ] Scheduled snap saves to database
-- [ ] Confirmation email sent
-- [ ] Cron job triggers daily
-- [ ] Email arrives on scheduled date
-- [ ] Email renders beautifully on mobile
-
-### Run Tests
-
-```bash
-# End-to-end testing (coming soon)
-npm run test
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
+-- Social connections & face detection
+CREATE TABLE connections (...);
+CREATE TABLE face_detections (...);
 ```
 
 ---
@@ -308,60 +198,41 @@ npm run lint
 ## 🐛 Known Issues & Roadmap
 
 ### Known Issues
-- [ ] Image processing timeout on very large files (workaround: compress before upload)
-- [ ] Email sometimes takes 5+ minutes to deliver (Resend occasional delay)
+- [x] ~~ScrollReveal animation broke after image upload~~ (Fixed: cleanup now only kills component's own triggers)
+- [x] ~~Spinner size not adjustable~~ (Fixed: added inline styles)
+- [x] ~~API key exposed to client~~ (Fixed: moved to server-side API route)
 
 ### Roadmap
+- [x] ✅ Auto-crop feature with YOLO11
+- [x] ✅ RunPod serverless deployment
+- [x] ✅ Secure API architecture
+- [ ] 🔄 Complete Supabase integration (storage + database)
+- [ ] 🔄 Email delivery system (Resend or similar)
+- [ ] 🔄 Cron job for scheduled delivery
 - [ ] Phase 2: User accounts & dashboard
+- [ ] Phase 2: Canvas to store photostrip memories
 - [ ] Phase 2: Face detection & social connections
-- [ ] Advanced image processing (perspective correction, color enhancement)
+- [ ] Advanced image processing (color enhancement, filters)
 - [ ] Mobile app (React Native)
-- [ ] Analytics dashboard
-- [ ] Monetization features (premium tiers)
 
-See [Issues](https://github.com/yourusername/rereel/issues) for more.
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please read `CONTRIBUTING.md` first.
-
-### Development Workflow
-
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-### Code Style
-- Use TypeScript (no `any` types)
-- Follow ESLint rules
-- Format with Prettier
-- Write descriptive commit messages
-
----
-
-## 📚 Documentation
-
-- **[Brand Guidelines](./BRAND.md)** — Logo, colors, typography, tone
-- **[Privacy Policy](./PRIVACY.md)** — Data handling & user rights
-- **[API Documentation](./docs/API.md)** — Endpoint reference
-- **[Deployment Guide](./docs/DEPLOYMENT.md)** — How to deploy
+See [UserJot Feedback Board](https://restrip.userjot.com/) to suggest features.
 
 ---
 
 ## 🎯 Project Goals
 
-**Phase 1:** 
-- Launch viral MVP
-- Get 100+ users
-- Validate core concept
-- 10%+ email open rate
+**Phase 1 (Current):**
+- ✅ Build working auto-crop with YOLO AI
+- ✅ Deploy RunPod serverless processing
+- ✅ Secure API architecture
+- 🔄 Complete end-to-end flow (upload → schedule → deliver)
+- 🔄 Launch MVP publicly
+- 🎯 Get 100+ early testers
+- 🎯 Validate core concept
+- 🎯 10%+ email open rate
 
 **Phase 2:**
-- Build community features
+- Build community features (Memory Vault, canvas)
 - 20%+ Phase 1 user upgrade rate
 - 30% weekly active users
 - Launch social graph
@@ -370,7 +241,6 @@ Contributions welcome! Please read `CONTRIBUTING.md` first.
 - Become the go-to platform for nostalgic memories
 - Build genuine community around shared moments
 - Monetize through premium features
-- Possible acquisition target
 
 ---
 
@@ -382,32 +252,40 @@ Contributions welcome! Please read `CONTRIBUTING.md` first.
 
 ## 📞 Support
 
-- **Issues:** [GitHub Issues](https://github.com/yourusername/rereel/issues)
+- **Feature Requests:** [UserJot Board](https://restrip.userjot.com/)
+- **Contact:** [/contact](/contact)
+- **Issues:** [GitHub Issues](https://github.com/bjh-developer/rereel/issues)
 
 ---
 
 ## 💝 Acknowledgments
 
-- Inspired by photobooth culture and the magic of surprise
-- Built with love for nostalgia
-- Powered by amazing open-source tools
+Inspired by photobooth culture and the magic of surprise. Built with love for nostalgia and memories.
+
+Powered by amazing open-source tools:
+- [Next.js](https://nextjs.org/)
+- [Shadcn UI](https://ui.shadcn.com/)
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
+- [RunPod](https://www.runpod.io/)
+- [Supabase](https://supabase.com/)
+- [GSAP](https://greensock.com/gsap/)
 
 ---
 
 ## 🎬 The Vision
 
-We live in a world where memories are fleeting and photos pile up endlessly. ReReel slows time down. You capture a moment today, and months later, it comes back to make you smile.
+We live in a world where memories are fleeting, photo strips pile up, and feelings fade. ReStrip slows time down. You capture a moment today and, months later, it comes back to make you smile. 
 
-**ReReel is a time machine for your happiest moments.**
-
----
-
-**Capture now. Feel later.** ✨
+**ReStrip is a time machine for your happiest moments.**
 
 ---
 
-## Star ⭐
+**Photo strips that come back to you.** 📸✨
 
-If you like ReReel, please give it a star! It helps us reach more people and build a better product.
+---
+
+## ⭐ Star This Project
+
+If you like ReStrip, please give it a star! It helps us reach more people and build a better product.
 
 [![GitHub stars](https://img.shields.io/github/stars/bjh-developer/rereel?style=social)](https://github.com/bjh-developer/rereel)
