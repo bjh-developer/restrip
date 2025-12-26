@@ -7,6 +7,7 @@ import { Label } from "../../../components/ui/label";
 import { Switch } from "../../../components/ui/switch";
 import { Textarea } from "../../../components/ui/textarea";
 import { PeriodPicker } from "../../components/PeriodPicker";
+import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
 import ShinyText from "../../components/ShinyText";
 import {
@@ -29,6 +30,7 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 
 type PeriodOption = "surprise" | "custom period" | "custom date";
+type DeliveryMethod = "email" | "telegram";
 
 const UploadImage = ({
   displayImage,
@@ -136,7 +138,9 @@ const AutoCropSwitch = ({
     <div className="flex flex-1 flex-col gap-1">
       <div className="flex items-center justify-between gap-4">
         <Label className="font-medium" htmlFor="feature-toggle">
-          Enable auto-crop {isProcessing && "(Processing...)" || !imageUploaded && "(Upload image first)"}
+          Enable auto-crop{" "}
+          {(isProcessing && "(Processing...)") ||
+            (!imageUploaded && "(Upload image first)")}
         </Label>
         <Switch
           id="feature-toggle"
@@ -163,6 +167,8 @@ export default function MainPage() {
   const [isCropping, setIsCropping] = useState(false);
   const [originalImage, setOriginalImage] = useState<string | undefined>();
   const [croppedImage, setCroppedImage] = useState<string | undefined>();
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
 
   // Handle image upload
   const handleImageUpload = (base64Image: string) => {
@@ -170,7 +176,7 @@ export default function MainPage() {
     // Reset cropped image when new image is uploaded
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
-    
+
     // Refresh ScrollTrigger after DOM changes from image upload
     setTimeout(() => {
       ScrollTrigger.refresh();
@@ -182,10 +188,10 @@ export default function MainPage() {
     base64Image: string
   ): Promise<string> => {
     try {
-      const response = await fetch('/api/crop-image', {
-        method: 'POST',
+      const response = await fetch("/api/crop-image", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           image: base64Image,
@@ -194,19 +200,21 @@ export default function MainPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
       }
 
       const data = await response.json();
-      console.log('Crop API response:', data);
+      console.log("Crop API response:", data);
 
       if (data.photostrip) {
         return `data:image/png;base64,${data.photostrip}`;
       } else {
-        throw new Error('No photostrip in response');
+        throw new Error("No photostrip in response");
       }
     } catch (error) {
-      console.error('Image processing error:', error);
+      console.error("Image processing error:", error);
       throw error;
     }
   };
@@ -230,7 +238,8 @@ export default function MainPage() {
         console.log("Image cropped successfully");
       } catch (error) {
         console.error("Failed to crop image:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
         alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
         setAutoCropEnabled(false);
       } finally {
@@ -247,6 +256,12 @@ export default function MainPage() {
       setCustomPeriod(date.toISOString());
     }
     console.log("Selected period:", period, "Date:", date);
+  };
+
+  const handleDeliveryMethodSelect = (method: DeliveryMethod, value?: string) => {
+    setDeliveryMethod(method);
+    setDeliveryAddress(value || "");
+    console.log("Delivery method:", method, "Address:", value);
   };
 
   const handleStartProcessing = async () => {
@@ -316,13 +331,13 @@ export default function MainPage() {
               1. take photo/upload your photo strip
             </h3>
             <div className="mt-6 flex gap-4 justify center">
-            <UploadImage
-              displayImage={
-                autoCropEnabled && croppedImage ? croppedImage : undefined
-              }
-              onImageUpload={handleImageUpload}
-              isLoading={isCropping}
-            />
+              <UploadImage
+                displayImage={
+                  autoCropEnabled && croppedImage ? croppedImage : undefined
+                }
+                onImageUpload={handleImageUpload}
+                isLoading={isCropping}
+              />
             </div>
             <AutoCropSwitch
               autoCropEnabled={autoCropEnabled}
@@ -347,13 +362,22 @@ export default function MainPage() {
               <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
 
-            {/* Email destination */}
+            {/* Delivery Method */}
             <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              4. email destination
+              4. where to send your memory
             </h3>
             <div className="mt-6 flex gap-4 justify-center">
-              <Input type="email" placeholder="Email" />
+              <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             </div>
+
+            {/* Password Field */}
+            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+              5. create password
+            </h3>
+            <div className="mt-6 flex gap-4 justify-center">
+              <Input type="password" placeholder="Remember your password to unlock your memory in the future!" />
+            </div>
+
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
