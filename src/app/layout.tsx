@@ -20,8 +20,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ReStrip - Digitize Your Photostrip Memories",
-  description: "Transform your photostrip memories into digital treasures. A small memory that returns when you least expect it.",
+  title: "ReStrip - Photo strips that come back to you",
+  description: "Transform your photo strip memories into digital treasures. A small memory that returns when you least expect it.",
 };
 
 export default function RootLayout({
