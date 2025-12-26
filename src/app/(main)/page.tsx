@@ -1,6 +1,6 @@
 "use client";
 import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -28,6 +28,7 @@ import {
   DropzoneEmptyState,
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
+import * as z from "zod";
 
 type PeriodOption = "surprise" | "custom period" | "custom date";
 type DeliveryMethod = "email" | "telegram";
@@ -162,6 +163,9 @@ export default function MainPage() {
     useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
+  const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
   const [isProcessing, setIsProcessing] = useState(false);
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
@@ -169,6 +173,9 @@ export default function MainPage() {
   const [croppedImage, setCroppedImage] = useState<string | undefined>();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [caption, setCaption] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Handle image upload
   const handleImageUpload = (base64Image: string) => {
@@ -248,28 +255,150 @@ export default function MainPage() {
     }
   };
 
-  const handlePeriodSelect = (period: PeriodOption, date?: Date) => {
+  const handlePeriodSelect = useCallback((period: PeriodOption, date?: Date) => {
+    // TODO: Refactor to include random time logic here, right now it's always 6pm
     setSelectedPeriod(period);
-    if (period === "custom date") {
-      setCustomDate(date);
-    } else if (period === "custom period" && date) {
-      setCustomPeriod(date.toISOString());
-    }
-    console.log("Selected period:", period, "Date:", date);
-  };
 
-  const handleDeliveryMethodSelect = (method: DeliveryMethod, value?: string) => {
+    let sendTime: Date;
+
+    if (date) {
+      const now = new Date();
+      const selectedDate = new Date(date);
+
+      // Check if selected date is today
+      const isToday =
+        selectedDate.getFullYear() === now.getFullYear() &&
+        selectedDate.getMonth() === now.getMonth() &&
+        selectedDate.getDate() === now.getDate();
+
+      if (isToday) {
+        const currentHour = now.getHours();
+
+        // If it's past 6pm (18:00)
+        if (currentHour >= 18) {
+          const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+          // Check if one hour from now is still today
+          const isStillToday =
+            oneHourFromNow.getDate() === now.getDate() &&
+            oneHourFromNow.getMonth() === now.getMonth() &&
+            oneHourFromNow.getFullYear() === now.getFullYear();
+
+          if (isStillToday) {
+            // Send 1 hour from now
+            sendTime = oneHourFromNow;
+          } else {
+            // Send at 11:59pm today
+            const endOfDay = new Date(now);
+            endOfDay.setHours(23, 59, 0, 0);
+            sendTime = endOfDay;
+          }
+        } else {
+          // Before 6pm, send at 6pm today
+          const sixPmToday = new Date(selectedDate);
+          sixPmToday.setHours(18, 0, 0, 0);
+          sendTime = sixPmToday;
+        }
+      } else {
+        // For future dates, set time to 6pm
+        sendTime = new Date(selectedDate);
+        sendTime.setHours(18, 0, 0, 0);
+      }
+
+      setScheduledSendTime(sendTime);
+
+      if (period === "custom date") {
+        setCustomDate(sendTime);
+      } else if (period === "custom period") {
+        setCustomPeriod(sendTime.toISOString());
+      }
+    } else if (period === "surprise") {
+      // For surprise, generate a random date between 1-6 months from now
+      const now = new Date();
+      const randomDays = Math.floor(Math.random() * (180 - 30 + 1)) + 30; // Random days between 30-180 (1-6 months)
+      sendTime = new Date(now.getTime() + randomDays * 24 * 60 * 60 * 1000);
+
+      // Set time to 6pm
+      sendTime.setHours(18, 0, 0, 0);
+
+      setScheduledSendTime(sendTime);
+    }
+
+    // Single console log for all cases
+    if (sendTime!) {
+      console.log(
+        `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`
+      );
+    }
+  }, []);
+
+  const handleDeliveryMethodSelect = (
+    method: DeliveryMethod,
+    value?: string
+  ) => {
     setDeliveryMethod(method);
     setDeliveryAddress(value || "");
-    console.log("Delivery method:", method, "Address:", value);
   };
 
   const handleStartProcessing = async () => {
+    // Check if image is uploaded
+    if (!originalImage) {
+      setValidationErrors(["Please upload an image first"]);
+      return;
+    }
+
+    // Define validation schema
+    const SnapSchema = z
+      .object({
+        Caption: z.string().min(1),
+        sendTime: z.date(),
+        deliveryMethod: z.enum(["email", "telegram"]),
+        Delivery_Address: z.string().min(1),
+        Password: z.string().min(1),
+      })
+      .refine(
+        (data) => {
+          if (data.deliveryMethod === "email") {
+            // Validate email format
+            return z.email().safeParse(data.Delivery_Address).success;
+          } else if (data.deliveryMethod === "telegram") {
+            // Validate telegram username starts with @
+            return data.Delivery_Address.startsWith("@");
+          }
+          return false;
+        },
+        {
+          message: "Invalid email/telegram username format",
+          path: ["Delivery_Address"],
+        }
+      );
+
+    // Validate inputs
+    const validationResult = SnapSchema.safeParse({
+      Caption: caption,
+      sendTime: scheduledSendTime!,
+      deliveryMethod: deliveryMethod,
+      Delivery_Address: deliveryAddress,
+      Password: password,
+    });
+
+    if (!validationResult.success) {
+      console.error("Validation error:", validationResult.error);
+      const errorMessages = validationResult.error?.issues?.map((e) => {
+        const field = e.path.join(".");
+        return field ? `${field}: ${e.message}` : e.message;
+      }) || ["Validation failed. Please check your inputs."];
+      setValidationErrors(errorMessages);
+      return;
+    }
+
+    // Clear errors and proceed with processing
+    setValidationErrors([]);
     setIsProcessing(true);
     try {
+      console.log("All inputs are valid. Proceeding with processing...");
       // TODO: Implement processing logic
       // - Upload image to Supabase
-      // - Call RunPod for processing
       // - Save to database
       // - Show success message
       console.log("Processing with period:", selectedPeriod, customDate);
@@ -279,6 +408,11 @@ export default function MainPage() {
       setIsProcessing(false);
     }
   };
+
+  useEffect(() => {
+    // Generate surprise date on mount since it's the default selection
+    handlePeriodSelect("surprise");
+  }, []);
 
   useEffect(() => {
     // Load UserJot SDK
@@ -351,7 +485,11 @@ export default function MainPage() {
               2. write a caption
             </h3>
             <div className="mt-6 flex gap-4 justify-center">
-              <Textarea placeholder="Type caption here for your photo strip." />
+              <Textarea 
+                placeholder="Type caption here for your photo strip." 
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+              />
             </div>
 
             {/* Period Picker */}
@@ -375,8 +513,30 @@ export default function MainPage() {
               5. create password
             </h3>
             <div className="mt-6 flex gap-4 justify-center">
-              <Input type="password" placeholder="Remember your password to unlock your memory in the future!" />
+              <Input
+                type="password"
+                placeholder="Remember your password to unlock your memory in the future!"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
+
+            {/* Validation Errors */}
+            {validationErrors.length > 0 && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <CircleAlert className="size-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-red-800 mb-2">Please fix the following errors:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                      {validationErrors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* CTA Button */}
             <button

@@ -71,7 +71,8 @@ export function PeriodPicker({ onSelect }: PeriodPickerProps) {
     }
   };
 
-  const handleCustomDateChange = (date: Date) => {
+  const handleCustomDateChange = (date: Date | undefined) => {
+    if (!date) return;
     setCustomDate(date.toISOString());
     onSelect("custom date", date);
   };
