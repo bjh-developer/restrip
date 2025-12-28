@@ -14,7 +14,8 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   rpConfig, 
   timeout,
-  challengeExpiration
+  challengeExpiration,
+  getDomainFromRequest
 } from '../../../../../lib/webauthn/config';
 
 // Create Supabase admin client (bypasses RLS)
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('🔍 Generated options.allowCredentials:', JSON.stringify(options.allowCredentials));
-    console.log('🔍 rpID:', rpConfig.rpID);
+    console.log('🔍 rpID:', rpID);
 
     // Add PRF extension manually after generation
     // The salt needs to be base64url-encoded for the client to use
