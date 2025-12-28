@@ -255,12 +255,17 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       const verifyData = await verifyRes.json();
       console.log('✅ Login successful:', verifyData);
 
-      // If PRF was available, derive encryption key
-      if (prfOutput && verifyData.prfEnabled) {
+      // Derive encryption key directly from PRF output
+      // With phone-first passkey flow, the same passkey (synced via iCloud/Google)
+      // produces the same PRF output everywhere, so we don't need key wrapping
+      if (prfOutput) {
+        console.log('🔑 Deriving encryption key from PRF...');
         await setEncryptionKeyFromPRF(prfOutput);
+        console.log('✅ Encryption key set');
       } else {
         console.log('⚠️ PRF not available, encryption key not set');
-        // User will need to provide password for encryption if PRF isn't available
+        // PRF should always be available with modern passkeys
+        // If not, the user won't be able to encrypt/decrypt data
       }
 
       // Sign in to Supabase using the magic link token

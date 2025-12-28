@@ -192,6 +192,7 @@ export async function POST(request: NextRequest) {
       success: true,
       userId: userData.user.id,
       email: userData.user.email,
+      credentialId: credential.id,
       // Return the token for automatic sign-in
       token,
       actionLink,

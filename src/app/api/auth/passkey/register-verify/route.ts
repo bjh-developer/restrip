@@ -168,24 +168,31 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Extract the token from the action link
+    const actionLink = sessionData?.properties?.action_link;
+    const token = actionLink ? new URL(actionLink).searchParams.get('token') : null;
+
     if (sessionError) {
       console.error('Failed to create session:', sessionError);
       // Still return success since passkey was registered
       return NextResponse.json({
         success: true,
         userId: user.id,
+        credentialId,
         message: 'Passkey registered successfully. Please sign in.',
         needsSignIn: true,
+        // Include PRF support info so client knows to generate MEK
+        prfEnabled: credential.clientExtensionResults?.prf !== undefined,
       });
     }
 
     return NextResponse.json({
       success: true,
       userId: user.id,
-      verificationUrl: sessionData.properties?.hashed_token 
-        ? `/api/auth/verify?token=${sessionData.properties.hashed_token}`
-        : null,
-      // Include PRF support info
+      credentialId,
+      token,
+      actionLink,
+      // Include PRF support info so client knows to generate MEK
       prfEnabled: credential.clientExtensionResults?.prf !== undefined,
     });
   } catch (error) {

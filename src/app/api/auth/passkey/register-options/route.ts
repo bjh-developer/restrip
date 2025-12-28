@@ -14,8 +14,8 @@ import { createClient } from '@supabase/supabase-js';
 import { 
   rpConfig,
   getDomainFromRequest,
-  getOriginFromRequest,
-  authenticatorSelection, 
+  getAuthenticatorSelection,
+  isMobileDevice,
   supportedAlgorithmIDs,
   timeout,
   challengeExpiration
@@ -60,6 +60,13 @@ export async function POST(request: NextRequest) {
     // Get dynamic domain from request
     const rpID = getDomainFromRequest(request);
     
+    // Detect if user is on mobile
+    const isMobile = isMobileDevice(request);
+    const authenticatorSelection = getAuthenticatorSelection(isMobile);
+    
+    console.log('📱 Device type:', isMobile ? 'Mobile' : 'Desktop');
+    console.log('🔐 Authenticator attachment:', authenticatorSelection.authenticatorAttachment);
+    
     // Generate registration options
     const options = await generateRegistrationOptions({
       rpName: rpConfig.rpName,
@@ -71,12 +78,7 @@ export async function POST(request: NextRequest) {
         id: cred.id,
         transports: ['internal', 'hybrid'] as AuthenticatorTransport[],
       })),
-      authenticatorSelection: {
-        authenticatorAttachment: authenticatorSelection.authenticatorAttachment,
-        userVerification: authenticatorSelection.userVerification,
-        residentKey: authenticatorSelection.residentKey,
-        requireResidentKey: authenticatorSelection.requireResidentKey,
-      },
+      authenticatorSelection,
       supportedAlgorithmIDs,
       timeout,
       attestationType: 'none', // We don't need attestation for our use case

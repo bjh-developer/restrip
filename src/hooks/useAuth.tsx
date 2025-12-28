@@ -21,6 +21,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   setEncryptionKeyFromPRF: (prfOutput: ArrayBuffer) => Promise<void>;
   setEncryptionKeyFromPassword: (password: string, salt: Uint8Array) => Promise<void>;
+  setHasEncryptionKey: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -118,6 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Allow external components to set the encryption key flag
+  // (used when key wrapping is done in component)
+  const setHasEncryptionKeyValue = useCallback((value: boolean) => {
+    setEncryptionKeySet(value);
+  }, []);
+
   const value: AuthContextType = {
     user,
     session,
@@ -127,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     setEncryptionKeyFromPRF,
     setEncryptionKeyFromPassword,
+    setHasEncryptionKey: setHasEncryptionKeyValue,
   };
 
   return (

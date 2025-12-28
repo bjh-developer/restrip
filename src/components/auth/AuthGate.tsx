@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PasskeyAuth } from './PasskeyAuth';
 import { EmailPasswordAuth } from './EmailPasswordAuth';
 import { usePasskeySupport } from '../../hooks/usePasskeySupport';
 import { useAuth } from '../../hooks/useAuth';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -18,6 +19,16 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>('passkey');
   const [authSuccess, setAuthSuccess] = useState(false);
+
+  // Refresh ScrollTrigger when authentication state changes
+  useEffect(() => {
+    if (user && hasEncryptionKey) {
+      // Give the DOM a moment to update with the new content
+      setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 100);
+    }
+  }, [user, hasEncryptionKey]);
 
   // Show loading state
   if (authLoading || supportLoading) {

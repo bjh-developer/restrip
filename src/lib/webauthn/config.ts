@@ -24,29 +24,35 @@ export const getOriginFromRequest = (request: Request): string => {
   return `${protocol}://${host}`;
 };
 
+// Helper to detect if request is from mobile device
+export const isMobileDevice = (request: Request): boolean => {
+  const userAgent = request.headers.get('user-agent') || '';
+  return /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+};
+
 // Relying Party configuration (static parts)
 export const rpConfig = {
   // Relying Party Name (shown to users during registration)
   rpName: 'ReStrip',
 };
 
-// Authenticator selection criteria
-export const authenticatorSelection = {
-  // 'platform' = built-in (Touch ID, Face ID, Windows Hello)
-  // 'cross-platform' = external (YubiKey, etc.)
-  // undefined = allow both
-  authenticatorAttachment: undefined as AuthenticatorAttachment | undefined,
+// Get authenticator selection based on device type
+// Desktop: Force cross-platform (QR code → phone biometrics)
+// Mobile: Allow platform authenticator (local biometrics)
+export const getAuthenticatorSelection = (isMobile: boolean) => ({
+  // On desktop: 'cross-platform' forces QR code flow to use phone
+  // On mobile: 'platform' uses local biometrics (Touch ID, Face ID, etc.)
+  authenticatorAttachment: (isMobile ? 'platform' : 'cross-platform') as AuthenticatorAttachment,
   
   // Require user verification (biometric/PIN)
   userVerification: 'required' as UserVerificationRequirement,
   
   // Require resident key (discoverable credential)
-  // 'required' enables passkey autofill
   residentKey: 'required' as ResidentKeyRequirement,
   
-  // Require resident credential (same as residentKey for backwards compat)
+  // Require resident credential
   requireResidentKey: true,
-};
+});
 
 // Supported algorithms (in order of preference)
 // -7 = ES256 (ECDSA with P-256 and SHA-256) - Most common
