@@ -7,9 +7,10 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Helper to get domain from request headers (for API routes)
+// RP ID must match the current domain - passkeys are domain-bound
 export const getDomainFromRequest = (request: Request): string => {
   const host = request.headers.get('host') || 'localhost';
-  // Remove port if present
+  // Remove port if present (localhost:3000 -> localhost)
   return host.split(':')[0];
 };
 
