@@ -12,7 +12,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateRegistrationOptions } from '@simplewebauthn/server';
 import { createClient } from '@supabase/supabase-js';
 import { 
-  rpConfig, 
+  rpConfig,
+  getDomainFromRequest,
+  getOriginFromRequest,
   authenticatorSelection, 
   supportedAlgorithmIDs,
   timeout,
@@ -55,10 +57,13 @@ export async function POST(request: NextRequest) {
       })) || [];
     }
 
+    // Get dynamic domain from request
+    const rpID = getDomainFromRequest(request);
+    
     // Generate registration options
     const options = await generateRegistrationOptions({
       rpName: rpConfig.rpName,
-      rpID: rpConfig.rpID,
+      rpID,
       userName: email,
       userDisplayName: displayName || email.split('@')[0],
       // Don't allow re-registration of existing credentials

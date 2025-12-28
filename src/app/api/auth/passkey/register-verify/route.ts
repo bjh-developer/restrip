@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import { createClient } from '@supabase/supabase-js';
-import { rpConfig } from '../../../../../lib/webauthn/config';
+import { rpConfig, getDomainFromRequest, getOriginFromRequest, prfSalt } from '../../../../../lib/webauthn/config';
 import { base64ToBase64Url } from '../../../../../lib/encryption';
 
 // Create Supabase admin client (bypasses RLS)
@@ -61,14 +61,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get dynamic domain and origin from request
+    const rpID = getDomainFromRequest(request);
+    const expectedOrigin = getOriginFromRequest(request);
+    
     // Verify the registration response
     let verification;
     try {
       verification = await verifyRegistrationResponse({
         response: credential,
         expectedChallenge: challengeData.challenge,
-        expectedOrigin: rpConfig.expectedOrigin,
-        expectedRPID: rpConfig.rpID,
+        expectedOrigin,
+        expectedRPID: rpID,
         requireUserVerification: true,
       });
     } catch (verifyError) {

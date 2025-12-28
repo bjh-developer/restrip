@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { createClient } from '@supabase/supabase-js';
-import { rpConfig } from '../../../../../lib/webauthn/config';
+import { rpConfig, getDomainFromRequest, getOriginFromRequest } from '../../../../../lib/webauthn/config';
 
 // Create Supabase admin client (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -117,14 +117,18 @@ export async function POST(request: NextRequest) {
     // Decode the stored public key
     const publicKeyBuffer = Buffer.from(storedCredential.public_key, 'base64');
 
+    // Get dynamic domain and origin from request
+    const rpID = getDomainFromRequest(request);
+    const expectedOrigin = getOriginFromRequest(request);
+    
     // Verify the authentication response
     let verification;
     try {
       verification = await verifyAuthenticationResponse({
         response: credential,
         expectedChallenge: challengeData.challenge,
-        expectedOrigin: rpConfig.expectedOrigin,
-        expectedRPID: rpConfig.rpID,
+        expectedOrigin,
+        expectedRPID: rpID,
         credential: {
           id: storedCredential.credential_id,
           publicKey: publicKeyBuffer,

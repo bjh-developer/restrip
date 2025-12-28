@@ -71,9 +71,12 @@ export async function POST(request: NextRequest) {
       console.log('🔍 allowCredentials:', JSON.stringify(allowCredentials));
     }
 
+    // Get dynamic domain from request
+    const rpID = getDomainFromRequest(request);
+    
     // Generate authentication options
     const options = await generateAuthenticationOptions({
-      rpID: rpConfig.rpID,
+      rpID,
       timeout,
       userVerification: 'required',
       // If email provided, limit to user's credentials
