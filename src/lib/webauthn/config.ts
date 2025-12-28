@@ -6,6 +6,19 @@
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// Get the domain from environment variables
+// VERCEL_URL is available in all Vercel deployments (preview and production)
+const getVercelDomain = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: use window.location
+    return window.location.hostname;
+  }
+  // Server-side: use environment variable
+  return process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'restrip.vercel.app';
+};
+
+const productionDomain = isDevelopment ? 'localhost' : getVercelDomain();
+
 // Relying Party configuration
 export const rpConfig = {
   // Relying Party Name (shown to users during registration)
@@ -13,13 +26,13 @@ export const rpConfig = {
   
   // Relying Party ID (must match the domain or be a subdomain)
   // For localhost development, use 'localhost'
-  rpID: isDevelopment ? 'localhost' : 'restrip.vercel.app',
+  rpID: productionDomain,
   
   // Expected origin(s) - where the requests come from
   // Include both www and non-www versions if applicable
   expectedOrigin: isDevelopment 
     ? ['http://localhost:3000', 'http://localhost:3001']
-    : ['https://restrip.vercel.app'],
+    : [`https://${productionDomain}`],
 };
 
 // Authenticator selection criteria
