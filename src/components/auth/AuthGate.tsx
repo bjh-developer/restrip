@@ -1,0 +1,157 @@
+'use client';
+
+import React, { useState } from 'react';
+import { PasskeyAuth } from './PasskeyAuth';
+import { EmailPasswordAuth } from './EmailPasswordAuth';
+import { usePasskeySupport } from '../../hooks/usePasskeySupport';
+import { useAuth } from '../../hooks/useAuth';
+
+interface AuthGateProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+type AuthTab = 'passkey' | 'password';
+
+export function AuthGate({ children, fallback }: AuthGateProps) {
+  const { user, isLoading: authLoading, hasEncryptionKey } = useAuth();
+  const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
+  const [activeTab, setActiveTab] = useState<AuthTab>('passkey');
+  const [authSuccess, setAuthSuccess] = useState(false);
+
+  // Show loading state
+  if (authLoading || supportLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-pulse text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  // User is authenticated with encryption key
+  if (user && hasEncryptionKey) {
+    return <>{children}</>;
+  }
+
+  // User is authenticated but missing encryption key (needs to re-authenticate)
+  if (user && !hasEncryptionKey) {
+    return (
+      <div className="w-full max-w-md mx-auto p-6">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Re-authenticate to Decrypt
+          </h2>
+          <p className="text-gray-600 text-sm">
+            Your session is active but we need your passkey or password to decrypt your data.
+          </p>
+        </div>
+        
+        {passkeySupported ? (
+          <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
+        ) : (
+          <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} />
+        )}
+      </div>
+    );
+  }
+
+  // User is not authenticated - show auth UI
+  const handleSuccess = () => {
+    setAuthSuccess(true);
+  };
+
+  // Show custom fallback if provided
+  if (fallback && !authSuccess) {
+    return <>{fallback}</>;
+  }
+
+  return (
+    <div className="w-full max-w-md mx-auto p-6">
+      <div className="text-center mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Sign In to Continue
+        </h2>
+        <p className="text-gray-600 text-sm">
+          Your images are encrypted with zero-knowledge encryption – only you can see them.
+        </p>
+      </div>
+
+      {/* Tab selector - only show if passkeys are supported */}
+      {passkeySupported && (
+        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('passkey')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition flex items-center justify-center gap-2 ${
+              activeTab === 'passkey'
+                ? 'bg-white text-gray-900 shadow'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span>🔑</span>
+            Passkey
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('password')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition flex items-center justify-center gap-2 ${
+              activeTab === 'password'
+                ? 'bg-white text-gray-900 shadow'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <span>🔒</span>
+            Email/Password
+          </button>
+        </div>
+      )}
+
+      {/* Passkey recommendation badge */}
+      {passkeySupported && activeTab === 'passkey' && (
+        <div className="mb-4 flex items-center justify-center">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            ✓ Recommended
+          </span>
+        </div>
+      )}
+
+      {/* Auth components */}
+      {passkeySupported && activeTab === 'passkey' ? (
+        <PasskeyAuth onSuccess={handleSuccess} />
+      ) : (
+        <EmailPasswordAuth onSuccess={handleSuccess} />
+      )}
+
+      {/* Security info */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">
+          🔐 How your data is protected
+        </h3>
+        <ul className="space-y-2 text-xs text-gray-500">
+          <li className="flex items-start gap-2">
+            <span className="text-green-500">✓</span>
+            <span>Images are encrypted on your device before upload</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-green-500">✓</span>
+            <span>Encryption keys never leave your device</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-green-500">✓</span>
+            <span>Even we cannot see your uploaded images</span>
+          </li>
+          {passkeySupported && (
+            <li className="flex items-start gap-2">
+              <span className="text-green-500">✓</span>
+              <span>Passkeys use hardware security for maximum protection</span>
+            </li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// Export individual components for flexibility
+export { PasskeyAuth } from './PasskeyAuth';
+export { EmailPasswordAuth } from './EmailPasswordAuth';

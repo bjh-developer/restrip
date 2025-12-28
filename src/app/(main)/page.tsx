@@ -1,5 +1,5 @@
 "use client";
-import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
+import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Input } from "../../../components/ui/input";
@@ -10,6 +10,9 @@ import { PeriodPicker } from "../../components/PeriodPicker";
 import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
 import ShinyText from "../../components/ShinyText";
+import { AuthGate } from "../../components/auth";
+import { useAuth } from "../../hooks/useAuth";
+import { encryptImage, encryptData, getEncryptionKey } from "../../lib/encryption";
 import {
   Announcement,
   AnnouncementTag,
@@ -174,8 +177,8 @@ export default function MainPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const { user, signOut, hasEncryptionKey } = useAuth();
 
   // Handle image upload
   const handleImageUpload = (base64Image: string) => {
@@ -347,14 +350,13 @@ export default function MainPage() {
       return;
     }
 
-    // Define validation schema
+    // Define validation schema (no password needed - using encryption key from auth)
     const SnapSchema = z
       .object({
         Caption: z.string().min(1),
         sendTime: z.date(),
         deliveryMethod: z.enum(["email", "telegram"]),
         Delivery_Address: z.string().min(1),
-        Password: z.string().min(1),
       })
       .refine(
         (data) => {
@@ -379,7 +381,6 @@ export default function MainPage() {
       sendTime: scheduledSendTime!,
       deliveryMethod: deliveryMethod,
       Delivery_Address: deliveryAddress,
-      Password: password,
     });
 
     if (!validationResult.success) {
@@ -397,13 +398,35 @@ export default function MainPage() {
     setIsProcessing(true);
     try {
       console.log("All inputs are valid. Proceeding with processing...");
-      // TODO: Implement processing logic
-      // - Upload image to Supabase
-      // - Save to database
-      // - Show success message
+      
+      // Get the encryption key from auth context
+      const encryptionKey = getEncryptionKey();
+      if (!encryptionKey) {
+        throw new Error("Encryption key not available. Please sign in again.");
+      }
+
+      // Determine which image to use (cropped if available, otherwise original)
+      const imageToUpload = (autoCropEnabled && croppedImage) ? croppedImage : originalImage;
+      
+      // Encrypt the image
+      console.log("🔐 Encrypting image...");
+      const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(imageToUpload!, encryptionKey);
+      console.log("✅ Image encrypted successfully");
+
+      // Encrypt the caption
+      console.log("🔐 Encrypting caption...");
+      const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(caption, encryptionKey);
+      console.log("✅ Caption encrypted successfully");
+
+      // TODO: Upload encrypted data to Supabase
+      // - Upload encryptedImage to Supabase Storage
+      // - Save snap record with: encryptedCaption, captionIv, imageIv, deliveryMethod, deliveryAddress, scheduledSendTime
       console.log("Processing with period:", selectedPeriod, customDate);
+      console.log("📦 Encrypted payload ready for upload");
     } catch (error) {
       console.error("Processing failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Processing failed";
+      setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -413,6 +436,15 @@ export default function MainPage() {
     // Generate surprise date on mount since it's the default selection
     handlePeriodSelect("surprise");
   }, []);
+
+  useEffect(() => {
+    // Refresh ScrollTrigger when user auth state changes
+    // This ensures scroll animations work properly after auth transition
+    // Works for both login and logout transitions
+    setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 100);
+  }, [user, hasEncryptionKey]);
 
   useEffect(() => {
     // Load UserJot SDK
@@ -457,47 +489,67 @@ export default function MainPage() {
           <AnnouncementPill />
         </div>
 
-        {/* Upload Card */}
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
-            {/* Upload Area */}
-            <h3 className="font-display text-xl font-bold text-soft-black mb-1">
-              1. take photo/upload your photo strip
-            </h3>
-            <div className="mt-6 flex gap-4 justify center">
-              <UploadImage
-                displayImage={
-                  autoCropEnabled && croppedImage ? croppedImage : undefined
-                }
-                onImageUpload={handleImageUpload}
-                isLoading={isCropping}
-              />
+        {/* Auth Gate - Shows upload form only when authenticated */}
+        <AuthGate>
+          {/* User info bar */}
+          {user && (
+            <div className="max-w-2xl mx-auto mb-4">
+              <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 shadow-sm">
+                <span className="text-sm text-gray-600">
+                  Signed in as <span className="font-medium">{user.email}</span>
+                </span>
+                <button
+                  onClick={signOut}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition"
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </button>
+              </div>
             </div>
-            <AutoCropSwitch
-              autoCropEnabled={autoCropEnabled}
-              onToggle={handleAutoCropToggle}
-              isProcessing={isCropping}
-              imageUploaded={!!originalImage || !!croppedImage}
-            />
+          )}
 
-            {/* Journal Caption */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              2. write a caption
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <Textarea 
-                placeholder="Type caption here for your photo strip." 
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
+          {/* Upload Card */}
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
+              {/* Upload Area */}
+              <h3 className="font-display text-xl font-bold text-soft-black mb-1">
+                1. take photo/upload your photo strip
+              </h3>
+              <div className="mt-6 flex gap-4 justify center">
+                <UploadImage
+                  displayImage={
+                    autoCropEnabled && croppedImage ? croppedImage : undefined
+                  }
+                  onImageUpload={handleImageUpload}
+                  isLoading={isCropping}
+                />
+              </div>
+              <AutoCropSwitch
+                autoCropEnabled={autoCropEnabled}
+                onToggle={handleAutoCropToggle}
+                isProcessing={isCropping}
+                imageUploaded={!!originalImage || !!croppedImage}
               />
-            </div>
 
-            {/* Period Picker */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              3. deliver random email in/on
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <PeriodPicker onSelect={handlePeriodSelect} />
+              {/* Journal Caption */}
+              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                2. write a caption
+              </h3>
+              <div className="mt-6 flex gap-4 justify-center">
+                <Textarea 
+                  placeholder="Type caption here for your photo strip." 
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                />
+              </div>
+
+              {/* Period Picker */}
+              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                3. deliver random email in/on
+              </h3>
+              <div className="mt-6 flex gap-4 justify-center">
+                <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
 
             {/* Delivery Method */}
@@ -508,17 +560,12 @@ export default function MainPage() {
               <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             </div>
 
-            {/* Password Field */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              5. create password
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <Input
-                type="password"
-                placeholder="Remember your password to unlock your memory in the future!"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+            {/* Zero-Knowledge Encryption Badge */}
+            <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2 justify-center text-sm text-green-800">
+                <span>🔐</span>
+                <span>Your photo will be encrypted with your passkey before upload. Only you can view it.</span>
+              </div>
             </div>
 
             {/* Validation Errors */}
@@ -541,10 +588,10 @@ export default function MainPage() {
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing}
+              disabled={isProcessing || !hasEncryptionKey}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? "Delivering..." : "Deliver to the Future!"}
+              {isProcessing ? "Encrypting & Delivering..." : "Deliver to the Future!"}
             </button>
 
             {/* Buy Me a Coffee Button */}
@@ -565,6 +612,7 @@ export default function MainPage() {
             </div>
           </div>
         </div>
+        </AuthGate>
 
         {/* About Section */}
         <div className="max-w-2xl mx-auto mt-6">
