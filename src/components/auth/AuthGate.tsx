@@ -6,6 +6,7 @@ import { EmailPasswordAuth } from "./EmailPasswordAuth";
 import { usePasskeySupport } from "../../hooks/usePasskeySupport";
 import { useAuth } from "../../hooks/useAuth";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { createClient } from "../../lib/supabase/client";
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -19,6 +20,34 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
+  const [showEmailVerificationMessage, setShowEmailVerificationMessage] = useState(false);
+
+  // Check if user came from email verification link
+  useEffect(() => {
+    const checkEmailVerification = async () => {
+      const supabase = createClient();
+      
+      // Check URL hash for confirmation token
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const type = hashParams.get('type');
+      
+      if (type === 'signup' || type === 'email') {
+        // User clicked email verification link
+        setActiveTab("password");
+        setShowEmailVerificationMessage(true);
+        
+        // Clean up the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
+      // Also check if user's auth method is password
+      if (user?.user_metadata?.auth_method === 'password') {
+        setActiveTab("password");
+      }
+    };
+    
+    checkEmailVerification();
+  }, [user]);
 
   // Refresh ScrollTrigger when authentication state changes
   useEffect(() => {
@@ -44,8 +73,9 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     return <>{children}</>;
   }
 
-  // User is authenticated but missing encryption key (needs to re-authenticate)
-  if (user && !hasEncryptionKey) {
+  // User is authenticated but missing encryption key
+  // Check if they just verified their email - if so, show the normal auth flow with a message
+  if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
     return (
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-6">
@@ -58,7 +88,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           </p>
         </div>
 
-        {passkeySupported ? (
+        {passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
         ) : (
           <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} />
@@ -88,6 +118,23 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           images.
         </p>
       </div>
+
+      {/* Email verification success message */}
+      {showEmailVerificationMessage && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <span className="text-xl">✅</span>
+            <div>
+              <p className="text-sm font-medium text-green-900">
+                Email verified successfully!
+              </p>
+              <p className="text-xs text-green-700 mt-1">
+                Now sign in with your password to access your account.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab selector - only show if passkeys are supported */}
       {passkeySupported && (

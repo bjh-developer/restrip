@@ -19,6 +19,7 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   const { setEncryptionKeyFromPassword } = useAuth();
   const supabase = createClient();
@@ -98,6 +99,7 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
           data: {
             auth_method: 'password',
           },
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
@@ -106,12 +108,18 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
       }
 
       if (data.user) {
-        // Derive encryption key from password
-        const salt = new TextEncoder().encode(data.user.id);
-        await setEncryptionKeyFromPassword(password, salt);
-
+        // Check if email verification is required
+        if (data.user.identities && data.user.identities.length === 0) {
+          // Email already exists
+          setError('An account with this email already exists. Please sign in instead.');
+          setMode('signin');
+          return;
+        }
+        
+        // Supabase requires email confirmation by default
+        // Don't set encryption key yet - wait for email verification
+        setNeedsEmailVerification(true);
         setShowSuccess(true);
-        onSuccess?.();
       }
     } catch (err) {
       console.error('Sign up error:', err);
@@ -135,13 +143,32 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
   };
 
   if (showSuccess) {
+    if (needsEmailVerification) {
+      return (
+        <div className="text-center py-8">
+          <div className="mb-4">
+            <span className="text-4xl">📧</span>
+          </div>
+          <p className="text-gray-700 font-medium">
+            Check your email
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            We've sent you a verification link. Click it to verify your account.
+          </p>
+          <p className="text-xs text-gray-400 mt-4">
+            After verifying, come back here and sign in with your password.
+          </p>
+        </div>
+      );
+    }
+    
     return (
       <div className="text-center py-8">
         <div className="mb-4">
           <span className="text-4xl">✅</span>
         </div>
         <p className="text-gray-700 font-medium">
-          {mode === 'signin' ? 'Signed in successfully!' : 'Account created successfully!'}
+          Signed in successfully!
         </p>
         <p className="text-sm text-gray-500 mt-2">
           Your data is protected with encryption derived from your password.

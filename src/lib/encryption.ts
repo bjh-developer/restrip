@@ -254,11 +254,12 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
       'raw',
       keyBuffer,
       { name: 'AES-GCM', length: 256 },
-      false,
+      true, // Make it extractable so it can be persisted again if needed
       ['encrypt', 'decrypt']
     );
     
     encryptionKeyStore = key;
+    console.log('✅ Encryption key restored from sessionStorage');
     return key;
   } catch (error) {
     console.error('Failed to restore encryption key:', error);
