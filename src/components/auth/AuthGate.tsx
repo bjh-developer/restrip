@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { PasskeyAuth } from './PasskeyAuth';
-import { EmailPasswordAuth } from './EmailPasswordAuth';
-import { usePasskeySupport } from '../../hooks/usePasskeySupport';
-import { useAuth } from '../../hooks/useAuth';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import React, { useState, useEffect } from "react";
+import { PasskeyAuth } from "./PasskeyAuth";
+import { EmailPasswordAuth } from "./EmailPasswordAuth";
+import { usePasskeySupport } from "../../hooks/usePasskeySupport";
+import { useAuth } from "../../hooks/useAuth";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 interface AuthGateProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
 }
 
-type AuthTab = 'passkey' | 'password';
+type AuthTab = "passkey" | "password";
 
 export function AuthGate({ children, fallback }: AuthGateProps) {
   const { user, isLoading: authLoading, hasEncryptionKey } = useAuth();
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
-  const [activeTab, setActiveTab] = useState<AuthTab>('passkey');
+  const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
 
   // Refresh ScrollTrigger when authentication state changes
@@ -53,10 +53,11 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
             Re-authenticate to Decrypt
           </h2>
           <p className="text-gray-600 text-sm">
-            Your session is active but we need your passkey or password to decrypt your data.
+            Your session is active but we need your passkey or password to
+            decrypt your data.
           </p>
         </div>
-        
+
         {passkeySupported ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
         ) : (
@@ -79,11 +80,12 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   return (
     <div className="w-full max-w-md mx-auto p-6">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          Sign In to Continue
+        <h2 className="text-xl font-semibold text-soft-black mb-2">
+          Sign In/Up to Continue
         </h2>
         <p className="text-gray-600 text-sm">
-          Your images are encrypted with zero-knowledge encryption – only you can see them.
+          Passkey / Password blocks anyone (even us) from viewing your uploaded
+          images.
         </p>
       </div>
 
@@ -92,11 +94,11 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
         <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
             type="button"
-            onClick={() => setActiveTab('passkey')}
+            onClick={() => setActiveTab("passkey")}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition flex items-center justify-center gap-2 ${
-              activeTab === 'passkey'
-                ? 'bg-white text-gray-900 shadow'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "passkey"
+                ? "bg-white text-gray-900 shadow"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <span>🔑</span>
@@ -104,11 +106,11 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('password')}
+            onClick={() => setActiveTab("password")}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition flex items-center justify-center gap-2 ${
-              activeTab === 'password'
-                ? 'bg-white text-gray-900 shadow'
-                : 'text-gray-500 hover:text-gray-700'
+              activeTab === "password"
+                ? "bg-white text-gray-900 shadow"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             <span>🔒</span>
@@ -118,7 +120,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
       )}
 
       {/* Passkey recommendation badge */}
-      {passkeySupported && activeTab === 'passkey' && (
+      {passkeySupported && activeTab === "passkey" && (
         <div className="mb-4 flex items-center justify-center">
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             ✓ Recommended
@@ -127,21 +129,23 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
       )}
 
       {/* Auth components */}
-      {passkeySupported && activeTab === 'passkey' ? (
+      {passkeySupported && activeTab === "passkey" ? (
         <PasskeyAuth onSuccess={handleSuccess} />
       ) : (
         <EmailPasswordAuth onSuccess={handleSuccess} />
       )}
 
       {/* Security info */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
+      <div className="mt-8 pt-6 border-t border-soft-black">
         <h3 className="text-sm font-medium text-gray-700 mb-3">
           🔐 How your data is protected
         </h3>
         <ul className="space-y-2 text-xs text-gray-500">
           <li className="flex items-start gap-2">
             <span className="text-green-500">✓</span>
-            <span>Images are encrypted on your device before upload</span>
+            <span>
+              Images are Zero-Knowledge Encrypted on your device before upload
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-green-500">✓</span>
@@ -157,6 +161,13 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
               <span>Passkeys use hardware security for maximum protection</span>
             </li>
           )}
+          <li className="flex items-start gap-2">
+            <span className="text-green-500">✓</span>
+            <span>
+              If you lose your passkey or password, you will lose access to your
+              data. That's the cost of true privacy.
+            </span>
+          </li>
         </ul>
       </div>
     </div>
@@ -164,5 +175,5 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 }
 
 // Export individual components for flexibility
-export { PasskeyAuth } from './PasskeyAuth';
-export { EmailPasswordAuth } from './EmailPasswordAuth';
+export { PasskeyAuth } from "./PasskeyAuth";
+export { EmailPasswordAuth } from "./EmailPasswordAuth";

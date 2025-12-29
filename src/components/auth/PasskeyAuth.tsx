@@ -352,7 +352,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
               disabled={isLoading}
               autoComplete="email webauthn"
             />

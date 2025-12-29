@@ -66,7 +66,7 @@ export async function deriveKeyFromPRF(prfOutput: ArrayBuffer): Promise<CryptoKe
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
-    false, // Not extractable
+    true, // Extractable (needed to persist across page refreshes)
     ['encrypt', 'decrypt']
   );
 
@@ -100,7 +100,7 @@ export async function deriveKeyFromPassword(
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
-    false, // Not extractable
+    true, // Extractable (needed to persist across page refreshes)
     ['encrypt', 'decrypt']
   );
 
@@ -215,21 +215,62 @@ export async function decryptImage(
 }
 
 /**
- * Store encryption key in memory (never persisted)
- * Uses a closure to keep the key private
+ * Store encryption key with persistent backup
+ * Key is stored in sessionStorage to survive page refreshes
+ * (sessionStorage is cleared when tab closes for security)
  */
 let encryptionKeyStore: CryptoKey | null = null;
+const ENCRYPTION_KEY_STORAGE_KEY = 'restrip_encryption_key';
 
-export function setEncryptionKey(key: CryptoKey): void {
+export async function setEncryptionKey(key: CryptoKey): Promise<void> {
   encryptionKeyStore = key;
+  
+  // Export key to raw format and store in sessionStorage
+  try {
+    const exportedKey = await crypto.subtle.exportKey('raw', key);
+    const keyBase64 = arrayBufferToBase64(exportedKey);
+    sessionStorage.setItem(ENCRYPTION_KEY_STORAGE_KEY, keyBase64);
+  } catch (error) {
+    console.error('Failed to persist encryption key:', error);
+    // Key still works in memory, just won't persist across refresh
+  }
 }
 
-export function getEncryptionKey(): CryptoKey | null {
-  return encryptionKeyStore;
+export async function getEncryptionKey(): Promise<CryptoKey | null> {
+  // If key is in memory, return it
+  if (encryptionKeyStore) {
+    return encryptionKeyStore;
+  }
+  
+  // Try to restore from sessionStorage
+  try {
+    const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
+    if (!keyBase64) {
+      return null;
+    }
+    
+    const keyBuffer = base64ToArrayBuffer(keyBase64);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+    
+    encryptionKeyStore = key;
+    return key;
+  } catch (error) {
+    console.error('Failed to restore encryption key:', error);
+    // Clear invalid stored key
+    sessionStorage.removeItem(ENCRYPTION_KEY_STORAGE_KEY);
+    return null;
+  }
 }
 
 export function clearEncryptionKey(): void {
   encryptionKeyStore = null;
+  sessionStorage.removeItem(ENCRYPTION_KEY_STORAGE_KEY);
 }
 
 /**

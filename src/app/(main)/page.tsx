@@ -178,6 +178,12 @@ export default function MainPage() {
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{
+    image?: string;
+    caption?: string;
+    period?: string;
+    deliveryAddress?: string;
+  }>({});
   const { user, signOut, hasEncryptionKey } = useAuth();
 
   // Handle image upload
@@ -186,6 +192,12 @@ export default function MainPage() {
     // Reset cropped image when new image is uploaded
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
+    
+    // Clear validation errors when user uploads an image
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
+    setFieldErrors(prev => ({ ...prev, image: undefined }));
 
     // Refresh ScrollTrigger after DOM changes from image upload
     setTimeout(() => {
@@ -315,6 +327,12 @@ export default function MainPage() {
       } else if (period === "custom period") {
         setCustomPeriod(sendTime.toISOString());
       }
+      
+      // Clear validation errors when user selects a period
+      if (validationErrors.length > 0) {
+        setValidationErrors([]);
+      }
+      setFieldErrors(prev => ({ ...prev, period: undefined }));
     } else if (period === "surprise") {
       // For surprise, generate a random date between 1-6 months from now
       const now = new Date();
@@ -325,6 +343,12 @@ export default function MainPage() {
       sendTime.setHours(18, 0, 0, 0);
 
       setScheduledSendTime(sendTime);
+      
+      // Clear validation errors when user selects surprise
+      if (validationErrors.length > 0) {
+        setValidationErrors([]);
+      }
+      setFieldErrors(prev => ({ ...prev, period: undefined }));
     }
 
     // Single console log for all cases
@@ -341,12 +365,22 @@ export default function MainPage() {
   ) => {
     setDeliveryMethod(method);
     setDeliveryAddress(value || "");
+    
+    // Clear validation errors when user selects delivery method
+    if (validationErrors.length > 0) {
+      setValidationErrors([]);
+    }
+    setFieldErrors(prev => ({ ...prev, deliveryAddress: undefined }));
   };
 
   const handleStartProcessing = async () => {
+    // Clear previous errors
+    setValidationErrors([]);
+    setFieldErrors({});
+    
     // Check if image is uploaded
     if (!originalImage) {
-      setValidationErrors(["Please upload an image first"]);
+      setFieldErrors({ image: "Please upload a photo before continuing" });
       return;
     }
 
@@ -384,12 +418,28 @@ export default function MainPage() {
     });
 
     if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error);
-      const errorMessages = validationResult.error?.issues?.map((e) => {
-        const field = e.path.join(".");
-        return field ? `${field}: ${e.message}` : e.message;
-      }) || ["Validation failed. Please check your inputs."];
-      setValidationErrors(errorMessages);
+      // Validation failed - create user-friendly error messages
+      const errors: typeof fieldErrors = {};
+      
+      validationResult.error?.issues?.forEach((e) => {
+        const field = e.path[0];
+        // Map field errors to user-friendly messages
+        if (field === 'Caption') {
+          errors.caption = 'Please add a caption for your photo';
+        }
+        if (field === 'sendTime') {
+          errors.period = 'Please select when to deliver your memory';
+        }
+        if (field === 'Delivery_Address') {
+          if (deliveryMethod === 'email') {
+            errors.deliveryAddress = 'Please enter a valid email address';
+          } else {
+            errors.deliveryAddress = 'Please enter a valid Telegram username (starting with @)';
+          }
+        }
+      });
+      
+      setFieldErrors(errors);
       return;
     }
 
@@ -400,9 +450,9 @@ export default function MainPage() {
       console.log("All inputs are valid. Proceeding with processing...");
       
       // Get the encryption key from auth context
-      const encryptionKey = getEncryptionKey();
+      const encryptionKey = await getEncryptionKey();
       if (!encryptionKey) {
-        throw new Error("Encryption key not available. Please sign in again.");
+        throw new Error("Encryption key not available. Please sign in again to continue.");
       }
 
       // Determine which image to use (cropped if available, otherwise original)
@@ -491,6 +541,7 @@ export default function MainPage() {
 
         {/* Auth Gate - Shows upload form only when authenticated */}
         <AuthGate>
+
           {/* User info bar */}
           {user && (
             <div className="max-w-2xl mx-auto mb-4">
@@ -525,6 +576,11 @@ export default function MainPage() {
                   isLoading={isCropping}
                 />
               </div>
+              {fieldErrors.image && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm">{fieldErrors.image}</p>
+                </div>
+              )}
               <AutoCropSwitch
                 autoCropEnabled={autoCropEnabled}
                 onToggle={handleAutoCropToggle}
@@ -540,9 +596,22 @@ export default function MainPage() {
                 <Textarea 
                   placeholder="Type caption here for your photo strip." 
                   value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
+                  onChange={(e) => {
+                    setCaption(e.target.value);
+                    // Clear validation errors when user starts typing
+                    if (validationErrors.length > 0) {
+                      setValidationErrors([]);
+                    }
+                    setFieldErrors(prev => ({ ...prev, caption: undefined }));
+                  }}
+                  className={fieldErrors.caption ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
                 />
               </div>
+              {fieldErrors.caption && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm">{fieldErrors.caption}</p>
+                </div>
+              )}
 
               {/* Period Picker */}
               <h3 className="font-display text-xl font-bold text-soft-black mt-6">
@@ -551,6 +620,11 @@ export default function MainPage() {
               <div className="mt-6 flex gap-4 justify-center">
                 <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
+            {fieldErrors.period && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700 text-sm">{fieldErrors.period}</p>
+              </div>
+            )}
 
             {/* Delivery Method */}
             <h3 className="font-display text-xl font-bold text-soft-black mt-6">
@@ -559,29 +633,20 @@ export default function MainPage() {
             <div className="mt-6 flex gap-4 justify-center">
               <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             </div>
-
-            {/* Zero-Knowledge Encryption Badge */}
-            <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2 justify-center text-sm text-green-800">
-                <span>🔐</span>
-                <span>Your photo will be encrypted with your passkey before upload. Only you can view it.</span>
+            {fieldErrors.deliveryAddress && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700 text-sm">{fieldErrors.deliveryAddress}</p>
               </div>
-            </div>
+            )}
 
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <CircleAlert className="size-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-red-800 mb-2">Please fix the following errors:</h4>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
-                      {validationErrors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+                {validationErrors.map((error, index) => (
+                  <p key={index} className="text-red-700 text-sm">
+                    {error}
+                  </p>
+                ))}
               </div>
             )}
 

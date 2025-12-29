@@ -182,7 +182,7 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
       <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
         <p className="text-amber-800 text-sm">
           ⚠️ <strong>Note:</strong> Using email/password means your encryption key is derived 
-          from your password. For maximum security, we recommend using a passkey instead.
+          from your password. Keep your password safe.
         </p>
       </div>
 
@@ -204,7 +204,7 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
             disabled={isLoading}
             autoComplete="email"
           />
@@ -220,7 +220,7 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
             disabled={isLoading}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
           />

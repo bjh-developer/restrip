@@ -8,6 +8,7 @@ import {
   clearEncryptionKey, 
   deriveKeyFromPRF,
   deriveKeyFromPassword,
+  getEncryptionKey,
 } from '../lib/encryption';
 
 type AuthMethod = 'passkey' | 'password' | null;
@@ -48,6 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Check auth method from user metadata
           const method = currentSession.user.user_metadata?.auth_method as AuthMethod;
           setAuthMethod(method || null);
+          
+          // Check if encryption key exists in storage
+          const existingKey = await getEncryptionKey();
+          if (existingKey) {
+            setEncryptionKeySet(true);
+            console.log('✅ Encryption key restored from storage');
+          }
         }
       } catch (error) {
         console.error('Failed to get session:', error);
@@ -97,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setEncryptionKeyFromPRF = useCallback(async (prfOutput: ArrayBuffer) => {
     try {
       const key = await deriveKeyFromPRF(prfOutput);
-      setEncryptionKey(key);
+      await setEncryptionKey(key);
       setEncryptionKeySet(true);
       console.log('✅ Encryption key derived from passkey PRF');
     } catch (error) {
@@ -110,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setEncryptionKeyFromPassword = useCallback(async (password: string, salt: Uint8Array) => {
     try {
       const key = await deriveKeyFromPassword(password, salt);
-      setEncryptionKey(key);
+      await setEncryptionKey(key);
       setEncryptionKeySet(true);
       console.log('✅ Encryption key derived from password');
     } catch (error) {
