@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     const userSearchResponse = await fetch(userSearchUrl, {
       method: 'GET',
       headers: {
+        'apiKey': serviceRoleKey,
         'Authorization': `Bearer ${serviceRoleKey}`,
         'Content-Type': 'application/json',
       },
