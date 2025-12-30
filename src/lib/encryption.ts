@@ -62,13 +62,10 @@ export function base64UrlToBase64(base64url: string): string {
     .padEnd(base64url.length + ((4 - (base64url.length % 4)) % 4), '=');
 }
 
-// Convert Base64 to Base64URL
-export function base64ToBase64Url(base64: string): string {
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
+// PBKDF2 iteration count for password-based key derivation
+// OWASP 2024 recommends minimum 600,000 iterations for PBKDF2-SHA256
+// This significantly increases resistance to brute-force attacks
+const PBKDF2_ITERATIONS = 600000;
 
 /**
  * Derive encryption key from passkey PRF output
@@ -103,7 +100,7 @@ export async function deriveKeyFromPRF(prfOutput: ArrayBuffer): Promise<CryptoKe
 
 /**
  * Derive encryption key from password (fallback for non-passkey users)
- * Uses PBKDF2 with high iteration count for security
+ * Uses PBKDF2 with OWASP 2024 recommended iteration count (600,000+)
  */
 export async function deriveKeyFromPassword(
   password: string,
@@ -123,7 +120,7 @@ export async function deriveKeyFromPassword(
     {
       name: 'PBKDF2',
       salt: salt as BufferSource,
-      iterations: 100000, // High iteration count for security
+      iterations: PBKDF2_ITERATIONS, // OWASP 2024 minimum: 600,000+ iterations
       hash: 'SHA-256',
     },
     keyMaterial,
