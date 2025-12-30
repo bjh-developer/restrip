@@ -519,6 +519,11 @@ export default function MainPage() {
   }, []);
 
   useEffect(() => {
+    // Clear validation errors and reset form state when user changes
+    // This prevents errors from previous account from persisting
+    setValidationErrors([]);
+    setFieldErrors({});
+    
     // Refresh ScrollTrigger when user auth state changes
     // This ensures scroll animations work properly after auth transition
     // Works for both login and logout transitions
