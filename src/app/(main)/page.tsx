@@ -209,11 +209,15 @@ export default function MainPage() {
     setValidationErrors([]);
     setFieldErrors(prev => ({ ...prev, image: undefined }));
 
-    // Refresh ScrollTrigger after DOM changes from image upload
-    setTimeout(() => {
-      ScrollTrigger.refresh();
-    }, 100);
+    // ScrollTrigger will be refreshed in useEffect when originalImage changes
   }, []);
+
+  // Refresh ScrollTrigger when image is uploaded (after DOM update)
+  useEffect(() => {
+    if (originalImage) {
+      ScrollTrigger.refresh();
+    }
+  }, [originalImage]);
 
   // Upload image to API route for processing
   const processImageWithRunPod = async (
