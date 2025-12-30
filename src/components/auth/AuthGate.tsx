@@ -91,7 +91,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
         {passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
         ) : (
-          <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} />
+          <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} signinOnly />
         )}
       </div>
     );

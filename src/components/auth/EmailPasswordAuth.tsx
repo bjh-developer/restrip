@@ -7,11 +7,12 @@ import { useAuth } from '../../hooks/useAuth';
 interface EmailPasswordAuthProps {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
+  signinOnly?: boolean; // Hide sign-up option when true
 }
 
 type AuthMode = 'signin' | 'signup';
 
-export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps) {
+export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: EmailPasswordAuthProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -179,31 +180,33 @@ export function EmailPasswordAuth({ onSuccess, onError }: EmailPasswordAuthProps
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* Mode toggle */}
-      <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
-        <button
-          type="button"
-          onClick={() => setMode('signin')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition ${
-            mode === 'signin'
-              ? 'bg-white text-gray-900 shadow'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Sign In
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('signup')}
-          className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition ${
-            mode === 'signup'
-              ? 'bg-white text-gray-900 shadow'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Sign Up
-        </button>
-      </div>
+      {/* Mode toggle - only show if not signinOnly */}
+      {!signinOnly && (
+        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
+          <button
+            type="button"
+            onClick={() => setMode('signin')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition ${
+              mode === 'signin'
+                ? 'bg-white text-gray-900 shadow'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('signup')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition ${
+              mode === 'signup'
+                ? 'bg-white text-gray-900 shadow'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Sign Up
+          </button>
+        </div>
+      )}
 
       {/* Warning about password-based encryption */}
       <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
