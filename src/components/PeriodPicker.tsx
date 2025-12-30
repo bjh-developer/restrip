@@ -68,6 +68,10 @@ export function PeriodPicker({ onSelect }: PeriodPickerProps) {
         today.getTime() + Math.random() * (6 * 30 * 24 * 60 * 60 * 1000) // Random date within 1-6 months
       );
       onSelect(period, surpriseDate);
+    } else {
+      // For custom period and custom date, notify parent but without a date
+      // This will clear the scheduledSendTime and require user to pick a date
+      onSelect(period);
     }
   };
 

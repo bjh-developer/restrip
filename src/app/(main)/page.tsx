@@ -1,6 +1,6 @@
 "use client";
 import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -40,10 +40,12 @@ const UploadImage = ({
   displayImage,
   onImageUpload,
   isLoading,
+  error,
 }: {
   displayImage?: string;
   onImageUpload?: (base64Image: string) => void;
   isLoading?: boolean;
+  error?: boolean;
 }) => {
   const [files, setFiles] = useState<File[] | undefined>();
   const [filePreview, setFilePreview] = useState<string | undefined>();
@@ -69,6 +71,7 @@ const UploadImage = ({
       onError={console.error}
       src={files}
       multiple={false}
+      className={error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
     >
       <DropzoneEmptyState />
       <DropzoneContent>
@@ -185,6 +188,12 @@ export default function MainPage() {
     deliveryAddress?: string;
   }>({});
   const { user, signOut, hasEncryptionKey } = useAuth();
+
+  // Refs for scrolling to error sections
+  const imageRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
+  const periodRef = useRef<HTMLDivElement>(null);
+  const deliveryRef = useRef<HTMLDivElement>(null);
 
   // Handle image upload
   const handleImageUpload = (base64Image: string) => {
@@ -349,6 +358,12 @@ export default function MainPage() {
         setValidationErrors([]);
       }
       setFieldErrors(prev => ({ ...prev, period: undefined }));
+    } else {
+      // User selected custom period or custom date but didn't provide a date
+      // Clear the scheduled send time to force them to select
+      setScheduledSendTime(undefined);
+      setCustomDate(undefined);
+      setCustomPeriod(undefined);
     }
 
     // Single console log for all cases
@@ -377,16 +392,11 @@ export default function MainPage() {
     // Clear previous errors
     setValidationErrors([]);
     setFieldErrors({});
-    
-    // Check if image is uploaded
-    if (!originalImage) {
-      setFieldErrors({ image: "Please upload a photo before continuing" });
-      return;
-    }
 
     // Define validation schema (no password needed - using encryption key from auth)
     const SnapSchema = z
       .object({
+        Image: z.string().min(1, "Image is required"),
         Caption: z.string().min(1),
         sendTime: z.date(),
         deliveryMethod: z.enum(["email", "telegram"]),
@@ -411,6 +421,7 @@ export default function MainPage() {
 
     // Validate inputs
     const validationResult = SnapSchema.safeParse({
+      Image: originalImage || "",
       Caption: caption,
       sendTime: scheduledSendTime!,
       deliveryMethod: deliveryMethod,
@@ -424,11 +435,21 @@ export default function MainPage() {
       validationResult.error?.issues?.forEach((e) => {
         const field = e.path[0];
         // Map field errors to user-friendly messages
+        if (field === 'Image') {
+          errors.image = 'Please upload a photo before continuing';
+        }
         if (field === 'Caption') {
           errors.caption = 'Please add a caption for your photo';
         }
         if (field === 'sendTime') {
-          errors.period = 'Please select when to deliver your memory';
+          // Check if user selected custom period/date but didn't provide a date
+          if (selectedPeriod === 'custom period') {
+            errors.period = 'Please select a time period for delivery';
+          } else if (selectedPeriod === 'custom date') {
+            errors.period = 'Please select a specific date for delivery';
+          } else {
+            errors.period = 'Please select when to deliver your memory';
+          }
         }
         if (field === 'Delivery_Address') {
           if (deliveryMethod === 'email') {
@@ -440,6 +461,20 @@ export default function MainPage() {
       });
       
       setFieldErrors(errors);
+      
+      // Scroll to first error after state update
+      setTimeout(() => {
+        if (errors.image && imageRef.current) {
+          imageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.caption && captionRef.current) {
+          captionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.period && periodRef.current) {
+          periodRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.deliveryAddress && deliveryRef.current) {
+          deliveryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
       return;
     }
 
@@ -471,7 +506,8 @@ export default function MainPage() {
       // TODO: Upload encrypted data to Supabase
       // - Upload encryptedImage to Supabase Storage
       // - Save snap record with: encryptedCaption, captionIv, imageIv, deliveryMethod, deliveryAddress, scheduledSendTime
-      console.log("Processing with period:", selectedPeriod, customDate);
+      console.log("Processing with period:", selectedPeriod);
+      console.log("Scheduled send time:", scheduledSendTime?.toISOString(), `(${scheduledSendTime?.toLocaleString()})`);
       console.log("📦 Encrypted payload ready for upload");
     } catch (error) {
       console.error("Processing failed:", error);
@@ -564,20 +600,23 @@ export default function MainPage() {
           <div className="max-w-2xl mx-auto">
             <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
               {/* Upload Area */}
-              <h3 className="font-display text-xl font-bold text-soft-black mb-1">
-                1. take photo/upload your photo strip
-              </h3>
-              <div className="mt-6 flex gap-4 justify center">
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mb-1">
+                  1. take photo/upload your photo strip
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
                 <UploadImage
                   displayImage={
                     autoCropEnabled && croppedImage ? croppedImage : undefined
                   }
                   onImageUpload={handleImageUpload}
                   isLoading={isCropping}
+                  error={!!fieldErrors.image}
                 />
               </div>
               {fieldErrors.image && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <div className="mt-2 mb-2 p-2 bg-red-50 border border-red-200 rounded-md">
                   <p className="text-red-700 text-sm">{fieldErrors.image}</p>
                 </div>
               )}
@@ -589,10 +628,12 @@ export default function MainPage() {
               />
 
               {/* Journal Caption */}
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-                2. write a caption
-              </h3>
-              <div className="mt-6 flex gap-4 justify-center">
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                  2. write a caption
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
                 <Textarea 
                   placeholder="Type caption here for your photo strip." 
                   value={caption}
@@ -614,10 +655,12 @@ export default function MainPage() {
               )}
 
               {/* Period Picker */}
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-                3. deliver random email in/on
-              </h3>
-              <div className="mt-6 flex gap-4 justify-center">
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                  3. deliver random email in/on
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify-center" ref={periodRef}>
                 <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
             {fieldErrors.period && (
@@ -627,10 +670,12 @@ export default function MainPage() {
             )}
 
             {/* Delivery Method */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              4. where to send your memory
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
+            <div>
+              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                4. where to send your memory
+              </h3>
+            </div>
+            <div className="mt-6 flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             </div>
             {fieldErrors.deliveryAddress && (
