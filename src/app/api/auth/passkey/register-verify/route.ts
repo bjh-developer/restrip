@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
       .eq('id', challengeData.id);
 
     // Check if user exists
+    // TODO: Optimise by using RPC
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     let user = existingUsers?.users?.find(
       u => u.email?.toLowerCase() === email.toLowerCase()
