@@ -6,7 +6,6 @@ import { EmailPasswordAuth } from "./EmailPasswordAuth";
 import { usePasskeySupport } from "../../hooks/usePasskeySupport";
 import { useAuth } from "../../hooks/useAuth";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { createClient } from "../../lib/supabase/client";
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -16,7 +15,7 @@ interface AuthGateProps {
 type AuthTab = "passkey" | "password";
 
 export function AuthGate({ children, fallback }: AuthGateProps) {
-  const { user, isLoading: authLoading, hasEncryptionKey } = useAuth();
+  const { user, isLoading: authLoading, hasEncryptionKey, signOut } = useAuth();
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
@@ -25,8 +24,6 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   // Check if user came from email verification link
   useEffect(() => {
     const checkEmailVerification = async () => {
-      const supabase = createClient();
-      
       // Check URL hash for confirmation token
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const type = hashParams.get('type');
@@ -90,9 +87,46 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 
         {passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
+        ) : !passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h3 className="text-sm font-semibold text-amber-900 mb-2">
+                  Passkey Not Supported on This Device
+                </h3>
+                <p className="text-sm text-amber-800 mb-3">
+                  Your account uses passkey authentication, but this device or browser doesn't support passkeys.
+                </p>
+                <div className="space-y-2 text-sm text-amber-700">
+                  <p className="font-medium">What you can do:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>Try accessing your account from a supported device (modern smartphone, laptop with biometrics)</li>
+                    <li>Use a compatible browser (Chrome, Safari, Edge, or Firefox)</li>
+                    <li>Contact support if you need to link a password to your account</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} signinOnly />
         )}
+
+        {/* Sign out button */}
+        <div className="mt-6 pt-4 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-500 mb-2">
+            Want to sign in with a different account?
+          </p>
+          <button
+            onClick={async () => {
+              await signOut();
+            }}
+            className="text-sm text-gray-600 hover:text-gray-900 underline"
+          >
+            Sign out completely
+          </button>
+        </div>
       </div>
     );
   }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -24,7 +24,7 @@ interface PeriodPickerProps {
   onSelect: (period: PeriodOption, customDate?: Date) => void;
 }
 
-export function PeriodPicker({ onSelect }: PeriodPickerProps) {
+export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
   const [selected, setSelected] = useState<PeriodOption>("surprise");
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [showCustomPeriod, setShowCustomPeriod] = useState(false);
@@ -203,4 +203,5 @@ export function PeriodPicker({ onSelect }: PeriodPickerProps) {
       )}
     </div>
   );
-}
+});
+PeriodPicker.displayName = "PeriodPicker";

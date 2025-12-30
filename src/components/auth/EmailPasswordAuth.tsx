@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createClient } from '../../lib/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -23,7 +23,7 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   const { setEncryptionKeyFromPassword } = useAuth();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Validate email format
   const isValidEmail = (email: string) => {

@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -36,7 +37,7 @@ import * as z from "zod";
 type PeriodOption = "surprise" | "custom period" | "custom date";
 type DeliveryMethod = "email" | "telegram";
 
-const UploadImage = ({
+const UploadImage = React.memo(({
   displayImage,
   onImageUpload,
   isLoading,
@@ -49,7 +50,7 @@ const UploadImage = ({
 }) => {
   const [files, setFiles] = useState<File[] | undefined>();
   const [filePreview, setFilePreview] = useState<string | undefined>();
-  const handleDrop = (files: File[]) => {
+  const handleDrop = useCallback((files: File[]) => {
     console.log(files);
     setFiles(files);
     if (files.length > 0) {
@@ -63,7 +64,7 @@ const UploadImage = ({
       };
       reader.readAsDataURL(files[0]);
     }
-  };
+  }, [onImageUpload]);
   return (
     <Dropzone
       accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
@@ -97,7 +98,8 @@ const UploadImage = ({
       </DropzoneContent>
     </Dropzone>
   );
-};
+});
+UploadImage.displayName = "UploadImage";
 
 const AnnouncementBanner = () => (
   <Banner>
@@ -127,7 +129,7 @@ const AnnouncementPill = () => (
   </Announcement>
 );
 
-const AutoCropSwitch = ({
+const AutoCropSwitch = React.memo(({
   autoCropEnabled,
   onToggle,
   isProcessing,
@@ -162,7 +164,8 @@ const AutoCropSwitch = ({
       </p>
     </div>
   </div>
-);
+));
+AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function MainPage() {
   const [selectedPeriod, setSelectedPeriod] =
@@ -196,23 +199,21 @@ export default function MainPage() {
   const deliveryRef = useRef<HTMLDivElement>(null);
 
   // Handle image upload
-  const handleImageUpload = (base64Image: string) => {
+  const handleImageUpload = useCallback((base64Image: string) => {
     setOriginalImage(base64Image);
     // Reset cropped image when new image is uploaded
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
     
     // Clear validation errors when user uploads an image
-    if (validationErrors.length > 0) {
-      setValidationErrors([]);
-    }
+    setValidationErrors([]);
     setFieldErrors(prev => ({ ...prev, image: undefined }));
 
     // Refresh ScrollTrigger after DOM changes from image upload
     setTimeout(() => {
       ScrollTrigger.refresh();
     }, 100);
-  };
+  }, []);
 
   // Upload image to API route for processing
   const processImageWithRunPod = async (
@@ -251,7 +252,7 @@ export default function MainPage() {
   };
 
   // Handle autocrop toggle
-  const handleAutoCropToggle = async (checked: boolean) => {
+  const handleAutoCropToggle = useCallback(async (checked: boolean) => {
     setAutoCropEnabled(checked);
 
     if (checked && originalImage) {
@@ -277,7 +278,7 @@ export default function MainPage() {
         setIsCropping(false);
       }
     }
-  };
+  }, [originalImage, croppedImage]);
 
   const handlePeriodSelect = useCallback((period: PeriodOption, date?: Date) => {
     // TODO: Refactor to include random time logic here, right now it's always 6pm
@@ -338,9 +339,7 @@ export default function MainPage() {
       }
       
       // Clear validation errors when user selects a period
-      if (validationErrors.length > 0) {
-        setValidationErrors([]);
-      }
+      setValidationErrors([]);
       setFieldErrors(prev => ({ ...prev, period: undefined }));
     } else if (period === "surprise") {
       // For surprise, generate a random date between 1-6 months from now
@@ -354,9 +353,7 @@ export default function MainPage() {
       setScheduledSendTime(sendTime);
       
       // Clear validation errors when user selects surprise
-      if (validationErrors.length > 0) {
-        setValidationErrors([]);
-      }
+      setValidationErrors([]);
       setFieldErrors(prev => ({ ...prev, period: undefined }));
     } else {
       // User selected custom period or custom date but didn't provide a date
@@ -374,7 +371,7 @@ export default function MainPage() {
     }
   }, []);
 
-  const handleDeliveryMethodSelect = (
+  const handleDeliveryMethodSelect = useCallback((
     method: DeliveryMethod,
     value?: string
   ) => {
@@ -382,11 +379,9 @@ export default function MainPage() {
     setDeliveryAddress(value || "");
     
     // Clear validation errors when user selects delivery method
-    if (validationErrors.length > 0) {
-      setValidationErrors([]);
-    }
+    setValidationErrors([]);
     setFieldErrors(prev => ({ ...prev, deliveryAddress: undefined }));
-  };
+  }, []);
 
   const handleStartProcessing = async () => {
     // Clear previous errors

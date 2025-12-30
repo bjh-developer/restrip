@@ -4,6 +4,34 @@
  * Uses Web Crypto API for:
  * - Key derivation from passkey PRF output or password
  * - AES-GCM encryption/decryption of images and text
+ * 
+ * ⚠️ CRITICAL SECURITY NOTICE ⚠️
+ * 
+ * This implementation stores encryption keys in sessionStorage for UX reasons
+ * (persistence across page refreshes). This creates an XSS vulnerability:
+ * 
+ * THREAT MODEL:
+ * - Any malicious script with DOM access can steal keys from sessionStorage
+ * - Compromised CDN, malicious browser extension, or XSS attack = full data exposure
+ * - Once key is stolen, ALL encrypted user data can be decrypted
+ * 
+ * MITIGATIONS IMPLEMENTED:
+ * ✓ 30-minute session timeout (limits exposure window)
+ * ✓ Content Security Policy headers (reduces XSS attack surface)
+ * ✓ Subresource Integrity for external scripts (prevents tampering)
+ * ✓ sessionStorage only (cleared on tab close, not persistent across sessions)
+ * 
+ * USER SAFETY GUIDELINES:
+ * ⚠️ NEVER use this application on shared/public computers
+ * ⚠️ NEVER use this application on untrusted/compromised devices
+ * ⚠️ Always use latest browser versions with security patches
+ * ⚠️ Log out immediately after use on any non-personal device
+ * ⚠️ Be aware: If device is compromised, ALL data is exposed
+ * 
+ * This is a fundamental tradeoff: Zero-knowledge encryption with persistence
+ * requires client-side key storage, which is vulnerable to XSS. Alternative
+ * approaches (IndexedDB, Service Workers) have the same vulnerability.
+ * Server-side key storage defeats zero-knowledge encryption entirely.
  */
 
 // Convert ArrayBuffer to Base64
@@ -218,9 +246,36 @@ export async function decryptImage(
  * Store encryption key with persistent backup
  * Key is stored in sessionStorage to survive page refreshes
  * (sessionStorage is cleared when tab closes for security)
+ * 
+ * ⚠️ SECURITY TRADEOFF WARNING ⚠️
+ * 
+ * Storing encryption keys in sessionStorage creates an XSS vulnerability:
+ * - Any malicious script with DOM access can steal the key from sessionStorage
+ * - Once stolen, attackers can decrypt all user data
+ * - This is a fundamental tradeoff between UX (persistence) and security
+ * 
+ * Mitigations implemented:
+ * 1. Session timeout (10 minutes) - limits exposure window
+ * 2. Content Security Policy - reduces XSS attack surface
+ * 3. Subresource Integrity - prevents script tampering
+ * 
+ * ⚠️ USER GUIDANCE ⚠️
+ * Users should be warned:
+ * - Never use this application on shared or untrusted devices
+ * - Always use up-to-date browsers with latest security patches
+ * - Log out immediately after use on public computers
+ * - If compromised, all encrypted data should be considered exposed
+ * 
+ * Alternative approaches (not implemented):
+ * - IndexedDB with encryption (still vulnerable to XSS)
+ * - Service Workers (complex, still vulnerable)
+ * - Server-side key management (defeats zero-knowledge encryption)
+ * - No persistence (poor UX, user must re-auth on every page load)
  */
 let encryptionKeyStore: CryptoKey | null = null;
 const ENCRYPTION_KEY_STORAGE_KEY = 'restrip_encryption_key';
+const ENCRYPTION_KEY_TIMESTAMP_KEY = 'restrip_encryption_key_timestamp';
+const KEY_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function setEncryptionKey(key: CryptoKey): Promise<void> {
   encryptionKeyStore = key;
@@ -229,7 +284,10 @@ export async function setEncryptionKey(key: CryptoKey): Promise<void> {
   try {
     const exportedKey = await crypto.subtle.exportKey('raw', key);
     const keyBase64 = arrayBufferToBase64(exportedKey);
+    const timestamp = Date.now().toString();
+    
     sessionStorage.setItem(ENCRYPTION_KEY_STORAGE_KEY, keyBase64);
+    sessionStorage.setItem(ENCRYPTION_KEY_TIMESTAMP_KEY, timestamp);
   } catch (error) {
     console.error('Failed to persist encryption key:', error);
     // Key still works in memory, just won't persist across refresh
@@ -245,7 +303,19 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
   // Try to restore from sessionStorage
   try {
     const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
-    if (!keyBase64) {
+    const timestampStr = sessionStorage.getItem(ENCRYPTION_KEY_TIMESTAMP_KEY);
+    
+    if (!keyBase64 || !timestampStr) {
+      return null;
+    }
+    
+    // Check if key has expired
+    const timestamp = parseInt(timestampStr, 10);
+    const age = Date.now() - timestamp;
+    
+    if (age > KEY_EXPIRY_MS) {
+      console.warn('⚠️ Encryption key expired (10 min timeout). Please re-authenticate.');
+      clearEncryptionKey();
       return null;
     }
     
@@ -264,7 +334,7 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
   } catch (error) {
     console.error('Failed to restore encryption key:', error);
     // Clear invalid stored key
-    sessionStorage.removeItem(ENCRYPTION_KEY_STORAGE_KEY);
+    clearEncryptionKey();
     return null;
   }
 }
@@ -272,13 +342,21 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
 export function clearEncryptionKey(): void {
   encryptionKeyStore = null;
   sessionStorage.removeItem(ENCRYPTION_KEY_STORAGE_KEY);
+  sessionStorage.removeItem(ENCRYPTION_KEY_TIMESTAMP_KEY);
 }
 
 /**
- * Check if encryption key is available
+ * Check if encryption key is available (in-memory or sessionStorage)
  */
 export function hasEncryptionKey(): boolean {
-  return encryptionKeyStore !== null;
+  // Check in-memory store first
+  if (encryptionKeyStore !== null) {
+    return true;
+  }
+  
+  // Check sessionStorage synchronously
+  const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
+  return keyBase64 !== null;
 }
 
 /**

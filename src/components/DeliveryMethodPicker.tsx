@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Choicebox,
@@ -17,9 +17,10 @@ interface DeliveryMethodPickerProps {
   onSelect: (method: DeliveryMethod, value?: string) => void;
 }
 
-export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
+export const DeliveryMethodPicker = React.memo(({ onSelect }: DeliveryMethodPickerProps) => {
   const [selected, setSelected] = useState<DeliveryMethod>("email");
   const [inputValue, setInputValue] = useState<string>("");
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const { user } = useAuth();
 
@@ -40,7 +41,7 @@ export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
     },
   ];
 
-  const handleMethodSelect = (method: DeliveryMethod) => {
+  const handleMethodSelect = useCallback((method: DeliveryMethod) => {
     setSelected(method);
     if (method === "email") {
       onSelect(method, user?.email || "");
@@ -48,18 +49,20 @@ export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
       setInputValue("");
       onSelect(method, "");
     }
-  };
+  }, [onSelect, user?.email]);
 
-  const handleInputChange = (value: string) => {
+  const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
     onSelect(selected, value);
-  };
+  }, [onSelect, selected]);
 
-useEffect(() => {
-    if (selected === "email" && user?.email) {
+  // Initialize email only once when user is available
+  useEffect(() => {
+    if (!hasInitialized && selected === "email" && user?.email) {
+      setHasInitialized(true);
       onSelect("email", user.email);
     }
-}, [user?.email])
+  }, [user?.email, selected, onSelect, hasInitialized]);
 
   return (
     <div className="space-y-4 w-full">
@@ -103,4 +106,5 @@ useEffect(() => {
       </div>
     </div>
   );
-}
+});
+DeliveryMethodPicker.displayName = "DeliveryMethodPicker";

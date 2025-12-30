@@ -6,6 +6,69 @@
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+/**
+ * Allowed origins for WebAuthn operations
+ * ⚠️ SECURITY: Only add trusted origins to this list
+ * 
+ * Environment variables:
+ * - NEXT_PUBLIC_APP_URL: Primary production URL
+ * - NEXT_PUBLIC_ALLOWED_ORIGINS: Comma-separated list of additional allowed origins
+ * 
+ * For Vercel deployments:
+ * - Set NEXT_PUBLIC_ALLOWED_ORIGINS in Vercel dashboard
+ * - Use wildcard pattern like "*.vercel.app" for preview deployments
+ */
+const getAllowedOrigins = (): string[] => {
+  const origins: string[] = [];
+  
+  // Production URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    origins.push(process.env.NEXT_PUBLIC_APP_URL);
+  }
+  
+  // Additional allowed origins from env
+  if (process.env.NEXT_PUBLIC_ALLOWED_ORIGINS) {
+    const additionalOrigins = process.env.NEXT_PUBLIC_ALLOWED_ORIGINS
+      .split(',')
+      .map(o => o.trim())
+      .filter(Boolean);
+    origins.push(...additionalOrigins);
+  }
+  
+  // Development fallback
+  if (isDevelopment) {
+    origins.push('http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000');
+  }
+  
+  return origins;
+};
+
+const ALLOWED_ORIGINS = getAllowedOrigins();
+
+/**
+ * Validate origin against whitelist
+ * Supports exact match and wildcard patterns (*.example.com)
+ */
+const isOriginAllowed = (origin: string): boolean => {
+  // Exact match
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return true;
+  }
+  
+  // Wildcard pattern match (e.g., *.vercel.app)
+  for (const allowedOrigin of ALLOWED_ORIGINS) {
+    if (allowedOrigin.startsWith('*.')) {
+      const domain = allowedOrigin.slice(2); // Remove '*.'
+      const originUrl = new URL(origin);
+      if (originUrl.hostname.endsWith(domain)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
+
 // Helper to get domain from request headers (for API routes)
 // RP ID must match the current domain - passkeys are domain-bound
 export const getDomainFromRequest = (request: Request): string => {
@@ -17,12 +80,29 @@ export const getDomainFromRequest = (request: Request): string => {
 // Helper to get origin from request headers (for API routes)
 export const getOriginFromRequest = (request: Request): string => {
   const origin = request.headers.get('origin');
-  if (origin) return origin;
   
-  // Fallback: construct from host header
-  const host = request.headers.get('host') || 'localhost:3000';
-  const protocol = isDevelopment ? 'http' : 'https';
-  return `${protocol}://${host}`;
+  // If no origin header, require default origin from config
+  if (!origin) {
+    const defaultOrigin = process.env.NEXT_PUBLIC_APP_URL;
+    if (!defaultOrigin) {
+      const error = '❌ SECURITY: Missing origin header and no NEXT_PUBLIC_APP_URL configured. WebAuthn requires explicit origin validation.';
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    console.warn('⚠️ Missing origin header, using default:', defaultOrigin);
+    return defaultOrigin;
+  }
+  
+  // Validate origin against whitelist
+  if (!isOriginAllowed(origin)) {
+    const error = `❌ SECURITY: Origin "${origin}" is not in allowed origins list. Configured origins: ${ALLOWED_ORIGINS.join(', ')}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  console.log('✅ Origin validated:', origin);
+  return origin;
 };
 
 // Helper to detect if request is from mobile device
