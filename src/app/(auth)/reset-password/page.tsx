@@ -267,7 +267,7 @@ export default function ResetPasswordPage() {
             {' '}
             <Link
               href={step === 'request' ? '/?mode=signin' : '/reset-password'}
-              className="font-semibold text-pastel-blue hover:text-pastel-blue/80 underline"
+              className="font-semibold text-blue-500 hover:text-blue-700 underline"
             >
               {step === 'request' ? 'Sign in' : 'Request new reset'}
             </Link>
