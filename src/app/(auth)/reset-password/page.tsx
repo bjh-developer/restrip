@@ -17,6 +17,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [step, setStep] = useState<'request' | 'reset'>('request');
+  const [redirectTimeoutId, setRedirectTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -41,24 +42,9 @@ export default function ResetPasswordPage() {
         throw new Error('Please enter a valid email address');
       }
 
-      // Check if user exists in the system
-      const checkResponse = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!checkResponse.ok) {
-        throw new Error('Failed to verify email');
-      }
-
-      const checkData = await checkResponse.json();
-      if (!checkData.exists) {
-        throw new Error('Account not found. Please create a new account.');
-      }
-
+      // Attempt to send reset email
+      // Note: We don't check if the account exists to prevent email enumeration attacks
+      // Supabase will silently handle non-existent emails
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password?next=reset`,
       });
@@ -67,6 +53,7 @@ export default function ResetPasswordPage() {
         throw resetError;
       }
 
+      // Show success regardless of whether email exists (security: prevent enumeration)
       setShowSuccess(true);
     } catch (err) {
       console.error('Password reset request error:', err);
@@ -106,12 +93,16 @@ export default function ResetPasswordPage() {
       if (updateError) {
         throw updateError;
       }
-      // Redirect to sign in page after successful password update
-      setTimeout(() => {
+      
+      // Show success immediately
+      setShowSuccess(true);
+      
+      // Schedule redirect after delay
+      const timeoutId = setTimeout(() => {
         router.push('/?mode=signin');
       }, 1500);
       
-      setShowSuccess(true);
+      setRedirectTimeoutId(timeoutId);
     } catch (err) {
       console.error('Password update error:', err);
       const message = err instanceof Error ? err.message : 'Failed to update password';
@@ -128,6 +119,15 @@ export default function ResetPasswordPage() {
       setStep('reset');
     }
   }, []);
+
+  // Cleanup timeout on component unmount
+  React.useEffect(() => {
+    return () => {
+      if (redirectTimeoutId) {
+        clearTimeout(redirectTimeoutId);
+      }
+    };
+  }, [redirectTimeoutId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-warm-beige to-white flex items-center justify-center px-4 py-8">
@@ -149,10 +149,10 @@ export default function ResetPasswordPage() {
         {showSuccess && step === 'request' && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-800 font-medium">
-              ✓ Reset link sent to {email}
+              ✓ Check your email
             </p>
             <p className="text-green-700 text-sm mt-1">
-              Check your email and click the link to continue.
+              If an account exists with this email address, a password reset link has been sent to your inbox.
             </p>
           </div>
         )}
@@ -179,14 +179,6 @@ export default function ResetPasswordPage() {
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 font-medium">Error</p>
             <p className="text-red-700 text-sm mt-1">{error}</p>
-            {error.includes('Account not found') && (
-              <Link 
-                href="/?mode=signup" 
-                className="inline-block mt-2 text-sm font-semibold text-red-700 hover:text-red-800 underline"
-              >
-                Create new account
-              </Link>
-            )}
           </div>
         )}
 

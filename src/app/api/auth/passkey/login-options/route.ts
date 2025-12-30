@@ -96,11 +96,13 @@ export async function POST(request: NextRequest) {
       allowCredentials: email ? allowCredentials : undefined,
     });
 
-    console.log(
-      "🔍 Generated options.allowCredentials:",
-      JSON.stringify(options.allowCredentials)
-    );
-    console.log("🔍 rpID:", rpID);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(
+        "🔍 Generated options.allowCredentials:",
+        JSON.stringify(options.allowCredentials)
+      );
+      console.log("🔍 rpID:", rpID);
+    }
 
     // Get credential salts for PRF extension
     // Client will use these per-credential salts during authentication

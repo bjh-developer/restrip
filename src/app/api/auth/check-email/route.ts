@@ -1,15 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
     const supabaseAdmin = createClient(
@@ -18,28 +15,25 @@ export async function POST(request: NextRequest) {
     );
 
     // Call the RPC function to check if user exists
-    const { data, error } = await supabaseAdmin.rpc('check_user_exists', {
+    const { data, error } = await supabaseAdmin.rpc("check_user_exists", {
       user_email: email,
     });
 
     if (error) {
-      console.error('Failed to search for user:', error);
+      console.error("Failed to search for user:", error);
       return NextResponse.json(
-        { error: 'Failed to verify email' },
+        { error: "Failed to verify email" },
         { status: 500 }
       );
     }
 
-    console.log('User search response:', {
-      email,
-      userExists: data,
-    });
+    console.log("User existence check completed:", { exists: data });
 
     return NextResponse.json({ exists: data });
   } catch (error) {
-    console.error('Check email error:', error);
+    console.error("Check email error:", error);
     return NextResponse.json(
-      { error: 'Failed to check email' },
+      { error: "Failed to check email" },
       { status: 500 }
     );
   }
