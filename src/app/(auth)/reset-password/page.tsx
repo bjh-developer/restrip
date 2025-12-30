@@ -45,9 +45,8 @@ export default function ResetPasswordPage() {
       // Attempt to send reset email
       // Note: We don't check if the account exists to prevent email enumeration attacks
       // Supabase will silently handle non-existent emails
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${appUrl}/reset-password?next=reset`,
+        redirectTo: `${window.location.origin}/reset-password?next=reset`,
       });
 
       if (resetError) {
