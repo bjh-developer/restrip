@@ -39,15 +39,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists with passkey
-    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-    const userExists = existingUser?.users?.find(
-      u => u.email?.toLowerCase() === email.toLowerCase()
-    );
+    // Check if user already exists using Admin REST API (efficient single lookup)
+    const adminApiUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!adminApiUrl || !serviceRoleKey) {
+      console.error('Missing Supabase configuration');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    const userSearchUrl = `${adminApiUrl}/auth/v1/admin/users?query=${encodeURIComponent(email)}`;
+    const userSearchResponse = await fetch(userSearchUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!userSearchResponse.ok) {
+      console.error('Failed to search for user:', {
+        status: userSearchResponse.status,
+        statusText: userSearchResponse.statusText,
+      });
+      return NextResponse.json(
+        { error: 'Failed to check user existence' },
+        { status: 500 }
+      );
+    }
+
+    const userSearchData = await userSearchResponse.json() as { users?: Array<{ id: string; email?: string }> };
+    const userExists = userSearchData?.users?.[0];
 
     // Get existing credentials for this user (to exclude during registration)
     let existingCredentials: { id: string; transports?: AuthenticatorTransport[] }[] = [];
-    if (userExists) {
+    if (userExists?.id) {
       const { data: credentials } = await supabaseAdmin
         .from('passkey_credentials')
         .select('credential_id, transports')

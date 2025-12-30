@@ -13,7 +13,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import { createClient } from '@supabase/supabase-js';
 import { rpConfig, getDomainFromRequest, getOriginFromRequest } from '../../../../../lib/webauthn/config';
-import { base64ToBase64Url } from '../../../../../lib/encryption';
 
 // Create Supabase admin client (bypasses RLS)
 const supabaseAdmin = createClient(
@@ -145,7 +144,7 @@ export async function POST(request: NextRequest) {
         backed_up: registrationInfo.credentialBackedUp,
         transports: credential.response.transports || [],
         aaguid: registrationInfo.aaguid,
-        device_name: deviceName || getDeviceName(credential.response.transports),
+        device_name: deviceName || getDeviceName(credential.response.transports, request.headers.get('user-agent') || undefined),
         last_used_at: new Date().toISOString(),
         salt,
       });
@@ -204,14 +203,15 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper to generate friendly device name from transports
-function getDeviceName(transports?: string[]): string {
+// userAgent: Optional user agent string from request headers (server-side only)
+function getDeviceName(transports?: string[], userAgent?: string): string {
   if (!transports || transports.length === 0) {
     return 'Unknown Device';
   }
   
   if (transports.includes('internal')) {
-    // Platform authenticator
-    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    // Platform authenticator - detect based on user agent
+    const ua = userAgent || '';
     if (ua.includes('iPhone') || ua.includes('iPad')) return 'iPhone/iPad';
     if (ua.includes('Mac')) return 'Mac';
     if (ua.includes('Windows')) return 'Windows PC';
