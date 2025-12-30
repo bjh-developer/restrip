@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { createClient } from '../../lib/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -256,6 +257,14 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
           />
           {mode === 'signup' && (
             <p className="mt-1 text-xs text-gray-500">At least 8 characters</p>
+          )}
+          {mode === 'signin' && (
+            <Link 
+              href="/reset-password" 
+              className="mt-2 inline-block text-xs text-blue-500 hover:text-blue-700 underline"
+            >
+              Forget password?
+            </Link>
           )}
         </div>
 

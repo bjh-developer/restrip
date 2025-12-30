@@ -94,7 +94,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Re-authenticate to Decrypt
+            Re-authenticate to Enter
           </h2>
           <p className="text-gray-600 text-sm">
             Your session is active but we need your passkey or password to
