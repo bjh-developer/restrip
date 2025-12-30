@@ -1,6 +1,7 @@
 "use client";
-import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import React from "react";
+import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -10,6 +11,9 @@ import { PeriodPicker } from "../../components/PeriodPicker";
 import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
 import ShinyText from "../../components/ShinyText";
+import { AuthGate } from "../../components/auth";
+import { useAuth } from "../../hooks/useAuth";
+import { encryptImage, encryptData, getEncryptionKey } from "../../lib/encryption";
 import {
   Announcement,
   AnnouncementTag,
@@ -33,18 +37,20 @@ import * as z from "zod";
 type PeriodOption = "surprise" | "custom period" | "custom date";
 type DeliveryMethod = "email" | "telegram";
 
-const UploadImage = ({
+const UploadImage = React.memo(({
   displayImage,
   onImageUpload,
   isLoading,
+  error,
 }: {
   displayImage?: string;
   onImageUpload?: (base64Image: string) => void;
   isLoading?: boolean;
+  error?: boolean;
 }) => {
   const [files, setFiles] = useState<File[] | undefined>();
   const [filePreview, setFilePreview] = useState<string | undefined>();
-  const handleDrop = (files: File[]) => {
+  const handleDrop = useCallback((files: File[]) => {
     console.log(files);
     setFiles(files);
     if (files.length > 0) {
@@ -58,7 +64,7 @@ const UploadImage = ({
       };
       reader.readAsDataURL(files[0]);
     }
-  };
+  }, [onImageUpload]);
   return (
     <Dropzone
       accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
@@ -66,6 +72,7 @@ const UploadImage = ({
       onError={console.error}
       src={files}
       multiple={false}
+      className={error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
     >
       <DropzoneEmptyState />
       <DropzoneContent>
@@ -91,7 +98,8 @@ const UploadImage = ({
       </DropzoneContent>
     </Dropzone>
   );
-};
+});
+UploadImage.displayName = "UploadImage";
 
 const AnnouncementBanner = () => (
   <Banner>
@@ -121,7 +129,7 @@ const AnnouncementPill = () => (
   </Announcement>
 );
 
-const AutoCropSwitch = ({
+const AutoCropSwitch = React.memo(({
   autoCropEnabled,
   onToggle,
   isProcessing,
@@ -156,7 +164,8 @@ const AutoCropSwitch = ({
       </p>
     </div>
   </div>
-);
+));
+AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function MainPage() {
   const [selectedPeriod, setSelectedPeriod] =
@@ -174,21 +183,37 @@ export default function MainPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<{
+    image?: string;
+    caption?: string;
+    period?: string;
+    deliveryAddress?: string;
+  }>({});
+  const { user, signOut, hasEncryptionKey } = useAuth();
+
+  // Refs for scrolling to error sections
+  const imageRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLDivElement>(null);
+  const periodRef = useRef<HTMLDivElement>(null);
+  const deliveryRef = useRef<HTMLDivElement>(null);
 
   // Handle image upload
-  const handleImageUpload = (base64Image: string) => {
+  const handleImageUpload = useCallback((base64Image: string) => {
     setOriginalImage(base64Image);
     // Reset cropped image when new image is uploaded
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
+    
+    // Clear validation errors when user uploads an image
+    setValidationErrors([]);
+    setFieldErrors(prev => ({ ...prev, image: undefined }));
 
     // Refresh ScrollTrigger after DOM changes from image upload
     setTimeout(() => {
       ScrollTrigger.refresh();
     }, 100);
-  };
+  }, []);
 
   // Upload image to API route for processing
   const processImageWithRunPod = async (
@@ -227,7 +252,7 @@ export default function MainPage() {
   };
 
   // Handle autocrop toggle
-  const handleAutoCropToggle = async (checked: boolean) => {
+  const handleAutoCropToggle = useCallback(async (checked: boolean) => {
     setAutoCropEnabled(checked);
 
     if (checked && originalImage) {
@@ -253,7 +278,7 @@ export default function MainPage() {
         setIsCropping(false);
       }
     }
-  };
+  }, [originalImage, croppedImage]);
 
   const handlePeriodSelect = useCallback((period: PeriodOption, date?: Date) => {
     // TODO: Refactor to include random time logic here, right now it's always 6pm
@@ -312,6 +337,10 @@ export default function MainPage() {
       } else if (period === "custom period") {
         setCustomPeriod(sendTime.toISOString());
       }
+      
+      // Clear validation errors when user selects a period
+      setValidationErrors([]);
+      setFieldErrors(prev => ({ ...prev, period: undefined }));
     } else if (period === "surprise") {
       // For surprise, generate a random date between 1-6 months from now
       const now = new Date();
@@ -322,6 +351,16 @@ export default function MainPage() {
       sendTime.setHours(18, 0, 0, 0);
 
       setScheduledSendTime(sendTime);
+      
+      // Clear validation errors when user selects surprise
+      setValidationErrors([]);
+      setFieldErrors(prev => ({ ...prev, period: undefined }));
+    } else {
+      // User selected custom period or custom date but didn't provide a date
+      // Clear the scheduled send time to force them to select
+      setScheduledSendTime(undefined);
+      setCustomDate(undefined);
+      setCustomPeriod(undefined);
     }
 
     // Single console log for all cases
@@ -332,29 +371,31 @@ export default function MainPage() {
     }
   }, []);
 
-  const handleDeliveryMethodSelect = (
+  const handleDeliveryMethodSelect = useCallback((
     method: DeliveryMethod,
     value?: string
   ) => {
     setDeliveryMethod(method);
     setDeliveryAddress(value || "");
-  };
+    
+    // Clear validation errors when user selects delivery method
+    setValidationErrors([]);
+    setFieldErrors(prev => ({ ...prev, deliveryAddress: undefined }));
+  }, []);
 
   const handleStartProcessing = async () => {
-    // Check if image is uploaded
-    if (!originalImage) {
-      setValidationErrors(["Please upload an image first"]);
-      return;
-    }
+    // Clear previous errors
+    setValidationErrors([]);
+    setFieldErrors({});
 
-    // Define validation schema
+    // Define validation schema (no password needed - using encryption key from auth)
     const SnapSchema = z
       .object({
+        Image: z.string().min(1, "Image is required"),
         Caption: z.string().min(1),
         sendTime: z.date(),
         deliveryMethod: z.enum(["email", "telegram"]),
         Delivery_Address: z.string().min(1),
-        Password: z.string().min(1),
       })
       .refine(
         (data) => {
@@ -375,20 +416,60 @@ export default function MainPage() {
 
     // Validate inputs
     const validationResult = SnapSchema.safeParse({
+      Image: originalImage || "",
       Caption: caption,
       sendTime: scheduledSendTime!,
       deliveryMethod: deliveryMethod,
       Delivery_Address: deliveryAddress,
-      Password: password,
     });
 
     if (!validationResult.success) {
-      console.error("Validation error:", validationResult.error);
-      const errorMessages = validationResult.error?.issues?.map((e) => {
-        const field = e.path.join(".");
-        return field ? `${field}: ${e.message}` : e.message;
-      }) || ["Validation failed. Please check your inputs."];
-      setValidationErrors(errorMessages);
+      // Validation failed - create user-friendly error messages
+      const errors: typeof fieldErrors = {};
+      
+      validationResult.error?.issues?.forEach((e) => {
+        const field = e.path[0];
+        // Map field errors to user-friendly messages
+        if (field === 'Image') {
+          errors.image = 'Please upload a photo before continuing';
+        }
+        if (field === 'Caption') {
+          errors.caption = 'Please add a caption for your photo';
+        }
+        if (field === 'sendTime') {
+          // Check if user selected custom period/date but didn't provide a date
+          if (selectedPeriod === 'custom period') {
+            errors.period = 'Please select a time period for delivery';
+          } else if (selectedPeriod === 'custom date') {
+            errors.period = 'Please select a specific date for delivery';
+          } else {
+            errors.period = 'Please select when to deliver your memory';
+          }
+        }
+        if (field === 'Delivery_Address') {
+          if (deliveryMethod === 'email') {
+            errors.deliveryAddress = 'Please enter a valid email address';
+          } else {
+            errors.deliveryAddress = 'Please enter a valid Telegram username (starting with @)';
+          }
+        }
+      });
+      
+      setFieldErrors(errors);
+      
+      // Scroll to first error after state update
+      setTimeout(() => {
+        if (errors.image && imageRef.current) {
+          imageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.caption && captionRef.current) {
+          captionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.period && periodRef.current) {
+          periodRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (errors.deliveryAddress && deliveryRef.current) {
+          deliveryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      
       return;
     }
 
@@ -397,13 +478,36 @@ export default function MainPage() {
     setIsProcessing(true);
     try {
       console.log("All inputs are valid. Proceeding with processing...");
-      // TODO: Implement processing logic
-      // - Upload image to Supabase
-      // - Save to database
-      // - Show success message
-      console.log("Processing with period:", selectedPeriod, customDate);
+      
+      // Get the encryption key from auth context
+      const encryptionKey = await getEncryptionKey();
+      if (!encryptionKey) {
+        throw new Error("Encryption key not available. Please sign in again to continue.");
+      }
+
+      // Determine which image to use (cropped if available, otherwise original)
+      const imageToUpload = (autoCropEnabled && croppedImage) ? croppedImage : originalImage;
+      
+      // Encrypt the image
+      console.log("🔐 Encrypting image...");
+      const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(imageToUpload!, encryptionKey);
+      console.log("✅ Image encrypted successfully");
+
+      // Encrypt the caption
+      console.log("🔐 Encrypting caption...");
+      const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(caption, encryptionKey);
+      console.log("✅ Caption encrypted successfully");
+
+      // TODO: Upload encrypted data to Supabase
+      // - Upload encryptedImage to Supabase Storage
+      // - Save snap record with: encryptedCaption, captionIv, imageIv, deliveryMethod, deliveryAddress, scheduledSendTime
+      console.log("Processing with period:", selectedPeriod);
+      console.log("Scheduled send time:", scheduledSendTime?.toISOString(), `(${scheduledSendTime?.toLocaleString()})`);
+      console.log("📦 Encrypted payload ready for upload");
     } catch (error) {
       console.error("Processing failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "Processing failed";
+      setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
     }
@@ -413,6 +517,20 @@ export default function MainPage() {
     // Generate surprise date on mount since it's the default selection
     handlePeriodSelect("surprise");
   }, []);
+
+  useEffect(() => {
+    // Clear validation errors and reset form state when user changes
+    // This prevents errors from previous account from persisting
+    setValidationErrors([]);
+    setFieldErrors({});
+    
+    // Refresh ScrollTrigger when user auth state changes
+    // This ensures scroll animations work properly after auth transition
+    // Works for both login and logout transitions
+    setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 100);
+  }, [user, hasEncryptionKey]);
 
   useEffect(() => {
     // Load UserJot SDK
@@ -457,94 +575,133 @@ export default function MainPage() {
           <AnnouncementPill />
         </div>
 
-        {/* Upload Card */}
-        <div className="max-w-2xl mx-auto">
-          <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
-            {/* Upload Area */}
-            <h3 className="font-display text-xl font-bold text-soft-black mb-1">
-              1. take photo/upload your photo strip
-            </h3>
-            <div className="mt-6 flex gap-4 justify center">
-              <UploadImage
-                displayImage={
-                  autoCropEnabled && croppedImage ? croppedImage : undefined
-                }
-                onImageUpload={handleImageUpload}
-                isLoading={isCropping}
-              />
-            </div>
-            <AutoCropSwitch
-              autoCropEnabled={autoCropEnabled}
-              onToggle={handleAutoCropToggle}
-              isProcessing={isCropping}
-              imageUploaded={!!originalImage || !!croppedImage}
-            />
+        {/* Auth Gate - Shows upload form only when authenticated */}
+        <AuthGate>
 
-            {/* Journal Caption */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              2. write a caption
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <Textarea 
-                placeholder="Type caption here for your photo strip." 
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-              />
+          {/* User info bar */}
+          {user && (
+            <div className="max-w-2xl mx-auto mb-4">
+              <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 shadow-sm">
+                <span className="text-sm text-gray-600">
+                  Signed in as <span className="font-medium">{user.email}</span>
+                </span>
+                <button
+                  onClick={signOut}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition"
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </button>
+              </div>
             </div>
+          )}
 
-            {/* Period Picker */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              3. deliver random email in/on
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <PeriodPicker onSelect={handlePeriodSelect} />
+          {/* Upload Card */}
+          <div className="max-w-2xl mx-auto">
+            <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
+              {/* Upload Area */}
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mb-1">
+                  1. take photo/upload your photo strip
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
+                <UploadImage
+                  displayImage={
+                    autoCropEnabled && croppedImage ? croppedImage : undefined
+                  }
+                  onImageUpload={handleImageUpload}
+                  isLoading={isCropping}
+                  error={!!fieldErrors.image}
+                />
+              </div>
+              {fieldErrors.image && (
+                <div className="mt-2 mb-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm">{fieldErrors.image}</p>
+                </div>
+              )}
+              <AutoCropSwitch
+                autoCropEnabled={autoCropEnabled}
+                onToggle={handleAutoCropToggle}
+                isProcessing={isCropping}
+                imageUploaded={!!originalImage || !!croppedImage}
+              />
+
+              {/* Journal Caption */}
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                  2. write a caption
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
+                <Textarea 
+                  placeholder="Type caption here for your photo strip." 
+                  value={caption}
+                  onChange={(e) => {
+                    setCaption(e.target.value);
+                    // Clear validation errors when user starts typing
+                    if (validationErrors.length > 0) {
+                      setValidationErrors([]);
+                    }
+                    setFieldErrors(prev => ({ ...prev, caption: undefined }));
+                  }}
+                  className={fieldErrors.caption ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
+                />
+              </div>
+              {fieldErrors.caption && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-700 text-sm">{fieldErrors.caption}</p>
+                </div>
+              )}
+
+              {/* Period Picker */}
+              <div>
+                <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                  3. deliver random email in/on
+                </h3>
+              </div>
+              <div className="mt-6 flex gap-4 justify-center" ref={periodRef}>
+                <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
+            {fieldErrors.period && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700 text-sm">{fieldErrors.period}</p>
+              </div>
+            )}
 
             {/* Delivery Method */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              4. where to send your memory
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
+            <div>
+              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+                4. where to send your memory
+              </h3>
+            </div>
+            <div className="mt-6 flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             </div>
-
-            {/* Password Field */}
-            <h3 className="font-display text-xl font-bold text-soft-black mt-6">
-              5. create password
-            </h3>
-            <div className="mt-6 flex gap-4 justify-center">
-              <Input
-                type="password"
-                placeholder="Remember your password to unlock your memory in the future!"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            {fieldErrors.deliveryAddress && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-700 text-sm">{fieldErrors.deliveryAddress}</p>
+              </div>
+            )}
 
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <CircleAlert className="size-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-red-800 mb-2">Please fix the following errors:</h4>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
-                      {validationErrors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+                {validationErrors.map((error, index) => (
+                  <p key={index} className="text-red-700 text-sm">
+                    {error}
+                  </p>
+                ))}
               </div>
             )}
 
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing}
+              disabled={isProcessing || !hasEncryptionKey}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? "Delivering..." : "Deliver to the Future!"}
+              {isProcessing ? "Encrypting & Delivering..." : "Deliver to the Future!"}
             </button>
 
             {/* Buy Me a Coffee Button */}
@@ -565,6 +722,7 @@ export default function MainPage() {
             </div>
           </div>
         </div>
+        </AuthGate>
 
         {/* About Section */}
         <div className="max-w-2xl mx-auto mt-6">

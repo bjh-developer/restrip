@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Choicebox,
@@ -9,6 +9,7 @@ import {
   ChoiceboxItemIndicator,
   ChoiceboxItemTitle,
 } from "../components/ui/shadcn-io/choicebox";
+import { useAuth } from "@/src/hooks/useAuth";
 
 type DeliveryMethod = "email" | "telegram";
 
@@ -16,9 +17,12 @@ interface DeliveryMethodPickerProps {
   onSelect: (method: DeliveryMethod, value?: string) => void;
 }
 
-export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
+export const DeliveryMethodPicker = React.memo(({ onSelect }: DeliveryMethodPickerProps) => {
   const [selected, setSelected] = useState<DeliveryMethod>("email");
   const [inputValue, setInputValue] = useState<string>("");
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  const { user } = useAuth();
 
   const methods: Array<{
     id: DeliveryMethod;
@@ -37,16 +41,28 @@ export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
     },
   ];
 
-  const handleMethodSelect = (method: DeliveryMethod) => {
+  const handleMethodSelect = useCallback((method: DeliveryMethod) => {
     setSelected(method);
-    setInputValue("");
-    onSelect(method, "");
-  };
+    if (method === "email") {
+      onSelect(method, user?.email || "");
+    } else {
+      setInputValue("");
+      onSelect(method, "");
+    }
+  }, [onSelect, user?.email]);
 
-  const handleInputChange = (value: string) => {
+  const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
     onSelect(selected, value);
-  };
+  }, [onSelect, selected]);
+
+  // Initialize email only once when user is available
+  useEffect(() => {
+    if (!hasInitialized && selected === "email" && user?.email) {
+      setHasInitialized(true);
+      onSelect("email", user.email);
+    }
+  }, [user?.email, selected, onSelect, hasInitialized]);
 
   return (
     <div className="space-y-4 w-full">
@@ -74,17 +90,15 @@ export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
       {/* Input Field */}
       <div className="mt-4">
         {selected === "email" && (
-          <Input
-            type="email"
-            placeholder="Enter your email address"
-            value={inputValue}
-            onChange={(e) => handleInputChange(e.target.value)}
-          />
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <p className="text-sm text-gray-600">Sending surprise to:</p>
+            <p className="font-medium text-gray-900">{user?.email}</p>
+          </div>
         )}
         {selected === "telegram" && (
           <Input
             type="text"
-            placeholder="Enter your Telegram handle (e.g., @username)"
+            placeholder="Enter your Telegram handle (e.g. @username)"
             value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
           />
@@ -92,4 +106,5 @@ export function DeliveryMethodPicker({ onSelect }: DeliveryMethodPickerProps) {
       </div>
     </div>
   );
-}
+});
+DeliveryMethodPicker.displayName = "DeliveryMethodPicker";
