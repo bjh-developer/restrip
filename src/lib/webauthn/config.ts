@@ -7,6 +7,73 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
+ * Allowed RP domains for WebAuthn operations
+ * ⚠️ SECURITY: RP ID determines which domains can use the passkey
+ * Only add trusted domains that will actually use this RP ID
+ * 
+ * Environment variables:
+ * - NEXT_PUBLIC_APP_URL: Primary production domain (extracted from URL)
+ * - NEXT_PUBLIC_ALLOWED_RP_DOMAINS: Comma-separated list of additional allowed domains
+ * 
+ * Examples:
+ * - example.com (will match example.com and *.example.com)
+ * - sub.example.com (matches only this subdomain)
+ */
+const getAllowedRPDomains = (): string[] => {
+  const domains: string[] = [];
+  
+  // Extract domain from production URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    try {
+      const url = new URL(process.env.NEXT_PUBLIC_APP_URL);
+      domains.push(url.hostname.toLowerCase());
+    } catch (error) {
+      console.error('Invalid NEXT_PUBLIC_APP_URL:', error);
+    }
+  }
+  
+  // Additional allowed domains from env
+  if (process.env.NEXT_PUBLIC_ALLOWED_RP_DOMAINS) {
+    const additionalDomains = process.env.NEXT_PUBLIC_ALLOWED_RP_DOMAINS
+      .split(',')
+      .map(d => d.trim().toLowerCase())
+      .filter(Boolean);
+    domains.push(...additionalDomains);
+  }
+  
+  // Development fallback
+  if (isDevelopment) {
+    domains.push('localhost', '127.0.0.1');
+  }
+  
+  return domains;
+};
+
+const ALLOWED_RP_DOMAINS = getAllowedRPDomains();
+
+/**
+ * Validate domain against allowlist
+ * Supports exact match and parent domain match (e.g., sub.example.com matches example.com)
+ */
+const isRPDomainAllowed = (domain: string): boolean => {
+  const normalizedDomain = domain.toLowerCase();
+  
+  // Exact match
+  if (ALLOWED_RP_DOMAINS.includes(normalizedDomain)) {
+    return true;
+  }
+  
+  // Parent domain match (e.g., sub.example.com matches example.com)
+  for (const allowedDomain of ALLOWED_RP_DOMAINS) {
+    if (normalizedDomain === allowedDomain || normalizedDomain.endsWith(`.${allowedDomain}`)) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+/**
  * Allowed origins for WebAuthn operations
  * ⚠️ SECURITY: Only add trusted origins to this list
  * 
@@ -71,10 +138,39 @@ const isOriginAllowed = (origin: string): boolean => {
 
 // Helper to get domain from request headers (for API routes)
 // RP ID must match the current domain - passkeys are domain-bound
+// ⚠️ SECURITY: Validates host header against allowlist to prevent spoofing
 export const getDomainFromRequest = (request: Request): string => {
-  const host = request.headers.get('host') || 'localhost';
-  // Remove port if present (localhost:3000 -> localhost)
-  return host.split(':')[0];
+  const hostHeader = request.headers.get('host');
+  
+  // If no host header, use safe default
+  if (!hostHeader) {
+    if (isDevelopment) {
+      return 'localhost';
+    }
+    
+    const defaultDomain = ALLOWED_RP_DOMAINS[0];
+    if (!defaultDomain) {
+      const error = '❌ SECURITY: Missing host header and no allowed RP domains configured.';
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    console.warn('⚠️ Missing host header, using default domain:', defaultDomain);
+    return defaultDomain;
+  }
+  
+  // Parse and normalize host (strip port, lowercase)
+  const domain = hostHeader.split(':')[0].toLowerCase();
+  
+  // Validate against allowlist
+  if (!isRPDomainAllowed(domain)) {
+    const error = `❌ SECURITY: Host header "${domain}" is not in allowed RP domains. Configured domains: ${ALLOWED_RP_DOMAINS.join(', ')}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  console.log('✅ RP domain validated:', domain);
+  return domain;
 };
 
 // Helper to get origin from request headers (for API routes)
