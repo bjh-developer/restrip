@@ -1,11 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { PasskeyAuth } from "./PasskeyAuth";
 import { EmailPasswordAuth } from "./EmailPasswordAuth";
 import { usePasskeySupport } from "../../hooks/usePasskeySupport";
 import { useAuth } from "../../hooks/useAuth";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+// Register ScrollTrigger plugin
+try {
+  gsap.registerPlugin(ScrollTrigger);
+} catch {
+  // Plugin already registered or registration failed, safe to ignore
+}
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -51,7 +59,16 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     if (user && hasEncryptionKey) {
       // Give the DOM a moment to update with the new content
       setTimeout(() => {
-        ScrollTrigger.refresh();
+        try {
+          // Guard: Ensure ScrollTrigger is available and has refresh method
+          if (ScrollTrigger && typeof ScrollTrigger.refresh === 'function') {
+            ScrollTrigger.refresh();
+          }
+        } catch (error) {
+          // Silently fail if ScrollTrigger is not available or refresh fails
+          // This is non-critical for authentication functionality
+          console.debug('ScrollTrigger.refresh() failed:', error);
+        }
       }, 100);
     }
   }, [user, hasEncryptionKey]);

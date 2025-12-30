@@ -23,11 +23,11 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { response: credential, email } = await request.json();
+    const { response: credential, email, salt } = await request.json();
 
-    if (!credential) {
+    if (!credential || !salt) {
       return NextResponse.json(
-        { error: 'Credential is required' },
+        { error: 'Credential and salt are required' },
         { status: 400 }
       );
     }
@@ -44,6 +44,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Passkey not found. It may have been deleted.' },
         { status: 404 }
+      );
+    }
+
+    // Validate salt matches stored credential salt (per-credential isolation)
+    if (storedCredential.salt !== salt) {
+      console.error('Salt mismatch for credential:', {
+        credentialId: credential.id,
+        storedSalt: storedCredential.salt ? '***present***' : 'missing',
+        providedSalt: salt ? '***present***' : 'missing',
+      });
+      return NextResponse.json(
+        { error: 'Authentication failed: Invalid credential state' },
+        { status: 400 }
       );
     }
 
@@ -153,19 +166,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean up the challenge
-    await supabaseAdmin
+    const { error: deleteError } = await supabaseAdmin
       .from('webauthn_challenges')
       .delete()
       .eq('id', challengeData.id);
 
+    if (deleteError) {
+      console.error('Failed to delete challenge:', {
+        challengeId: challengeData.id,
+        operation: 'delete_challenge',
+        error: deleteError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to complete authentication session' },
+        { status: 500 }
+      );
+    }
+
     // Update credential counter and last_used_at
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('passkey_credentials')
       .update({
         counter: verification.authenticationInfo.newCounter,
         last_used_at: new Date().toISOString(),
       })
       .eq('id', storedCredential.id);
+
+    if (updateError) {
+      console.error('Failed to update credential counter:', {
+        credentialId: storedCredential.id,
+        operation: 'update_counter',
+        error: updateError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to complete authentication session' },
+        { status: 500 }
+      );
+    }
 
     // Generate a session using magic link
     const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
@@ -184,9 +221,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract the token from the action link
-    const actionLink = sessionData.properties?.action_link;
-    const token = actionLink ? new URL(actionLink).searchParams.get('token') : null;
+    // Use the hashed token from the session data
+    const token = sessionData?.properties?.hashed_token;
 
     return NextResponse.json({
       success: true,
@@ -195,7 +231,6 @@ export async function POST(request: NextRequest) {
       credentialId: credential.id,
       // Return the token for automatic sign-in
       token,
-      actionLink,
       // Include PRF result info
       prfEnabled: credential.clientExtensionResults?.prf !== undefined,
     });

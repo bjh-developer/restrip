@@ -115,19 +115,43 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         throw new Error(errorData.error || 'Failed to get registration options');
       }
 
-      const { options } = await optionsRes.json() as { options: PublicKeyCredentialCreationOptionsJSON };
+      const { options, salt } = await optionsRes.json() as { 
+        options: PublicKeyCredentialCreationOptionsJSON;
+        salt: string;
+      };
+      
+      if (!salt) {
+        throw new Error('Server did not provide credential salt');
+      }
+
+      // Convert salt from base64 to Uint8Array for PRF extension
+      const saltBytes = new Uint8Array(Buffer.from(salt, 'base64'));
+      
+      // Update PRF extension with the server-generated salt
+      const optionsWithSalt = {
+        ...options,
+        extensions: {
+          ...options.extensions,
+          prf: {
+            eval: {
+              first: saltBytes,
+            },
+          },
+        },
+      } as PublicKeyCredentialCreationOptionsJSON;
       
       // Start WebAuthn registration (user interaction)
-      console.log('🔐 Starting passkey registration...');
-      const registrationResponse = await startRegistration({ optionsJSON: options });
+      console.log('🔐 Starting passkey registration with per-credential salt...');
+      const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
       
-      // Verify registration with server
+      // Verify registration with server, passing the salt
       const verifyRes = await fetch('/api/auth/passkey/register-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
           response: registrationResponse,
+          salt,
         }),
       });
 
@@ -142,28 +166,20 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // Sign in to Supabase using the magic link token
       if (verifyData.token) {
         const supabase = createClient();
-        const { error: signInError } = await supabase.auth.verifyOtp({
+        const { data: sessionData, error: signInError } = await supabase.auth.verifyOtp({
           token_hash: verifyData.token,
           type: 'magiclink',
         });
         
-        if (signInError) {
-          console.error('Failed to sign in with token:', signInError);
-          // Try alternate approach - use the action link directly
-          if (verifyData.actionLink) {
-            const url = new URL(verifyData.actionLink);
-            const accessToken = url.hash.match(/access_token=([^&]+)/)?.[1];
-            const refreshToken = url.hash.match(/refresh_token=([^&]+)/)?.[1];
-            
-            if (accessToken && refreshToken) {
-              await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-            }
-          }
+        if (signInError || !sessionData.session) {
+          console.error('Failed to verify magic link token:', signInError);
+          throw new Error('Failed to create session. Please try registering again.');
         }
+        
         console.log('✅ Supabase session created after registration');
+      } else {
+        console.warn('⚠️ No token received from registration verification');
+        throw new Error('Registration successful but session creation failed. Please sign in manually.');
       }
 
       // After registration, immediately authenticate to get PRF output for encryption key
@@ -201,30 +217,46 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         throw new Error(errorData.error || 'Failed to get login options');
       }
 
-      const { options } = await optionsRes.json() as { options: PublicKeyCredentialRequestOptionsJSON & { extensions?: { prf?: { eval?: { first?: string } } } } };
+      const { options, credentialSalts } = await optionsRes.json() as { 
+        options: PublicKeyCredentialRequestOptionsJSON;
+        credentialSalts: Record<string, string>;
+      };
       
-      // Convert PRF salt from base64url to Uint8Array for the WebAuthn API
-      // The browser expects ArrayBuffer/Uint8Array, not base64url strings
-      let optionsForWebAuthn = options;
-      if (options.extensions?.prf?.eval?.first) {
-        const prfSaltBase64url = options.extensions.prf.eval.first;
-        const prfSaltBytes = base64urlToUint8Array(prfSaltBase64url);
-        optionsForWebAuthn = {
-          ...options,
-          extensions: {
-            ...options.extensions,
-            prf: {
-              eval: {
-                first: prfSaltBytes,
-              },
-            },
-          },
-        } as PublicKeyCredentialRequestOptionsJSON;
+      if (!credentialSalts || Object.keys(credentialSalts).length === 0) {
+        throw new Error('Server did not provide credential salts');
       }
 
+      // Convert credential salts from base64 to Uint8Array
+      // For now, we'll use the first available salt (in a multi-credential scenario,
+      // we'd need to know which credential was used, but browser autofill handles this)
+      const credentialIds = Object.keys(credentialSalts);
+      const firstSaltBase64 = credentialSalts[credentialIds[0]];
+      const saltBytes = new Uint8Array(Buffer.from(firstSaltBase64, 'base64'));
+      
+      // Update PRF extension with the per-credential salt
+      const optionsWithSalt = {
+        ...options,
+        extensions: {
+          ...options.extensions,
+          prf: {
+            eval: {
+              first: saltBytes,
+            },
+          },
+        },
+      } as PublicKeyCredentialRequestOptionsJSON;
+
       // Start WebAuthn authentication (user interaction)
-      console.log('🔐 Starting passkey authentication...');
-      const authResponse = await startAuthentication({ optionsJSON: optionsForWebAuthn });
+      console.log('🔐 Starting passkey authentication with per-credential salt...');
+      const authResponse = await startAuthentication({ optionsJSON: optionsWithSalt });
+      
+      // Determine which credential was used
+      const usedCredentialId = authResponse.id;
+      const usedSalt = credentialSalts[usedCredentialId];
+      
+      if (!usedSalt) {
+        throw new Error('No salt found for authenticated credential');
+      }
       
       // Check for PRF output in the response
       let prfOutput: ArrayBuffer | null = null;
@@ -237,13 +269,14 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         console.log('✅ PRF output received for encryption key');
       }
 
-      // Verify authentication with server
+      // Verify authentication with server, passing the salt for the used credential
       const verifyRes = await fetch('/api/auth/passkey/login-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
           response: authResponse,
+          salt: usedSalt,
         }),
       });
 
@@ -271,29 +304,20 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // Sign in to Supabase using the magic link token
       if (verifyData.token) {
         const supabase = createClient();
-        const { error: signInError } = await supabase.auth.verifyOtp({
+        const { data: sessionData, error: signInError } = await supabase.auth.verifyOtp({
           token_hash: verifyData.token,
           type: 'magiclink',
         });
         
-        if (signInError) {
-          console.error('Failed to sign in with token:', signInError);
-          // Try alternate approach - use the action link directly
-          if (verifyData.actionLink) {
-            // Extract tokens from action link
-            const url = new URL(verifyData.actionLink);
-            const accessToken = url.hash.match(/access_token=([^&]+)/)?.[1];
-            const refreshToken = url.hash.match(/refresh_token=([^&]+)/)?.[1];
-            
-            if (accessToken && refreshToken) {
-              await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-            }
-          }
+        if (signInError || !sessionData.session) {
+          console.error('Failed to verify magic link token:', signInError);
+          throw new Error('Failed to create session. Please try signing in again.');
         }
+        
         console.log('✅ Supabase session created');
+      } else {
+        console.warn('⚠️ No token received from login verification');
+        throw new Error('Login verification failed. Please try again.');
       }
 
       setStep('success');

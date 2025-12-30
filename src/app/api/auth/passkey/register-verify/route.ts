@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRegistrationResponse } from '@simplewebauthn/server';
 import { createClient } from '@supabase/supabase-js';
-import { rpConfig, getDomainFromRequest, getOriginFromRequest, prfSalt } from '../../../../../lib/webauthn/config';
+import { rpConfig, getDomainFromRequest, getOriginFromRequest } from '../../../../../lib/webauthn/config';
 import { base64ToBase64Url } from '../../../../../lib/encryption';
 
 // Create Supabase admin client (bypasses RLS)
@@ -23,11 +23,11 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, response: credential, deviceName } = await request.json();
+    const { email, response: credential, deviceName, salt } = await request.json();
 
-    if (!email || !credential) {
+    if (!email || !credential || !salt) {
       return NextResponse.json(
-        { error: 'Email and credential response are required' },
+        { error: 'Email, credential response, and salt are required' },
         { status: 400 }
       );
     }
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     console.log('🔐 Storing credential ID:', credentialId);
     console.log('🔐 Original response.id:', credential.id);
 
-    // Store the credential
+    // Store the credential with the per-credential salt
     const { error: credentialError } = await supabaseAdmin
       .from('passkey_credentials')
       .insert({
@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
         aaguid: registrationInfo.aaguid,
         device_name: deviceName || getDeviceName(credential.response.transports),
         last_used_at: new Date().toISOString(),
+        salt,
       });
 
     if (credentialError) {
@@ -168,9 +169,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Extract the token from the action link
-    const actionLink = sessionData?.properties?.action_link;
-    const token = actionLink ? new URL(actionLink).searchParams.get('token') : null;
+    // Use the hashed token from the session data
+    const token = sessionData?.properties?.hashed_token;
 
     if (sessionError) {
       console.error('Failed to create session:', sessionError);
@@ -191,7 +191,6 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       credentialId,
       token,
-      actionLink,
       // Include PRF support info so client knows to generate MEK
       prfEnabled: credential.clientExtensionResults?.prf !== undefined,
     });

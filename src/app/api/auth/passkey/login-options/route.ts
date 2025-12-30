@@ -47,10 +47,10 @@ export async function POST(request: NextRequest) {
 
       userId = user.id;
 
-      // Get user's credentials
+      // Get user's credentials with their per-credential salts
       const { data: credentials, error: credError } = await supabaseAdmin
         .from('passkey_credentials')
-        .select('credential_id, transports')
+        .select('credential_id, transports, salt')
         .eq('user_id', user.id);
 
       console.log('🔍 Credentials lookup for user:', user.id);
@@ -88,16 +88,33 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Generated options.allowCredentials:', JSON.stringify(options.allowCredentials));
     console.log('🔍 rpID:', rpID);
 
-    // Add PRF extension manually after generation
-    // The salt needs to be base64url-encoded for the client to use
-    const prfSalt = Buffer.from('restrip-encryption-key-v1').toString('base64url');
+    // Get credential salts for PRF extension
+    // Client will use these per-credential salts during authentication
+    const credentialSalts: Record<string, string> = {};
+    if (email) {
+      const { data: credentials } = await supabaseAdmin
+        .from('passkey_credentials')
+        .select('credential_id, salt')
+        .eq('user_id', userId);
+      
+      if (credentials) {
+        for (const cred of credentials) {
+          if (cred.salt) {
+            credentialSalts[cred.credential_id] = cred.salt;
+          }
+        }
+      }
+    }
+
+    // For now, we include PRF extension without a specific salt
+    // The client will use the per-credential salts retrieved separately
     const optionsWithPRF = {
       ...options,
       extensions: {
         ...options.extensions,
         prf: {
           eval: {
-            first: prfSalt,
+            first: Buffer.from(''), // Will be filled in by client with per-credential salt
           },
         },
       },
@@ -133,7 +150,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ options: optionsWithPRF });
+    return NextResponse.json({ 
+      options: optionsWithPRF,
+      credentialSalts,
+    });
   } catch (error) {
     console.error('Login options error:', error);
     return NextResponse.json(

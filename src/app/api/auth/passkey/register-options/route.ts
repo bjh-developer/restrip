@@ -18,7 +18,8 @@ import {
   isMobileDevice,
   supportedAlgorithmIDs,
   timeout,
-  challengeExpiration
+  challengeExpiration,
+  generateRandomSalt
 } from '../../../../../lib/webauthn/config';
 
 // Create Supabase admin client (bypasses RLS)
@@ -45,15 +46,16 @@ export async function POST(request: NextRequest) {
     );
 
     // Get existing credentials for this user (to exclude during registration)
-    let existingCredentials: { id: string }[] = [];
+    let existingCredentials: { id: string; transports?: AuthenticatorTransport[] }[] = [];
     if (userExists) {
       const { data: credentials } = await supabaseAdmin
         .from('passkey_credentials')
-        .select('credential_id')
+        .select('credential_id, transports')
         .eq('user_id', userExists.id);
       
       existingCredentials = credentials?.map(c => ({
         id: c.credential_id,
+        transports: c.transports as AuthenticatorTransport[] | undefined,
       })) || [];
     }
 
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
       // Don't allow re-registration of existing credentials
       excludeCredentials: existingCredentials.map(cred => ({
         id: cred.id,
-        transports: ['internal', 'hybrid'] as AuthenticatorTransport[],
+        transports: cred.transports ?? (['internal', 'hybrid'] as AuthenticatorTransport[]),
       })),
       authenticatorSelection,
       supportedAlgorithmIDs,
@@ -84,12 +86,22 @@ export async function POST(request: NextRequest) {
       attestationType: 'none', // We don't need attestation for our use case
     });
 
+    // Generate a cryptographically random salt for this credential
+    // This salt will be used by the authenticator during registration
+    // and stored with the credential for use during authentication
+    const credentialSalt = generateRandomSalt();
+    
     // Add PRF extension for zero-knowledge encryption
+    // Each credential gets a unique salt for per-credential isolation
     const optionsWithPRF = {
       ...options,
       extensions: {
         ...options.extensions,
-        prf: {},
+        prf: {
+          eval: {
+            first: Buffer.from(credentialSalt, 'base64'),
+          },
+        },
       },
     };
 
@@ -124,6 +136,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       options: optionsWithPRF,
       userExists: !!userExists,
+      // Return the salt so client can store it and use it during credential verification
+      salt: credentialSalt,
     });
   } catch (error) {
     console.error('Registration options error:', error);

@@ -231,10 +231,13 @@ export const getAuthenticatorSelection = (isMobile: boolean) => ({
   requireResidentKey: true,
 });
 
-// Supported algorithms (in order of preference)
-// -7 = ES256 (ECDSA with P-256 and SHA-256) - Most common
-// -257 = RS256 (RSASSA-PKCS1-v1_5 with SHA-256) - Fallback
-export const supportedAlgorithmIDs = [-7, -257];
+// Supported algorithms (in order of preference, per RFC 9864)
+// -19 = Ed25519 (EdDSA) - Preferred, most secure modern algorithm
+// -9 = ECDSA 256/64 (P-256 variant) - Secondary choice
+// -7 = ES256 (ECDSA with P-256 and SHA-256) - Legacy support
+// -8 = EdDSA - Additional EdDSA support
+// ⚠️ RS256 (-257) is deprecated and removed; should not be used in new deployments
+export const supportedAlgorithmIDs = [-19, -9, -7, -8];
 
 // Timeout for WebAuthn operations (in milliseconds)
 export const timeout = 60000; // 60 seconds
@@ -242,9 +245,58 @@ export const timeout = 60000; // 60 seconds
 // Challenge expiration (in milliseconds)
 export const challengeExpiration = 5 * 60 * 1000; // 5 minutes
 
-// PRF (Pseudo-Random Function) extension for key derivation
-// This is what makes zero-knowledge encryption possible
-export const prfSalt = new TextEncoder().encode('restrip-encryption-key-v1');
+/**
+ * PRF (Pseudo-Random Function) salt generation
+ * 
+ * ⚠️ SECURITY CRITICAL: Per-credential salts required by WebAuthn spec
+ * 
+ * Each credential MUST have a unique cryptographically random salt:
+ * - Random: Generated via crypto.getRandomValues() (not static strings)
+ * - Per-credential: Different for each registered passkey
+ * - Persistent: Stored with credential metadata in database
+ * - Non-reusable: Salt cannot be shared across users or credentials
+ * 
+ * The salt is sent during registration/login WebAuthn ceremonies and the
+ * authenticator uses it to derive the PRF output. This ensures each credential
+ * produces different encryption keys, providing per-credential isolation.
+ */
+
+/**
+ * Generate a cryptographically random 32-byte salt for a new credential
+ * Returns base64-encoded string for database storage
+ * 
+ * Should be called once per credential during registration
+ * Never reuse the same salt across multiple credentials or users
+ */
+export const generateRandomSalt = (): string => {
+  const saltBytes = new Uint8Array(32);
+  
+  // Use crypto.getRandomValues() for cryptographically secure randomness
+  if (typeof window !== 'undefined' && window.crypto) {
+    // Browser environment
+    window.crypto.getRandomValues(saltBytes);
+  } else if (typeof global !== 'undefined' && global.crypto) {
+    // Node.js environment (with webcrypto API)
+    global.crypto.getRandomValues(saltBytes);
+  } else {
+    // Fallback (should not happen in modern Node.js/browsers)
+    const { randomBytes } = require('crypto');
+    const buffer = randomBytes(32);
+    saltBytes.set(new Uint8Array(buffer));
+  }
+  
+  // Encode to base64 for database storage
+  return Buffer.from(saltBytes).toString('base64');
+};
+
+/**
+ * Decode a base64-encoded salt back to bytes for use in PRF extension
+ * @param saltBase64 Base64-encoded salt from database
+ * @returns Uint8Array for use in WebAuthn PRF extension
+ */
+export const decodeSalt = (saltBase64: string): Uint8Array => {
+  return new Uint8Array(Buffer.from(saltBase64, 'base64'));
+};
 
 // Type for credential transport
 export type CredentialTransport = 'internal' | 'hybrid' | 'usb' | 'ble' | 'nfc';
