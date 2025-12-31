@@ -28,6 +28,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
   const [showEmailVerificationMessage, setShowEmailVerificationMessage] = useState(false);
+  const [isPasskeyRegistration, setIsPasskeyRegistration] = useState(false);
 
   // Check if user came from email verification link
   useEffect(() => {
@@ -53,6 +54,27 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     
     checkEmailVerification();
   }, [user]);
+
+  // Check for passkey registration hash
+  useEffect(() => {
+    const checkPasskeyRegistration = () => {
+      setIsPasskeyRegistration(window.location.hash === '#passkey-registration');
+    };
+
+    // Check initially
+    checkPasskeyRegistration();
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      checkPasskeyRegistration();
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
 
   // Refresh ScrollTrigger when authentication state changes
   useEffect(() => {
@@ -84,12 +106,24 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 
   // User is authenticated with encryption key
   if (user && hasEncryptionKey) {
+    console.log('AuthGate: User authenticated with encryption key, showing main app');
     return <>{children}</>;
   }
 
   // User is authenticated but missing encryption key
   // Check if they just verified their email - if so, show the normal auth flow with a message
   if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
+    // Check if user is in passkey registration flow
+    if (isPasskeyRegistration) {
+      console.log('AuthGate: User in passkey registration flow, showing passkey auth');
+      return (
+        <div className="w-full max-w-md mx-auto p-6">
+          <PasskeyAuth />
+        </div>
+      );
+    }
+    
+    console.log('AuthGate: User authenticated but missing encryption key, showing re-auth page');
     return (
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-6">
@@ -102,9 +136,9 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           </p>
         </div>
 
-        {passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
+        {passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
-        ) : !passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
+        ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification' || user?.user_metadata?.auth_method === 'password_and_passkey') ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚠️</span>

@@ -32,11 +32,13 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
   const containerRef = useRef<HTMLHeadingElement>(null);
 
   const splitText = useMemo(() => {
-    const text = typeof children === 'string' ? children : '';
+    const text = typeof children === 'string' ? children : String(children || '');
+    if (!text.trim()) return null;
+    
     return text.split(/(\s+)/).map((word, index) => {
       if (word.match(/^\s+$/)) return word;
       return (
-        <span className="inline-block word" key={index}>
+        <span className="inline-block word" key={`${word}-${index}`}>
           {word}
         </span>
       );
@@ -45,7 +47,7 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !splitText) return;
 
     const scroller = scrollContainerRef && scrollContainerRef.current ? scrollContainerRef.current : window;
 
@@ -116,11 +118,13 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
       // Only kill this component's triggers
       triggers.forEach(trigger => trigger.kill());
     };
-  }, [scrollContainerRef, enableBlur, baseRotation, baseOpacity, rotationEnd, wordAnimationEnd, blurStrength]);
+  }, [scrollContainerRef, enableBlur, baseRotation, baseOpacity, rotationEnd, wordAnimationEnd, blurStrength, splitText]);
 
   return (
     <h2 ref={containerRef} className={`my-5 ${containerClassName}`}>
-      <p className={`text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] font-semibold font-body text-soft-black ${textClassName}`}>{splitText}</p>
+      <p className={`text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] font-semibold font-body text-soft-black ${textClassName}`}>
+        {splitText || children}
+      </p>
     </h2>
   );
 };

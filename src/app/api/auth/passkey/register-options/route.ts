@@ -120,20 +120,6 @@ export async function POST(request: NextRequest) {
     // This salt will be used by the authenticator during registration
     // and stored with the credential for use during authentication
     const credentialSalt = generateRandomSalt();
-    
-    // Add PRF extension for zero-knowledge encryption
-    // Each credential gets a unique salt for per-credential isolation
-    const optionsWithPRF = {
-      ...options,
-      extensions: {
-        ...options.extensions,
-        prf: {
-          eval: {
-            first: Buffer.from(credentialSalt, 'base64'),
-          },
-        },
-      },
-    };
 
     // Store challenge in database
     const expiresAt = new Date(Date.now() + challengeExpiration);
@@ -164,7 +150,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      options: optionsWithPRF,
+      options,
       userExists: !!userExists,
       // Return the salt so client can store it and use it during credential verification
       salt: credentialSalt,

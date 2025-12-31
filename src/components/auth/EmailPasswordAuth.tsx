@@ -2,18 +2,31 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { startAuthentication } from '@simplewebauthn/browser';
+import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { createClient } from '../../lib/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
+
+// Helper to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 interface EmailPasswordAuthProps {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   signinOnly?: boolean; // Hide sign-up option when true
+  passkeyLinking?: boolean; // Show password linking UI for passkey users
 }
 
 type AuthMode = 'signin' | 'signup';
 
-export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: EmailPasswordAuthProps) {
+export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, passkeyLinking = false }: EmailPasswordAuthProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,9 +35,30 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const [showAccountLinking, setShowAccountLinking] = useState(false);
+  const [existingAccountMethod, setExistingAccountMethod] = useState<string | null>(null);
+  const [passkeyAuthenticated, setPasskeyAuthenticated] = useState(false);
+  const [verifiedUserId, setVerifiedUserId] = useState<string | null>(null);
 
   const { setEncryptionKeyFromPassword } = useAuth();
   const supabase = useMemo(() => createClient(), []);
+
+  // Handle passkey linking mode
+  React.useEffect(() => {
+    if (passkeyLinking) {
+      setPasskeyAuthenticated(true);
+      // For passkey linking, we assume the user is already authenticated
+      // and we just need to get their user ID from the session
+      const getUserId = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setVerifiedUserId(user.id);
+          setEmail(user.email || '');
+        }
+      };
+      getUserId();
+    }
+  }, [passkeyLinking, supabase.auth]);
 
   // Validate email format
   const isValidEmail = (email: string) => {
@@ -105,17 +139,104 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
         },
       });
 
+      // Check if this is an "email already exists" error
       if (signUpError) {
-        throw signUpError;
+        console.log('Signup error:', signUpError.message);
+        // Check if the error indicates email already exists
+        if (signUpError.message?.includes('already registered') || 
+            signUpError.message?.includes('already exists') ||
+            signUpError.message?.includes('User already registered')) {
+          
+          // Email already exists - check account type securely
+          try {
+            const checkResponse = await fetch('/api/auth/check-account-type', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email }),
+            });
+
+            if (!checkResponse.ok) {
+              throw new Error(`Account type check failed: ${checkResponse.status}`);
+            }
+
+            const accountData = await checkResponse.json();
+            console.log('Account type check response:', accountData);
+            console.log('Has passkey:', accountData.hasPasskey);
+            console.log('Account type:', accountData.accountType);
+
+            if (accountData.hasPasskey) {
+              // Existing passkey account - offer to link password
+              setExistingAccountMethod(accountData.accountType);
+              setShowAccountLinking(true);
+              setError(null);
+              setIsLoading(false);
+              return;
+            } else {
+              // Existing password account - suggest signing in
+              setError('An account with this email already exists. Please sign in instead.');
+              setMode('signin');
+              setIsLoading(false);
+              return;
+            }
+          } catch (checkError) {
+            console.error('Account type check error:', checkError);
+            // If we can't check account type, assume passkey for security and offer linking
+            console.warn('Could not check account type:', checkError);
+            setExistingAccountMethod('passkey');
+            setShowAccountLinking(true);
+            setError(null);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // Some other signup error
+          throw signUpError;
+        }
       }
 
       if (data.user) {
         // Check if email verification is required
         if (data.user.identities && data.user.identities.length === 0) {
-          // Email already exists
-          setError('An account with this email already exists. Please sign in instead.');
-          setMode('signin');
-          return;
+          // Email already exists - check account type securely
+          try {
+            const checkResponse = await fetch('/api/auth/check-account-type', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email }),
+            });
+
+            if (!checkResponse.ok) {
+              throw new Error(`Account type check failed: ${checkResponse.status}`);
+            }
+
+            const accountData = await checkResponse.json();
+            console.log('Account type check response (identities path):', accountData);
+            console.log('Has passkey (identities path):', accountData.hasPasskey);
+            console.log('Account type (identities path):', accountData.accountType);
+
+            if (accountData.hasPasskey) {
+              // Existing passkey account - offer to link password
+              setExistingAccountMethod(accountData.accountType);
+              setShowAccountLinking(true);
+              setError(null);
+              setIsLoading(false);
+              return;
+            } else {
+              // Existing password account - suggest signing in
+              setError('An account with this email already exists. Please sign in instead.');
+              setMode('signin');
+              setIsLoading(false);
+              return;
+            }
+          } catch (checkError) {
+            console.error('Account type check error (identities path):', checkError);
+            // If we can't check account type, assume passkey for security and offer linking
+            setExistingAccountMethod('passkey');
+            setShowAccountLinking(true);
+            setError(null);
+            setIsLoading(false);
+            return;
+          }
         }
         
         // Supabase requires email confirmation by default
@@ -133,11 +254,193 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
     }
   };
 
+  // Authenticate with passkey before allowing account linking
+  const authenticateWithPasskey = async (createSession: boolean = true): Promise<{ success: boolean; userId?: string }> => {
+    try {
+      // Get authentication options from server
+      const optionsRes = await fetch('/api/auth/passkey/login-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!optionsRes.ok) {
+        throw new Error('Failed to get authentication options');
+      }
+
+      const { options, credentialSalts } = await optionsRes.json() as {
+        options: PublicKeyCredentialRequestOptionsJSON;
+        credentialSalts: Record<string, string>;
+      };
+
+      if (!options.allowCredentials || options.allowCredentials.length === 0) {
+        throw new Error('No passkeys found for this account');
+      }
+
+      // For simplicity, use the first available salt (browser will handle credential selection)
+      const credentialIds = Object.keys(credentialSalts);
+      const firstSaltBase64 = credentialSalts[credentialIds[0]];
+      const saltBytes = base64ToUint8Array(firstSaltBase64);
+
+      // Update PRF extension with the salt
+      const optionsWithSalt = {
+        ...options,
+        extensions: {
+          ...options.extensions,
+          prf: {
+            eval: {
+              first: saltBytes,
+            },
+          },
+        },
+      } as PublicKeyCredentialRequestOptionsJSON;
+
+      // Start WebAuthn authentication
+      const authResponse = await startAuthentication({ optionsJSON: optionsWithSalt });
+
+      // Determine which credential was used and get its salt
+      const usedCredentialId = authResponse.id;
+      const usedSalt = credentialSalts[usedCredentialId];
+
+      if (!usedSalt) {
+        throw new Error('No salt found for authenticated credential');
+      }
+
+      // Verify authentication with server
+      const verifyRes = await fetch('/api/auth/passkey/login-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          response: authResponse,
+          salt: usedSalt,
+        }),
+      });
+
+      if (!verifyRes.ok) {
+        const errorData = await verifyRes.json();
+        throw new Error(errorData.error || 'Authentication failed');
+      }
+
+      const verifyData = await verifyRes.json();
+
+      if (verifyData.token && createSession) {
+        // Sign in to Supabase using the magic link token
+        const { data: sessionData, error: signInError } = await supabase.auth.verifyOtp({
+          token_hash: verifyData.token,
+          type: 'magiclink',
+        });
+
+        if (signInError || !sessionData.session) {
+          throw new Error('Failed to create session');
+        }
+      }
+
+      return { success: true, userId: verifyData.userId };
+    } catch (err) {
+      console.error('Passkey authentication error:', err);
+      return { success: false };
+    }
+  };
+
+  // Handle account linking (authenticate with passkey first)
+  const handleAccountLinking = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      setError('Authenticating with your passkey...');
+      const result = await authenticateWithPasskey(false); // Don't create session yet
+      
+      if (result.success && result.userId) {
+        setVerifiedUserId(result.userId);
+        setPasskeyAuthenticated(true);
+        setError(null);
+      } else {
+        setError('Passkey authentication failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Account linking error:', err);
+      const message = err instanceof Error ? err.message : 'Account linking failed';
+      setError(message);
+      onError?.(err instanceof Error ? err : new Error(message));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle password linking after passkey authentication
+  const handlePasswordLinking = async () => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      setError('Linking password to your account...');
+      console.log('Calling link-account API with verified userId:', verifiedUserId);
+
+      const response = await fetch('/api/auth/link-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'password',
+          password,
+          userId: verifiedUserId,
+        }),
+      });
+
+      console.log('Link account response status:', response.status);
+      const linkData = await response.json();
+      console.log('Link account response data:', linkData);
+
+      if (!response.ok) {
+        throw new Error(linkData.error || 'Failed to link account');
+      }
+
+      // Success - link the account first
+      console.log('User ID after linking:', verifiedUserId);
+
+      // Now sign in the user with the newly linked password
+      console.log('Signing in user with linked password...');
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        console.error('Failed to sign in after linking:', signInError);
+        throw new Error('Account linked but failed to sign in. Please try signing in manually.');
+      }
+
+      // Derive encryption key from password using the Supabase user ID (consistent with handleSignIn)
+      const saltString = signInData.user!.id;
+      const salt = new TextEncoder().encode(saltString);
+      console.log('Setting encryption key with salt:', saltString);
+      await setEncryptionKeyFromPassword(password, salt);
+      console.log('Encryption key set successfully');
+
+      console.log('User signed in successfully after linking');
+      setShowSuccess(true);
+      setVerifiedUserId(null); // Reset for next time
+      onSuccess?.();
+    } catch (err) {
+      console.error('Account linking error:', err);
+      const message = err instanceof Error ? err.message : 'Account linking failed';
+      setError(message);
+      onError?.(err instanceof Error ? err : new Error(message));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (mode === 'signin') {
+
+    if (passkeyAuthenticated) {
+      await handlePasswordLinking();
+    } else if (showAccountLinking) {
+      await handleAccountLinking();
+    } else if (mode === 'signin') {
       await handleSignIn();
     } else {
       await handleSignUp();
@@ -224,7 +527,55 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Account linking option */}
+      {showAccountLinking && !passkeyAuthenticated && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">
+            🔗 Link to Existing Account
+          </h3>
+          <p className="text-sm text-blue-800 mb-3">
+            We found an existing account with passkey authentication for this email.
+            To link a password, you'll need to authenticate with your passkey first for security.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAccountLinking}
+              disabled={isLoading}
+              className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded transition"
+            >
+              {isLoading ? 'Authenticating...' : 'Authenticate & Link'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAccountLinking(false);
+                setPasskeyAuthenticated(false);
+                setMode('signin');
+              }}
+              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium transition"
+            >
+              Sign In Instead
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Password linking after passkey authentication */}
+      {passkeyAuthenticated && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-green-900 mb-2">
+            ✅ Passkey Verified
+          </h3>
+          <p className="text-sm text-green-800 mb-3">
+            Your passkey has been verified. Now create a password to link to your account.
+          </p>
+        </div>
+      )}
+
+      {/* Show form only when not in account linking mode or when password linking */}
+      {!showAccountLinking || passkeyAuthenticated ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email-password-email" className="block text-sm font-medium text-gray-700 mb-1">
             Email address
@@ -236,14 +587,14 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
-            disabled={isLoading}
+            disabled={isLoading || showAccountLinking || passkeyAuthenticated}
             autoComplete="email"
           />
         </div>
 
         <div>
           <label htmlFor="email-password-password" className="block text-sm font-medium text-gray-700 mb-1">
-            Password
+            {passkeyAuthenticated ? 'Create Password' : 'Password'}
           </label>
           <input
             id="email-password-password"
@@ -253,12 +604,12 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
             placeholder="••••••••"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
             disabled={isLoading}
-            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            autoComplete={passkeyAuthenticated ? 'new-password' : (mode === 'signin' ? 'current-password' : 'new-password')}
           />
-          {mode === 'signup' && (
+          {(passkeyAuthenticated || mode === 'signup') && (
             <p className="mt-1 text-xs text-gray-500">At least 8 characters</p>
           )}
-          {mode === 'signin' && (
+          {mode === 'signin' && !passkeyAuthenticated && (
             <Link 
               href="/reset-password" 
               className="mt-2 inline-block text-xs text-blue-500 hover:text-blue-700 underline"
@@ -268,7 +619,7 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
           )}
         </div>
 
-        {mode === 'signup' && (
+        {((mode === 'signup' && !passkeyAuthenticated) || (passkeyAuthenticated && confirmPassword)) && (
           <div>
             <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
               Confirm Password
@@ -288,12 +639,15 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
 
         <button
           type="submit"
-          disabled={isLoading || !email || !password || (mode === 'signup' && !confirmPassword)}
+          disabled={isLoading || !password || (passkeyAuthenticated ? password.length < 8 : (!email || (mode === 'signup' && !confirmPassword)))}
           className="w-full py-2 px-4 bg-gray-800 hover:bg-gray-900 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200"
         >
-          {isLoading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+          {isLoading ? 'Please wait...' : 
+           passkeyAuthenticated ? 'Link Password to Account' :
+           mode === 'signin' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
+      ) : null}
     </div>
   );
 }

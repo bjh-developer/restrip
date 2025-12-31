@@ -243,7 +243,7 @@ export const supportedAlgorithmIDs = [-19, -9, -7, -8];
 export const timeout = 60000; // 60 seconds
 
 // Challenge expiration (in milliseconds)
-export const challengeExpiration = 5 * 60 * 1000; // 5 minutes
+export const challengeExpiration = 10 * 60 * 1000; // 10 minutes
 
 /**
  * PRF (Pseudo-Random Function) salt generation
