@@ -7,15 +7,26 @@ import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/brow
 import { createClient } from '../../lib/supabase/client';
 import { useAuth } from '../../hooks/useAuth';
 
+// Helper to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 interface EmailPasswordAuthProps {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
   signinOnly?: boolean; // Hide sign-up option when true
+  passkeyLinking?: boolean; // Show password linking UI for passkey users
 }
 
 type AuthMode = 'signin' | 'signup';
 
-export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: EmailPasswordAuthProps) {
+export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, passkeyLinking = false }: EmailPasswordAuthProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -31,6 +42,23 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
 
   const { setEncryptionKeyFromPassword } = useAuth();
   const supabase = useMemo(() => createClient(), []);
+
+  // Handle passkey linking mode
+  React.useEffect(() => {
+    if (passkeyLinking) {
+      setPasskeyAuthenticated(true);
+      // For passkey linking, we assume the user is already authenticated
+      // and we just need to get their user ID from the session
+      const getUserId = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setVerifiedUserId(user.id);
+          setEmail(user.email || '');
+        }
+      };
+      getUserId();
+    }
+  }, [passkeyLinking, supabase.auth]);
 
   // Validate email format
   const isValidEmail = (email: string) => {
@@ -252,7 +280,7 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
       // For simplicity, use the first available salt (browser will handle credential selection)
       const credentialIds = Object.keys(credentialSalts);
       const firstSaltBase64 = credentialSalts[credentialIds[0]];
-      const saltBytes = new Uint8Array(Buffer.from(firstSaltBase64, 'base64'));
+      const saltBytes = base64ToUint8Array(firstSaltBase64);
 
       // Update PRF extension with the salt
       const optionsWithSalt = {
@@ -368,13 +396,8 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
         throw new Error(linkData.error || 'Failed to link account');
       }
 
-      // Success - set encryption key and sign in the user
+      // Success - link the account first
       console.log('User ID after linking:', verifiedUserId);
-      const saltString = verifiedUserId || email;
-      const salt = new TextEncoder().encode(saltString);
-      console.log('Setting encryption key with salt:', saltString);
-      await setEncryptionKeyFromPassword(password, salt);
-      console.log('Encryption key set successfully');
 
       // Now sign in the user with the newly linked password
       console.log('Signing in user with linked password...');
@@ -387,6 +410,13 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false }: Em
         console.error('Failed to sign in after linking:', signInError);
         throw new Error('Account linked but failed to sign in. Please try signing in manually.');
       }
+
+      // Derive encryption key from password using the Supabase user ID (consistent with handleSignIn)
+      const saltString = signInData.user!.id;
+      const salt = new TextEncoder().encode(saltString);
+      console.log('Setting encryption key with salt:', saltString);
+      await setEncryptionKeyFromPassword(password, salt);
+      console.log('Encryption key set successfully');
 
       console.log('User signed in successfully after linking');
       setShowSuccess(true);

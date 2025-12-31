@@ -34,6 +34,16 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
 
+// Helper to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 type PeriodOption = "surprise" | "custom period" | "custom date";
 type DeliveryMethod = "email" | "telegram";
 
@@ -193,6 +203,7 @@ export default function MainPage() {
   const { user, signOut, hasEncryptionKey } = useAuth();
   const [hasPasskey, setHasPasskey] = useState<boolean | null>(null);
   const [showPasskeySetup, setShowPasskeySetup] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
@@ -644,19 +655,20 @@ export default function MainPage() {
           {/* Passkey setup banner */}
           {showPasskeySetup && (
             <div className="max-w-2xl mx-auto mb-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className={`border rounded-lg p-4 ${passkeyError ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-blue-800 mb-1">
-                      Add Passkey Authentication
+                    <h3 className={`text-sm font-medium mb-1 ${passkeyError ? 'text-red-800' : 'text-blue-800'}`}>
+                      {passkeyError ? 'Passkey Setup Failed' : 'Add Passkey Authentication'}
                     </h3>
-                    <p className="text-sm text-blue-700 mb-3">
-                      Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use.
+                    <p className={`text-sm mb-3 ${passkeyError ? 'text-red-700' : 'text-blue-700'}`}>
+                      {passkeyError || 'Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use.'}
                     </p>
+                    {!passkeyError && (
                     <button
                       onClick={async () => {
                         try {
-                          setShowPasskeySetup(false);
+                          setPasskeyError(null); // Clear any previous errors
                           // Trigger passkey registration for existing user
                           const response = await fetch('/api/auth/passkey/register-options', {
                             method: 'POST',
@@ -671,7 +683,7 @@ export default function MainPage() {
                           const { options, salt } = await response.json();
                           
                           // Convert salt from base64 to Uint8Array for PRF extension
-                          const saltBytes = salt ? new Uint8Array(Buffer.from(salt, 'base64')) : new Uint8Array(32);
+                          const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
                           
                           // Update PRF extension with the server-generated salt
                           const optionsWithSalt = {
@@ -711,22 +723,54 @@ export default function MainPage() {
                             if (checkResponse.ok) {
                               const data = await checkResponse.json();
                               setHasPasskey(data.hasPasskey || false);
+                              setShowPasskeySetup(false); // Hide banner on success
+                              setPasskeyError(null); // Clear any previous errors
                             }
                           } else {
-                            console.error('Passkey registration failed');
+                            const errorData = await verifyResponse.json().catch(() => ({}));
+                            const errorMessage = errorData.error || 'Passkey registration failed';
+                            console.error('Passkey registration failed:', errorMessage);
+                            setPasskeyError(`Registration failed: ${errorMessage}`);
                           }
                         } catch (error) {
+                          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
                           console.error('Failed to add passkey:', error);
+                          setPasskeyError(`Failed to add passkey: ${errorMessage}`);
                         }
                       }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                     >
                       Add Passkey
                     </button>
+                    )}
+                    {passkeyError && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => {
+                            setPasskeyError(null); // Clear error and allow retry
+                          }}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                        >
+                          Try Again
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowPasskeySetup(false);
+                            setPasskeyError(null);
+                          }}
+                          className="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <button
-                    onClick={() => setShowPasskeySetup(false)}
-                    className="text-blue-400 hover:text-blue-600 ml-4"
+                    onClick={() => {
+                      setShowPasskeySetup(false);
+                      setPasskeyError(null);
+                    }}
+                    className={`ml-4 ${passkeyError ? 'text-red-400 hover:text-red-600' : 'text-blue-400 hover:text-blue-600'}`}
                   >
                     ✕
                   </button>

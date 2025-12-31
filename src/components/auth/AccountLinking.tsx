@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from "react";
+import { useAuth } from "../../hooks/useAuth";
 
 interface AccountLinkingProps {
   onSuccess?: () => void;
@@ -11,6 +12,7 @@ export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const handleAddPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,12 +20,18 @@ export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
     setIsLoading(true);
 
     try {
+      // Guard: ensure user is authenticated and has an ID
+      if (!user?.id) {
+        throw new Error('You must be signed in to link a password');
+      }
+
       const response = await fetch('/api/auth/link-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           method: 'password',
-          password
+          password,
+          userId: user.id
         }),
       });
 

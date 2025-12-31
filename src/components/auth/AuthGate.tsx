@@ -118,7 +118,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 
         {passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
-        ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
+        ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification' || user?.user_metadata?.auth_method === 'password_and_passkey') ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚠️</span>

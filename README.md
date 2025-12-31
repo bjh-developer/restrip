@@ -54,7 +54,7 @@ One-page website. No login required. Upload → Auto-crop → Caption → Schedu
 
 ---
 
-## � Authentication System
+## 🔐 Authentication System
 
 ReStrip uses a modern, unified authentication system built on Supabase with support for both traditional passwords and cutting-edge passkeys (WebAuthn).
 
@@ -84,7 +84,7 @@ ReStrip uses a modern, unified authentication system built on Supabase with supp
 
 ---
 
-## �🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 ### Frontend
 - **Next.js 16.0.4** (App Router, TypeScript)

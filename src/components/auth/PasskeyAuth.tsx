@@ -26,6 +26,16 @@ function base64urlToUint8Array(base64url: string): Uint8Array {
   return bytes;
 }
 
+// Helper to convert base64 to Uint8Array
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 interface PasskeyAuthProps {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
@@ -172,6 +182,8 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       if (data.user) {
         // Password authentication successful, now proceed with passkey registration
         setStep("passkey-choice");
+        // Clear sensitive password data from memory
+        setPassword("");
       }
     } catch (err) {
       setError("Invalid password. Please try again.");
@@ -187,7 +199,9 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // Create user with email_confirm: false to trigger verification email
       const { data, error } = await supabase.auth.signUp({
         email,
-        password: Math.random().toString(36), // Temporary password, won't be used
+        password: crypto.getRandomValues(new Uint8Array(32)).reduce(
+          (acc, byte) => acc + byte.toString(16).padStart(2, '0'), ''
+        ), // Cryptographically secure temporary password
         options: {
           data: {
             auth_method: "passkey_pending_verification",
@@ -371,7 +385,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // we'd need to know which credential was used, but browser autofill handles this)
       const credentialIds = Object.keys(credentialSalts);
       const firstSaltBase64 = credentialSalts[credentialIds[0]];
-      const saltBytes = new Uint8Array(Buffer.from(firstSaltBase64, "base64"));
+      const saltBytes = base64ToUint8Array(firstSaltBase64);
 
       // Update PRF extension with the per-credential salt
       const optionsWithSalt = {

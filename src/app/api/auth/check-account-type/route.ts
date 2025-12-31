@@ -23,55 +23,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use admin API to list users and find by email
-    const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    // Use RPC function for efficient server-side lookup
+    const { data: accountData, error: rpcError } = await supabaseAdmin.rpc("get_account_type", {
+      user_email: email,
+    });
 
-    if (listError) {
-      console.error('Error listing users:', listError);
+    if (rpcError) {
+      console.error('RPC error:', rpcError);
       return NextResponse.json(
         { error: 'Failed to check account type' },
         { status: 500 }
       );
     }
 
-    // Find user by email
-    const user = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-
-    if (!user) {
+    if (!accountData) {
       return NextResponse.json(
         { accountType: 'none' },
         { status: 200 }
       );
     }
 
-    // Check user metadata for auth method
-    const authMethod = user.user_metadata?.auth_method || 'password';
-    console.log('User metadata auth_method:', authMethod);
-    console.log('User ID:', user.id);
-    console.log('User email:', user.email);
-
-    // Also check if user has any passkey credentials
-    const { data: passkeyCredentials, error: passkeyError } = await supabaseAdmin
-      .from('passkey_credentials')
-      .select('id')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (passkeyError) {
-      console.error('Error querying passkey credentials:', passkeyError);
-      // Don't fail the whole request, but log the error
-    }
-
-    const hasPasskeyCredentials = !passkeyError && passkeyCredentials && passkeyCredentials.length > 0;
-    console.log('Has passkey credentials:', hasPasskeyCredentials, 'Error:', passkeyError);
-    console.log('Passkey credentials count:', passkeyCredentials?.length || 0);
-
-    const hasPasskey = hasPasskeyCredentials || authMethod === 'passkey' || authMethod === 'password_and_passkey';
-    console.log('Final hasPasskey result:', hasPasskey);
+    console.log('Account data:', accountData);
 
     return NextResponse.json({
-      accountType: authMethod,
-      hasPasskey: hasPasskey
+      accountType: accountData[0].account_type || 'password',
+      hasPasskey: accountData[0].has_passkey || false
     });
   } catch (error) {
     console.error('Check account type error:', error);
