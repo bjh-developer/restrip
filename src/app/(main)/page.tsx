@@ -964,7 +964,7 @@ export default function MainPage() {
       </div>
 
       {/* Password Linking Modal */}
-      {showPasswordLinking && (
+      {showPasswordLinking && user?.id && (
         <PasswordLinkingModal
           isOpen={showPasswordLinking}
           onClose={() => setShowPasswordLinking(false)}
@@ -974,7 +974,7 @@ export default function MainPage() {
             // Refresh account type to reflect the change
             checkPasskeyStatus();
           }}
-          userId={user!.id}
+          userId={user.id}
         />
       )}
 
