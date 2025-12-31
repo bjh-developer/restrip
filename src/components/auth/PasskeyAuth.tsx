@@ -63,6 +63,11 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
 
   // Check if user is already authenticated and needs to complete passkey registration
   React.useEffect(() => {
+    // Check URL parameters for email verification
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const isEmailVerification = hashParams.get('type') === 'signup' || hashParams.get('type') === 'email';
+    
     if (user && user.user_metadata?.auth_method === 'passkey_pending_verification' && user.email_confirmed_at) {
       // User has verified email and is pending passkey registration
       setEmail(user.email || '');
@@ -72,6 +77,12 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       setEmail(user.email || '');
       setExistingAccountType('password');
       setStep('passkey-choice');
+    } else if (isEmailVerification && user && user.user_metadata?.auth_method === 'passkey_pending_verification') {
+      // User just verified email and should create passkey
+      setEmail(user.email || '');
+      setStep('passkey-choice');
+      // Clean up the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [user]);
 
@@ -627,8 +638,19 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
                 Secure your account with biometric authentication. You'll be able to sign in with your fingerprint, face, or device PIN.
               </p>
             </div>
+          ) : user?.user_metadata?.auth_method === 'passkey_pending_verification' && user?.email_confirmed_at ? (
+            // User has verified email and is ready to create passkey
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <span className="text-4xl">🔑</span>
+              </div>
+              <p className="text-gray-700 font-medium">Create your passkey</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Your email has been verified! Now create a passkey to secure your account with biometric authentication.
+              </p>
+            </div>
           ) : (
-            // New user - email verification
+            // New user - email verification pending
             <div className="text-center py-8">
               <div className="mb-4">
                 <span className="text-4xl">📧</span>
@@ -644,20 +666,23 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
             </div>
           )}
 
-          <button
-            onClick={handleRegister}
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              "Creating passkey..."
-            ) : (
-              <>
-                <span>🔑</span>
-                {existingAccountType === 'password' ? 'Add Passkey' : 'Create Passkey'}
-              </>
-            )}
-          </button>
+          {/* Only show button if user has verified email or is adding to existing account */}
+          {(existingAccountType === 'password' || (user?.user_metadata?.auth_method === 'passkey_pending_verification' && user?.email_confirmed_at)) && (
+            <button
+              onClick={handleRegister}
+              disabled={isLoading}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                "Creating passkey..."
+              ) : (
+                <>
+                  <span>🔑</span>
+                  {existingAccountType === 'password' ? 'Add Passkey' : 'Create Passkey'}
+                </>
+              )}
+            </button>
+          )}
 
           {existingAccountType !== 'password' && (
             <button

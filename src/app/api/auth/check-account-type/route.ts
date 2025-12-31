@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!accountData) {
+    if (!accountData || accountData.length === 0) {
       return NextResponse.json(
         { accountType: 'none' },
         { status: 200 }

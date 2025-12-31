@@ -28,6 +28,7 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
   const [showEmailVerificationMessage, setShowEmailVerificationMessage] = useState(false);
+  const [isPasskeyRegistration, setIsPasskeyRegistration] = useState(false);
 
   // Check if user came from email verification link
   useEffect(() => {
@@ -53,6 +54,27 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     
     checkEmailVerification();
   }, [user]);
+
+  // Check for passkey registration hash
+  useEffect(() => {
+    const checkPasskeyRegistration = () => {
+      setIsPasskeyRegistration(window.location.hash === '#passkey-registration');
+    };
+
+    // Check initially
+    checkPasskeyRegistration();
+
+    // Listen for hash changes
+    const handleHashChange = () => {
+      checkPasskeyRegistration();
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
 
   // Refresh ScrollTrigger when authentication state changes
   useEffect(() => {
@@ -92,8 +114,6 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   // Check if they just verified their email - if so, show the normal auth flow with a message
   if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
     // Check if user is in passkey registration flow
-    const isPasskeyRegistration = window.location.hash === '#passkey-registration';
-    
     if (isPasskeyRegistration) {
       console.log('AuthGate: User in passkey registration flow, showing passkey auth');
       return (
