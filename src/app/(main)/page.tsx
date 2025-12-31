@@ -239,6 +239,72 @@ export default function MainPage() {
     }
   };
 
+  // Handle adding passkey authentication
+  const handleAddPasskey = useCallback(async (userEmail: string) => {
+    try {
+      setPasskeyError(null); // Clear any previous errors
+      // Trigger passkey registration for existing user
+      const response = await fetch('/api/auth/passkey/register-options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get registration options');
+      }
+
+      const { options, salt } = await response.json();
+
+      // Convert salt from base64 to Uint8Array for PRF extension
+      const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
+
+      // Update PRF extension with the server-generated salt
+      const optionsWithSalt = {
+        ...options,
+        extensions: {
+          ...options.extensions,
+          prf: {
+            eval: {
+              first: saltBytes,
+            },
+          },
+        },
+      };
+
+      // Import the startRegistration function
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
+
+      // Complete registration
+      const verifyResponse = await fetch('/api/auth/passkey/register-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          response: registrationResponse,
+          salt: salt,
+        }),
+      });
+
+      if (verifyResponse.ok) {
+        // Refresh passkey status
+        await checkPasskeyStatus();
+        setShowPasskeySetup(false); // Hide banner on success
+        setPasskeyError(null); // Clear any previous errors
+      } else {
+        const errorData = await verifyResponse.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Passkey registration failed';
+        console.error('Passkey registration failed:', errorMessage);
+        setPasskeyError(`Registration failed: ${errorMessage}`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to add passkey:', error);
+      setPasskeyError(`Failed to add passkey: ${errorMessage}`);
+    }
+  }, [checkPasskeyStatus]);
+
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
@@ -704,78 +770,7 @@ export default function MainPage() {
                     </p>
                     {!passkeyError && (
                     <button
-                      onClick={async () => {
-                        try {
-                          setPasskeyError(null); // Clear any previous errors
-                          // Trigger passkey registration for existing user
-                          const response = await fetch('/api/auth/passkey/register-options', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: user?.email }),
-                          });
-                          
-                          if (!response.ok) {
-                            throw new Error('Failed to get registration options');
-                          }
-                          
-                          const { options, salt } = await response.json();
-                          
-                          // Convert salt from base64 to Uint8Array for PRF extension
-                          const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
-                          
-                          // Update PRF extension with the server-generated salt
-                          const optionsWithSalt = {
-                            ...options,
-                            extensions: {
-                              ...options.extensions,
-                              prf: {
-                                eval: {
-                                  first: saltBytes,
-                                },
-                              },
-                            },
-                          };
-                          
-                          // Import the startRegistration function
-                          const { startRegistration } = await import('@simplewebauthn/browser');
-                          const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
-                          
-                          // Complete registration
-                          const verifyResponse = await fetch('/api/auth/passkey/register-verify', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              email: user?.email,
-                              response: registrationResponse,
-                              salt: salt,
-                            }),
-                          });
-                          
-                          if (verifyResponse.ok) {
-                            // Refresh passkey status
-                            const checkResponse = await fetch('/api/auth/check-account-type', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ email: user?.email }),
-                            });
-                            if (checkResponse.ok) {
-                              const data = await checkResponse.json();
-                              setHasPasskey(data.hasPasskey || false);
-                              setShowPasskeySetup(false); // Hide banner on success
-                              setPasskeyError(null); // Clear any previous errors
-                            }
-                          } else {
-                            const errorData = await verifyResponse.json().catch(() => ({}));
-                            const errorMessage = errorData.error || 'Passkey registration failed';
-                            console.error('Passkey registration failed:', errorMessage);
-                            setPasskeyError(`Registration failed: ${errorMessage}`);
-                          }
-                        } catch (error) {
-                          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-                          console.error('Failed to add passkey:', error);
-                          setPasskeyError(`Failed to add passkey: ${errorMessage}`);
-                        }
-                      }}
+                      onClick={() => user?.email && handleAddPasskey(user.email)}
                       className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                     >
                       Add Passkey

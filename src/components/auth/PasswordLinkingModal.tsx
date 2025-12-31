@@ -25,6 +25,14 @@ export function PasswordLinkingModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const resetForm = () => {
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setError("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -60,6 +68,7 @@ export function PasswordLinkingModal({
         throw new Error(data.error || "Failed to link password");
       }
 
+      resetForm();
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -78,7 +87,10 @@ export function PasswordLinkingModal({
             Add Password Authentication
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => {
+               resetForm();
+               onClose();
+             }}
             className="text-gray-400 hover:text-gray-600"
           >
             ✕
@@ -155,7 +167,10 @@ export function PasswordLinkingModal({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => {
+               resetForm();
+               onClose();
+             }}
               className="flex-1"
               disabled={isLoading}
             >
