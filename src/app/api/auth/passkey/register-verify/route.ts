@@ -123,6 +123,32 @@ export async function POST(request: NextRequest) {
       }
 
       user = newUser.user;
+    } else {
+      // User exists - update their auth_method to reflect they now have passkey
+      const currentAuthMethod = user.user_metadata?.auth_method || 'password';
+      let newAuthMethod = 'passkey'; // Default for existing users adding passkey
+      
+      if (currentAuthMethod === 'password') {
+        newAuthMethod = 'password_and_passkey';
+      } else if (currentAuthMethod === 'passkey') {
+        newAuthMethod = 'passkey'; // Already has passkey
+      } else if (currentAuthMethod === 'password_and_passkey') {
+        newAuthMethod = 'password_and_passkey'; // Already has both
+      }
+
+      if (newAuthMethod !== currentAuthMethod) {
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          user_metadata: {
+            ...user.user_metadata,
+            auth_method: newAuthMethod,
+          },
+        });
+
+        if (updateError) {
+          console.error('Failed to update user auth_method:', updateError);
+          // Continue anyway - the passkey will still be registered
+        }
+      }
     }
 
     // Use the credential ID directly from the client response (already base64url-encoded)

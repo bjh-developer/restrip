@@ -91,6 +91,18 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   // User is authenticated but missing encryption key
   // Check if they just verified their email - if so, show the normal auth flow with a message
   if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
+    // Check if user is in passkey registration flow
+    const isPasskeyRegistration = window.location.hash === '#passkey-registration';
+    
+    if (isPasskeyRegistration) {
+      console.log('AuthGate: User in passkey registration flow, showing passkey auth');
+      return (
+        <div className="w-full max-w-md mx-auto p-6">
+          <PasskeyAuth />
+        </div>
+      );
+    }
+    
     console.log('AuthGate: User authenticated but missing encryption key, showing re-auth page');
     return (
       <div className="w-full max-w-md mx-auto p-6">

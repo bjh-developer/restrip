@@ -36,14 +36,17 @@ type AuthStep =
   | "passkey-choice"
   | "registering"
   | "authenticating"
+  | "password-auth"
   | "success";
 
 export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [step, setStep] = useState<AuthStep>("email");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasExistingCredentials, setHasExistingCredentials] = useState(false);
+  const [existingAccountType, setExistingAccountType] = useState<string | null>(null);
 
   const { setEncryptionKeyFromPRF, user } = useAuth();
   const { passkeySupported, isLoading: checkingSupport } = usePasskeySupport();
@@ -54,8 +57,20 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // User has verified email and is pending passkey registration
       setEmail(user.email || '');
       setStep('passkey-choice');
+    } else if (window.location.hash === '#passkey-registration' && user) {
+      // User is in passkey registration flow after password auth
+      setEmail(user.email || '');
+      setExistingAccountType('password');
+      setStep('passkey-choice');
     }
   }, [user]);
+
+  // Clear hash when registration is complete
+  React.useEffect(() => {
+    if (step === 'success') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [step]);
 
   // Validate email format
   const isValidEmail = (email: string) => {
@@ -93,8 +108,30 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
     setIsLoading(true);
 
     try {
+      // First check if user has existing passkey credentials
       const hasCredentials = await checkExistingCredentials(email);
       setHasExistingCredentials(hasCredentials);
+
+      // Check account type to see if there's an existing password account
+      const accountCheckRes = await fetch("/api/auth/check-account-type", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (accountCheckRes.ok) {
+        const accountData = await accountCheckRes.json();
+        setExistingAccountType(accountData.accountType);
+
+        // If user has existing password account but no passkey, prompt for password first
+        if (accountData.accountType === 'password' && !accountData.hasPasskey) {
+          setStep("password-auth");
+          // Add hash to indicate passkey registration flow
+          window.location.hash = 'passkey-registration';
+          setIsLoading(false);
+          return;
+        }
+      }
 
       if (hasCredentials) {
         // User has passkeys, go straight to authentication
@@ -105,6 +142,39 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       }
     } catch (err) {
       setError("Failed to check credentials. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
+  // Handle password authentication for existing accounts
+  const handlePasswordAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.user) {
+        // Password authentication successful, now proceed with passkey registration
+        setStep("passkey-choice");
+      }
+    } catch (err) {
+      setError("Invalid password. Please try again.");
       setIsLoading(false);
     }
   };
@@ -151,12 +221,19 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         error: userError,
       } = await supabase.auth.getUser();
 
+      // For existing password users, we don't need email verification
+      const isExistingPasswordUser = existingAccountType === 'password';
+
       if (userError || !user) {
-        throw new Error("Please verify email first");
+        if (!isExistingPasswordUser) {
+          throw new Error("Please verify email first");
+        }
+        // For existing users, we should have a user from password auth
+        throw new Error("Authentication required");
       }
 
-      // Check if email is verified
-      if (!user.email_confirmed_at) {
+      // Check if email is verified (skip for existing password users)
+      if (!user.email_confirmed_at && !isExistingPasswordUser) {
         throw new Error(
           "Please verify your email first by clicking the link in your email"
         );
@@ -185,28 +262,12 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         throw new Error("Server did not provide credential salt");
       }
 
-      // Convert salt from base64 to Uint8Array for PRF extension
-      const saltBytes = new Uint8Array(Buffer.from(salt, "base64"));
-
-      // Update PRF extension with the server-generated salt
-      const optionsWithSalt = {
-        ...options,
-        extensions: {
-          ...options.extensions,
-          prf: {
-            eval: {
-              first: saltBytes,
-            },
-          },
-        },
-      } as PublicKeyCredentialCreationOptionsJSON;
-
       // Start WebAuthn registration (user interaction)
       console.log(
-        "🔐 Starting passkey registration with per-credential salt..."
+        "🔐 Starting passkey registration..."
       );
       const registrationResponse = await startRegistration({
-        optionsJSON: optionsWithSalt,
+        optionsJSON: options,
       });
 
       // Verify registration with server, passing the salt
@@ -228,7 +289,16 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       const verifyData = await verifyRes.json();
       console.log("✅ Registration successful:", verifyData);
 
-      // Sign in to Supabase using the magic link token
+      // For existing password users, we need to authenticate to get encryption key
+      if (existingAccountType === 'password') {
+        console.log("✅ Passkey added to existing account");
+        // Authenticate with the new passkey to get encryption key
+        setHasExistingCredentials(true);
+        await handleLogin();
+        return; // handleLogin will call onSuccess
+      }
+
+      // Sign in to Supabase using the magic link token (for new users)
       if (verifyData.token) {
         const { data: sessionData, error: signInError } =
           await supabase.auth.verifyOtp({
@@ -473,22 +543,92 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
           </button>
         </form>
       )}
-      {/* Passkey choice step (new user) */}
-      {step === "passkey-choice" && (
-        <div className="space-y-4">
-          <div className="text-center py-8">
-            <div className="mb-4">
-              <span className="text-4xl">📧</span>
-            </div>
-            <p className="text-gray-700 font-medium">Check your email</p>
-            <p className="text-sm text-gray-500 mt-2">
-              We've sent you a verification link. Click it to verify your
-              account.
-            </p>
-            <p className="text-xs text-gray-400 mt-4">
-              After verifying, come back here and sign in with your passkey.
+
+      {/* Password authentication step (for existing accounts) */}
+      {step === "password-auth" && (
+        <form onSubmit={handlePasswordAuth} className="space-y-4">
+          <div className="text-center mb-4">
+            <span className="text-2xl">🔑</span>
+            <h3 className="text-lg font-medium text-gray-900 mt-2">
+              Add Passkey to Existing Account
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              We found an existing account with this email. Please enter your password to continue.
             </p>
           </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pastel-blue focus:border-transparent outline-none transition"
+              disabled={isLoading}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading || !password}
+            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200"
+          >
+            {isLoading ? "Authenticating..." : "Continue with Passkey"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setStep("email");
+              setPassword("");
+              setExistingAccountType(null);
+            }}
+            disabled={isLoading}
+            className="w-full py-2 px-4 text-gray-600 hover:text-gray-800 font-medium transition"
+          >
+            Use a different email
+          </button>
+        </form>
+      )}
+
+      {/* Passkey choice step */}
+      {step === "passkey-choice" && (
+        <div className="space-y-4">
+          {existingAccountType === 'password' ? (
+            // Existing password user - add passkey
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <span className="text-4xl">🔑</span>
+              </div>
+              <p className="text-gray-700 font-medium">Add passkey to your account</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Secure your account with biometric authentication. You'll be able to sign in with your fingerprint, face, or device PIN.
+              </p>
+            </div>
+          ) : (
+            // New user - email verification
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <span className="text-4xl">📧</span>
+              </div>
+              <p className="text-gray-700 font-medium">Check your email</p>
+              <p className="text-sm text-gray-500 mt-2">
+                We've sent you a verification link. Click it to verify your
+                account.
+              </p>
+              <p className="text-xs text-gray-400 mt-4">
+                After verifying, come back here and sign in with your passkey.
+              </p>
+            </div>
+          )}
 
           <button
             onClick={handleRegister}
@@ -500,21 +640,23 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
             ) : (
               <>
                 <span>🔑</span>
-                Create Passkey
+                {existingAccountType === 'password' ? 'Add Passkey' : 'Create Passkey'}
               </>
             )}
           </button>
 
-          <button
-            onClick={() => {
-              setStep("email");
-              setEmail("");
-            }}
-            disabled={isLoading}
-            className="w-full py-2 px-4 text-gray-600 hover:text-gray-800 font-medium transition"
-          >
-            Use a different email
-          </button>
+          {existingAccountType !== 'password' && (
+            <button
+              onClick={() => {
+                setStep("email");
+                setEmail("");
+              }}
+              disabled={isLoading}
+              className="w-full py-2 px-4 text-gray-600 hover:text-gray-800 font-medium transition"
+            >
+              Use a different email
+            </button>
+          )}
         </div>
       )}
 

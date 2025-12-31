@@ -191,6 +191,8 @@ export default function MainPage() {
     deliveryAddress?: string;
   }>({});
   const { user, signOut, hasEncryptionKey } = useAuth();
+  const [hasPasskey, setHasPasskey] = useState<boolean | null>(null);
+  const [showPasskeySetup, setShowPasskeySetup] = useState(false);
 
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
@@ -215,7 +217,11 @@ export default function MainPage() {
   // Refresh ScrollTrigger when image is uploaded (after DOM update)
   useEffect(() => {
     if (originalImage) {
-      ScrollTrigger.refresh();
+      // Small delay to ensure DOM is stable
+      const timeoutId = setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [originalImage]);
 
@@ -272,6 +278,11 @@ export default function MainPage() {
         const croppedResult = await processImageWithRunPod(originalImage);
         setCroppedImage(croppedResult);
         console.log("Image cropped successfully");
+        
+        // Refresh ScrollTrigger after cropping completes to ensure animations work
+        setTimeout(() => {
+          ScrollTrigger.refresh();
+        }, 100);
       } catch (error) {
         console.error("Failed to crop image:", error);
         const errorMessage =
@@ -528,12 +539,42 @@ export default function MainPage() {
     setValidationErrors([]);
     setFieldErrors({});
     
+    // Check if user has passkey authentication
+    const checkPasskeyStatus = async () => {
+      if (user?.email) {
+        try {
+          const response = await fetch('/api/auth/check-account-type', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setHasPasskey(data.hasPasskey || false);
+            // Show passkey setup banner if user has password but no passkey
+            setShowPasskeySetup(data.accountType === 'password' && !data.hasPasskey);
+          }
+        } catch (error) {
+          console.error('Failed to check passkey status:', error);
+          setHasPasskey(null);
+          setShowPasskeySetup(false);
+        }
+      } else {
+        setHasPasskey(null);
+        setShowPasskeySetup(false);
+      }
+    };
+
+    checkPasskeyStatus();
+    
     // Refresh ScrollTrigger when user auth state changes
     // This ensures scroll animations work properly after auth transition
     // Works for both login and logout transitions
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       ScrollTrigger.refresh();
-    }, 100);
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [user, hasEncryptionKey]);
 
   useEffect(() => {
@@ -596,6 +637,100 @@ export default function MainPage() {
                   <LogOut className="size-4" />
                   Sign out
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Passkey setup banner */}
+          {showPasskeySetup && (
+            <div className="max-w-2xl mx-auto mb-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-blue-800 mb-1">
+                      Add Passkey Authentication
+                    </h3>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          setShowPasskeySetup(false);
+                          // Trigger passkey registration for existing user
+                          const response = await fetch('/api/auth/passkey/register-options', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: user?.email }),
+                          });
+                          
+                          if (!response.ok) {
+                            throw new Error('Failed to get registration options');
+                          }
+                          
+                          const { options, salt } = await response.json();
+                          
+                          // Convert salt from base64 to Uint8Array for PRF extension
+                          const saltBytes = salt ? new Uint8Array(Buffer.from(salt, 'base64')) : new Uint8Array(32);
+                          
+                          // Update PRF extension with the server-generated salt
+                          const optionsWithSalt = {
+                            ...options,
+                            extensions: {
+                              ...options.extensions,
+                              prf: {
+                                eval: {
+                                  first: saltBytes,
+                                },
+                              },
+                            },
+                          };
+                          
+                          // Import the startRegistration function
+                          const { startRegistration } = await import('@simplewebauthn/browser');
+                          const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
+                          
+                          // Complete registration
+                          const verifyResponse = await fetch('/api/auth/passkey/register-verify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              email: user?.email,
+                              response: registrationResponse,
+                              salt: salt,
+                            }),
+                          });
+                          
+                          if (verifyResponse.ok) {
+                            // Refresh passkey status
+                            const checkResponse = await fetch('/api/auth/check-account-type', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ email: user?.email }),
+                            });
+                            if (checkResponse.ok) {
+                              const data = await checkResponse.json();
+                              setHasPasskey(data.hasPasskey || false);
+                            }
+                          } else {
+                            console.error('Passkey registration failed');
+                          }
+                        } catch (error) {
+                          console.error('Failed to add passkey:', error);
+                        }
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                    >
+                      Add Passkey
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowPasskeySetup(false)}
+                    className="text-blue-400 hover:text-blue-600 ml-4"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
           )}

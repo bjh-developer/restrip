@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     console.log('Has passkey credentials:', hasPasskeyCredentials, 'Error:', passkeyError);
     console.log('Passkey credentials count:', passkeyCredentials?.length || 0);
 
-    const hasPasskey = hasPasskeyCredentials || authMethod === 'passkey' || authMethod === 'passkey_pending_verification';
+    const hasPasskey = hasPasskeyCredentials || authMethod === 'passkey' || authMethod === 'password_and_passkey';
     console.log('Final hasPasskey result:', hasPasskey);
 
     return NextResponse.json({
