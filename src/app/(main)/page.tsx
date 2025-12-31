@@ -12,6 +12,7 @@ import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
 import ShinyText from "../../components/ShinyText";
 import { AuthGate } from "../../components/auth";
+import { PasswordLinkingModal } from "../../components/auth/PasswordLinkingModal";
 import { useAuth } from "../../hooks/useAuth";
 import { encryptImage, encryptData, getEncryptionKey } from "../../lib/encryption";
 import {
@@ -203,7 +204,40 @@ export default function MainPage() {
   const { user, signOut, hasEncryptionKey } = useAuth();
   const [hasPasskey, setHasPasskey] = useState<boolean | null>(null);
   const [showPasskeySetup, setShowPasskeySetup] = useState(false);
+  const [showPasswordSetup, setShowPasswordSetup] = useState(false);
+  const [showPasswordLinking, setShowPasswordLinking] = useState(false);
   const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
+  // Function to check passkey status and update banners
+  const checkPasskeyStatus = async () => {
+    if (user?.email) {
+      try {
+        const response = await fetch('/api/auth/check-account-type', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasPasskey(data.hasPasskey || false);
+          // Show passkey setup banner if user has password but no passkey
+          setShowPasskeySetup(data.accountType === 'password' && !data.hasPasskey);
+          // Show password setup banner if user has passkey but no password
+          setShowPasswordSetup(data.accountType === 'passkey' && data.hasPasskey);
+        }
+      } catch (error) {
+        console.error('Failed to check passkey status:', error);
+        setHasPasskey(null);
+        setShowPasskeySetup(false);
+        setShowPasswordSetup(false);
+      }
+    } else {
+      setHasPasskey(null);
+      setShowPasskeySetup(false);
+      setShowPasswordSetup(false);
+    }
+  };
 
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
@@ -549,34 +583,8 @@ export default function MainPage() {
     // This prevents errors from previous account from persisting
     setValidationErrors([]);
     setFieldErrors({});
-    
-    // Check if user has passkey authentication
-    const checkPasskeyStatus = async () => {
-      if (user?.email) {
-        try {
-          const response = await fetch('/api/auth/check-account-type', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email }),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            setHasPasskey(data.hasPasskey || false);
-            // Show passkey setup banner if user has password but no passkey
-            setShowPasskeySetup(data.accountType === 'password' && !data.hasPasskey);
-          }
-        } catch (error) {
-          console.error('Failed to check passkey status:', error);
-          setHasPasskey(null);
-          setShowPasskeySetup(false);
-        }
-      } else {
-        setHasPasskey(null);
-        setShowPasskeySetup(false);
-      }
-    };
 
+    // Check if user has passkey authentication
     checkPasskeyStatus();
     
     // Refresh ScrollTrigger when user auth state changes
@@ -648,6 +656,36 @@ export default function MainPage() {
                   <LogOut className="size-4" />
                   Sign out
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Password setup banner */}
+          {showPasswordSetup && (
+            <div className="max-w-2xl mx-auto mb-4">
+              <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium mb-1 text-green-800">
+                      Add Password Authentication
+                    </h3>
+                    <p className="text-sm mb-3 text-green-700">
+                      Add a password to your account for additional login options. This provides a backup authentication method.
+                    </p>
+                    <button
+                      onClick={() => setShowPasswordLinking(true)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition"
+                    >
+                      Add Password
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowPasswordSetup(false)}
+                    className="ml-4 text-green-400 hover:text-green-600"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -924,6 +962,21 @@ export default function MainPage() {
           </div>
         </div>
       </div>
+
+      {/* Password Linking Modal */}
+      {showPasswordLinking && (
+        <PasswordLinkingModal
+          isOpen={showPasswordLinking}
+          onClose={() => setShowPasswordLinking(false)}
+          onSuccess={() => {
+            setShowPasswordLinking(false);
+            setShowPasswordSetup(false);
+            // Refresh account type to reflect the change
+            checkPasskeyStatus();
+          }}
+          userId={user!.id}
+        />
+      )}
 
       {/* Footer Section */}
       <footer className="bg-soft-black text-warm-beige py-8">
