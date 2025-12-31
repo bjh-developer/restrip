@@ -54,7 +54,37 @@ One-page website. No login required. Upload → Auto-crop → Caption → Schedu
 
 ---
 
-## 🛠️ Tech Stack
+## � Authentication System
+
+ReStrip uses a modern, unified authentication system built on Supabase with support for both traditional passwords and cutting-edge passkeys (WebAuthn).
+
+### Features
+- **Passkey Authentication** — Passwordless sign-in using device biometrics/fingerprint
+- **Email Verification** — Secure account verification via Supabase's built-in email system
+- **Account Linking** — Seamlessly link password and passkey auth methods to the same account
+- **Zero-Knowledge Encryption** — Images are encrypted client-side before upload
+- **Unified Auth State** — Single source of truth for all authentication methods
+
+### Why This Architecture?
+
+**Before:** Custom verification codes stored in separate database tables, complex state management between different auth methods.
+
+**After:** Supabase handles all email verification, password management, and user state in one unified system.
+
+**Benefits for Account Linking:**
+- Add password to existing passkey account: `supabase.auth.updateUser({ password })`
+- Add passkey to existing password account: Use passkey registration flow (auto-links)
+- Single email verification system for all auth methods
+- No custom database tables or complex state synchronization
+
+### Implementation
+- **Passkeys:** @simplewebauthn/browser + server for WebAuthn protocol
+- **Encryption:** Web Crypto API with PRF extension for per-credential key derivation
+- **Backend:** Supabase Auth with custom RPC functions for secure user checks
+
+---
+
+## �🛠️ Tech Stack
 
 ### Frontend
 - **Next.js 16.0.4** (App Router, TypeScript)
@@ -81,7 +111,7 @@ One-page website. No login required. Upload → Auto-crop → Caption → Schedu
 ## 📁 Project Structure
 
 ```
-rereel/
+restrip/
 ├── src/
 │   ├── app/
 │   │   ├── (main)/
@@ -254,7 +284,7 @@ See [UserJot Feedback Board](https://restrip.userjot.com/) to suggest features.
 
 - **Feature Requests:** [UserJot Board](https://restrip.userjot.com/)
 - **Contact:** [/contact](/contact)
-- **Issues:** [GitHub Issues](https://github.com/bjh-developer/rereel/issues)
+- **Issues:** [GitHub Issues](https://github.com/bjh-developer/restrip/issues)
 
 ---
 
@@ -288,4 +318,4 @@ We live in a world where memories are fleeting, photo strips pile up, and feelin
 
 If you like ReStrip, please give it a star! It helps us reach more people and build a better product.
 
-[![GitHub stars](https://img.shields.io/github/stars/bjh-developer/rereel?style=social)](https://github.com/bjh-developer/rereel)
+[![GitHub stars](https://img.shields.io/github/stars/bjh-developer/restrip?style=social)](https://github.com/bjh-developer/restrip)

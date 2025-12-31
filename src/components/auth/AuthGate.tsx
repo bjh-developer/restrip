@@ -84,12 +84,14 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 
   // User is authenticated with encryption key
   if (user && hasEncryptionKey) {
+    console.log('AuthGate: User authenticated with encryption key, showing main app');
     return <>{children}</>;
   }
 
   // User is authenticated but missing encryption key
   // Check if they just verified their email - if so, show the normal auth flow with a message
   if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
+    console.log('AuthGate: User authenticated but missing encryption key, showing re-auth page');
     return (
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-6">
@@ -102,9 +104,9 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           </p>
         </div>
 
-        {passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
+        {passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
-        ) : !passkeySupported && user?.user_metadata?.auth_method === 'passkey' ? (
+        ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚠️</span>

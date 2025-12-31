@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { 
-  startRegistration, 
+import React, { useState } from "react";
+import {
+  startRegistration,
   startAuthentication,
-} from '@simplewebauthn/browser';
-import type { 
+} from "@simplewebauthn/browser";
+import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
-} from '@simplewebauthn/browser';
-import { useAuth } from '../../hooks/useAuth';
-import { usePasskeySupport } from '../../hooks/usePasskeySupport';
-import { createClient } from '../../lib/supabase/client';
+} from "@simplewebauthn/browser";
+import { useAuth } from "../../hooks/useAuth";
+import { usePasskeySupport } from "../../hooks/usePasskeySupport";
+import { createClient } from "../../lib/supabase/client";
 
 // Helper to convert base64url to Uint8Array
 function base64urlToUint8Array(base64url: string): Uint8Array {
-  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
   const padLen = (4 - (base64.length % 4)) % 4;
-  const padded = base64 + '='.repeat(padLen);
+  const padded = base64 + "=".repeat(padLen);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -31,17 +31,31 @@ interface PasskeyAuthProps {
   onError?: (error: Error) => void;
 }
 
-type AuthStep = 'email' | 'passkey-choice' | 'registering' | 'authenticating' | 'success';
+type AuthStep =
+  | "email"
+  | "passkey-choice"
+  | "registering"
+  | "authenticating"
+  | "success";
 
 export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
-  const [email, setEmail] = useState('');
-  const [step, setStep] = useState<AuthStep>('email');
+  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<AuthStep>("email");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasExistingCredentials, setHasExistingCredentials] = useState(false);
 
-  const { setEncryptionKeyFromPRF } = useAuth();
+  const { setEncryptionKeyFromPRF, user } = useAuth();
   const { passkeySupported, isLoading: checkingSupport } = usePasskeySupport();
+
+  // Check if user is already authenticated and needs to complete passkey registration
+  React.useEffect(() => {
+    if (user && user.user_metadata?.auth_method === 'passkey_pending_verification' && user.email_confirmed_at) {
+      // User has verified email and is pending passkey registration
+      setEmail(user.email || '');
+      setStep('passkey-choice');
+    }
+  }, [user]);
 
   // Validate email format
   const isValidEmail = (email: string) => {
@@ -51,14 +65,14 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   // Check if user has existing passkeys
   const checkExistingCredentials = async (email: string) => {
     try {
-      const res = await fetch('/api/auth/passkey/login-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/passkey/login-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      
+
       if (!res.ok) return false;
-      
+
       const data = await res.json();
       return data.options?.allowCredentials?.length > 0;
     } catch {
@@ -69,9 +83,9 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   // Handle email submission
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isValidEmail(email)) {
-      setError('Please enter a valid email address');
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -81,17 +95,45 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
     try {
       const hasCredentials = await checkExistingCredentials(email);
       setHasExistingCredentials(hasCredentials);
-      
+
       if (hasCredentials) {
         // User has passkeys, go straight to authentication
         await handleLogin();
       } else {
-        // New user, show registration choice
-        setStep('passkey-choice');
-        setIsLoading(false);
+        // New user, create temporary account to trigger email verification
+        await createTempAccountForVerification();
       }
     } catch (err) {
-      setError('Failed to check credentials. Please try again.');
+      setError("Failed to check credentials. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
+  // Create temporary account to trigger Supabase email verification
+  const createTempAccountForVerification = async () => {
+    try {
+      const supabase = createClient();
+
+      // Create user with email_confirm: false to trigger verification email
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: Math.random().toString(36), // Temporary password, won't be used
+        options: {
+          data: {
+            auth_method: "passkey_pending_verification",
+          },
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setError(null);
+      setStep("passkey-choice");
+      setIsLoading(false);
+    } catch (err) {
+      setError("Failed to send verification email. Please try again.");
       setIsLoading(false);
     }
   };
@@ -100,33 +142,52 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   const handleRegister = async () => {
     setError(null);
     setIsLoading(true);
-    setStep('registering');
+    setStep("registering");
 
     try {
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        throw new Error("Please verify email first");
+      }
+
+      // Check if email is verified
+      if (!user.email_confirmed_at) {
+        throw new Error(
+          "Please verify your email first by clicking the link in your email"
+        );
+      }
+
       // Get registration options from server
-      const optionsRes = await fetch('/api/auth/passkey/register-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const optionsRes = await fetch("/api/auth/passkey/register-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (!optionsRes.ok) {
         const errorData = await optionsRes.json();
-        throw new Error(errorData.error || 'Failed to get registration options');
+        throw new Error(
+          errorData.error || "Failed to get registration options"
+        );
       }
 
-      const { options, salt } = await optionsRes.json() as { 
+      const { options, salt } = (await optionsRes.json()) as {
         options: PublicKeyCredentialCreationOptionsJSON;
         salt: string;
       };
-      
+
       if (!salt) {
-        throw new Error('Server did not provide credential salt');
+        throw new Error("Server did not provide credential salt");
       }
 
       // Convert salt from base64 to Uint8Array for PRF extension
-      const saltBytes = new Uint8Array(Buffer.from(salt, 'base64'));
-      
+      const saltBytes = new Uint8Array(Buffer.from(salt, "base64"));
+
       // Update PRF extension with the server-generated salt
       const optionsWithSalt = {
         ...options,
@@ -139,15 +200,19 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
           },
         },
       } as PublicKeyCredentialCreationOptionsJSON;
-      
+
       // Start WebAuthn registration (user interaction)
-      console.log('🔐 Starting passkey registration with per-credential salt...');
-      const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
-      
+      console.log(
+        "🔐 Starting passkey registration with per-credential salt..."
+      );
+      const registrationResponse = await startRegistration({
+        optionsJSON: optionsWithSalt,
+      });
+
       // Verify registration with server, passing the salt
-      const verifyRes = await fetch('/api/auth/passkey/register-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const verifyRes = await fetch("/api/auth/passkey/register-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           response: registrationResponse,
@@ -157,42 +222,47 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
 
       if (!verifyRes.ok) {
         const errorData = await verifyRes.json();
-        throw new Error(errorData.error || 'Failed to verify registration');
+        throw new Error(errorData.error || "Failed to verify registration");
       }
 
       const verifyData = await verifyRes.json();
-      console.log('✅ Registration successful:', verifyData);
+      console.log("✅ Registration successful:", verifyData);
 
       // Sign in to Supabase using the magic link token
       if (verifyData.token) {
-        const supabase = createClient();
-        const { data: sessionData, error: signInError } = await supabase.auth.verifyOtp({
-          token_hash: verifyData.token,
-          type: 'magiclink',
-        });
-        
+        const { data: sessionData, error: signInError } =
+          await supabase.auth.verifyOtp({
+            token_hash: verifyData.token,
+            type: "magiclink",
+          });
+
         if (signInError || !sessionData.session) {
-          console.error('Failed to verify magic link token:', signInError);
-          throw new Error('Failed to create session. Please try registering again.');
+          console.error("Failed to verify magic link token:", signInError);
+          throw new Error(
+            "Failed to create session. Please try registering again."
+          );
         }
-        
-        console.log('✅ Supabase session created after registration');
+
+        console.log("✅ Supabase session created after registration");
       } else {
-        console.warn('⚠️ No token received from registration verification');
-        throw new Error('Registration successful but session creation failed. Please sign in manually.');
+        console.warn("⚠️ No token received from registration verification");
+        throw new Error(
+          "Registration successful but session creation failed. Please sign in manually."
+        );
       }
 
       // After registration, immediately authenticate to get PRF output for encryption key
       // This provides a seamless experience - register once, get encryption key
-      console.log('🔐 Auto-authenticating to get encryption key...');
+      console.log("🔐 Auto-authenticating to get encryption key...");
       setHasExistingCredentials(true);
       await handleLogin();
       return; // handleLogin will set success state
     } catch (err) {
-      console.error('Registration error:', err);
-      const message = err instanceof Error ? err.message : 'Registration failed';
+      console.error("Registration error:", err);
+      const message =
+        err instanceof Error ? err.message : "Registration failed";
       setError(message);
-      setStep('passkey-choice');
+      setStep("passkey-choice");
       setIsLoading(false);
       onError?.(err instanceof Error ? err : new Error(message));
     }
@@ -202,28 +272,28 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   const handleLogin = async () => {
     setError(null);
     setIsLoading(true);
-    setStep('authenticating');
+    setStep("authenticating");
 
     try {
       // Get authentication options from server
-      const optionsRes = await fetch('/api/auth/passkey/login-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const optionsRes = await fetch("/api/auth/passkey/login-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (!optionsRes.ok) {
         const errorData = await optionsRes.json();
-        throw new Error(errorData.error || 'Failed to get login options');
+        throw new Error(errorData.error || "Failed to get login options");
       }
 
-      const { options, credentialSalts } = await optionsRes.json() as { 
+      const { options, credentialSalts } = (await optionsRes.json()) as {
         options: PublicKeyCredentialRequestOptionsJSON;
         credentialSalts: Record<string, string>;
       };
-      
+
       if (!credentialSalts || Object.keys(credentialSalts).length === 0) {
-        throw new Error('Server did not provide credential salts');
+        throw new Error("Server did not provide credential salts");
       }
 
       // Convert credential salts from base64 to Uint8Array
@@ -231,8 +301,8 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // we'd need to know which credential was used, but browser autofill handles this)
       const credentialIds = Object.keys(credentialSalts);
       const firstSaltBase64 = credentialSalts[credentialIds[0]];
-      const saltBytes = new Uint8Array(Buffer.from(firstSaltBase64, 'base64'));
-      
+      const saltBytes = new Uint8Array(Buffer.from(firstSaltBase64, "base64"));
+
       // Update PRF extension with the per-credential salt
       const optionsWithSalt = {
         ...options,
@@ -247,32 +317,36 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       } as PublicKeyCredentialRequestOptionsJSON;
 
       // Start WebAuthn authentication (user interaction)
-      console.log('🔐 Starting passkey authentication with per-credential salt...');
-      const authResponse = await startAuthentication({ optionsJSON: optionsWithSalt });
-      
+      console.log(
+        "🔐 Starting passkey authentication with per-credential salt..."
+      );
+      const authResponse = await startAuthentication({
+        optionsJSON: optionsWithSalt,
+      });
+
       // Determine which credential was used
       const usedCredentialId = authResponse.id;
       const usedSalt = credentialSalts[usedCredentialId];
-      
+
       if (!usedSalt) {
-        throw new Error('No salt found for authenticated credential');
+        throw new Error("No salt found for authenticated credential");
       }
-      
+
       // Check for PRF output in the response
       let prfOutput: ArrayBuffer | null = null;
-      const extensionResults = authResponse.clientExtensionResults as { 
-        prf?: { results?: { first?: ArrayBuffer } } 
+      const extensionResults = authResponse.clientExtensionResults as {
+        prf?: { results?: { first?: ArrayBuffer } };
       };
-      
+
       if (extensionResults?.prf?.results?.first) {
         prfOutput = extensionResults.prf.results.first;
-        console.log('✅ PRF output received for encryption key');
+        console.log("✅ PRF output received for encryption key");
       }
 
       // Verify authentication with server, passing the salt for the used credential
-      const verifyRes = await fetch('/api/auth/passkey/login-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const verifyRes = await fetch("/api/auth/passkey/login-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           response: authResponse,
@@ -282,21 +356,21 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
 
       if (!verifyRes.ok) {
         const errorData = await verifyRes.json();
-        throw new Error(errorData.error || 'Failed to verify login');
+        throw new Error(errorData.error || "Failed to verify login");
       }
 
       const verifyData = await verifyRes.json();
-      console.log('✅ Login successful:', verifyData);
+      console.log("✅ Login successful:", verifyData);
 
       // Derive encryption key directly from PRF output
       // With phone-first passkey flow, the same passkey (synced via iCloud/Google)
       // produces the same PRF output everywhere, so we don't need key wrapping
       if (prfOutput) {
-        console.log('🔑 Deriving encryption key from PRF...');
+        console.log("🔑 Deriving encryption key from PRF...");
         await setEncryptionKeyFromPRF(prfOutput);
-        console.log('✅ Encryption key set');
+        console.log("✅ Encryption key set");
       } else {
-        console.log('⚠️ PRF not available, encryption key not set');
+        console.log("⚠️ PRF not available, encryption key not set");
         // PRF should always be available with modern passkeys
         // If not, the user won't be able to encrypt/decrypt data
       }
@@ -304,30 +378,33 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // Sign in to Supabase using the magic link token
       if (verifyData.token) {
         const supabase = createClient();
-        const { data: sessionData, error: signInError } = await supabase.auth.verifyOtp({
-          token_hash: verifyData.token,
-          type: 'magiclink',
-        });
-        
+        const { data: sessionData, error: signInError } =
+          await supabase.auth.verifyOtp({
+            token_hash: verifyData.token,
+            type: "magiclink",
+          });
+
         if (signInError || !sessionData.session) {
-          console.error('Failed to verify magic link token:', signInError);
-          throw new Error('Failed to create session. Please try signing in again.');
+          console.error("Failed to verify magic link token:", signInError);
+          throw new Error(
+            "Failed to create session. Please try signing in again."
+          );
         }
-        
-        console.log('✅ Supabase session created');
+
+        console.log("✅ Supabase session created");
       } else {
-        console.warn('⚠️ No token received from login verification');
-        throw new Error('Login verification failed. Please try again.');
+        console.warn("⚠️ No token received from login verification");
+        throw new Error("Login verification failed. Please try again.");
       }
 
-      setStep('success');
+      setStep("success");
       setIsLoading(false);
       onSuccess?.();
     } catch (err) {
-      console.error('Login error:', err);
-      const message = err instanceof Error ? err.message : 'Login failed';
+      console.error("Login error:", err);
+      const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
-      setStep('email');
+      setStep("email");
       setIsLoading(false);
       onError?.(err instanceof Error ? err : new Error(message));
     }
@@ -337,7 +414,9 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
   if (checkingSupport) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-pulse text-gray-500">Checking passkey support...</div>
+        <div className="animate-pulse text-gray-500">
+          Checking passkey support...
+        </div>
       </div>
     );
   }
@@ -347,8 +426,8 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
     return (
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <p className="text-yellow-800">
-          Your browser doesn't support passkeys. Please use a different browser or 
-          sign in with email and password.
+          Your browser doesn't support passkeys. Please use a different browser
+          or sign in with email and password.
         </p>
       </div>
     );
@@ -364,10 +443,13 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       )}
 
       {/* Email step */}
-      {step === 'email' && (
+      {step === "email" && (
         <form onSubmit={handleEmailSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Email address
             </label>
             <input
@@ -381,35 +463,30 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
               autoComplete="email webauthn"
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={isLoading || !email}
             className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200"
           >
-            {isLoading ? 'Checking...' : 'Continue with Passkey'}
+            {isLoading ? "Checking..." : "Continue with Passkey"}
           </button>
         </form>
       )}
-
       {/* Passkey choice step (new user) */}
-      {step === 'passkey-choice' && (
+      {step === "passkey-choice" && (
         <div className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Create your passkey
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Passkeys are a secure, passwordless way to sign in. Your device will 
-              create a unique key that only works for you.
+          <div className="text-center py-8">
+            <div className="mb-4">
+              <span className="text-4xl">📧</span>
+            </div>
+            <p className="text-gray-700 font-medium">Check your email</p>
+            <p className="text-sm text-gray-500 mt-2">
+              We've sent you a verification link. Click it to verify your
+              account.
             </p>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">🔒 Zero-Knowledge Encryption</h4>
-            <p className="text-sm text-blue-800">
-              Your images will be encrypted on your device before upload. Not even 
-              we can see them – only you with your passkey can decrypt them.
+            <p className="text-xs text-gray-400 mt-4">
+              After verifying, come back here and sign in with your passkey.
             </p>
           </div>
 
@@ -419,7 +496,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
             className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center gap-2"
           >
             {isLoading ? (
-              'Creating passkey...'
+              "Creating passkey..."
             ) : (
               <>
                 <span>🔑</span>
@@ -430,8 +507,8 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
 
           <button
             onClick={() => {
-              setStep('email');
-              setEmail('');
+              setStep("email");
+              setEmail("");
             }}
             disabled={isLoading}
             className="w-full py-2 px-4 text-gray-600 hover:text-gray-800 font-medium transition"
@@ -442,7 +519,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       )}
 
       {/* Registering step */}
-      {step === 'registering' && (
+      {step === "registering" && (
         <div className="text-center py-8">
           <div className="animate-pulse mb-4">
             <span className="text-4xl">🔐</span>
@@ -454,25 +531,25 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       )}
 
       {/* Authenticating step */}
-      {step === 'authenticating' && (
+      {step === "authenticating" && (
         <div className="text-center py-8">
           <div className="animate-pulse mb-4">
             <span className="text-4xl">🔓</span>
           </div>
-          <p className="text-gray-700">
-            Use your passkey to sign in...
-          </p>
+          <p className="text-gray-700">Use your passkey to sign in...</p>
         </div>
       )}
 
       {/* Success step */}
-      {step === 'success' && (
+      {step === "success" && (
         <div className="text-center py-8">
           <div className="mb-4">
             <span className="text-4xl">✅</span>
           </div>
           <p className="text-gray-700 font-medium">
-            {hasExistingCredentials ? 'Signed in successfully!' : 'Passkey created successfully!'}
+            {hasExistingCredentials
+              ? "Signed in successfully!"
+              : "Passkey created successfully!"}
           </p>
           <p className="text-sm text-gray-500 mt-2">
             Your data is protected with zero-knowledge encryption.

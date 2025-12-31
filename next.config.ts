@@ -13,11 +13,11 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // unsafe-inline needed for Next.js, unsafe-eval for dev
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://cdn.userjot.com", // unsafe-inline needed for Next.js, unsafe-eval for dev, va.vercel-scripts.com for Vercel Analytics, cdn.userjot.com for Userjot
               "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-jsx and Tailwind
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel-analytics.com https://*.vercel-insights.com https://*.userjot.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

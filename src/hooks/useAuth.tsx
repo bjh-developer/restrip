@@ -117,12 +117,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Set encryption key from password (fallback users)
   const setEncryptionKeyFromPassword = useCallback(async (password: string, salt: Uint8Array) => {
     try {
+      console.log('useAuth: Setting encryption key from password');
       const key = await deriveKeyFromPassword(password, salt);
       await setEncryptionKey(key);
       setEncryptionKeySet(true);
-      console.log('✅ Encryption key derived from password');
+      console.log('useAuth: Encryption key set successfully, encryptionKeySet = true');
     } catch (error) {
-      console.error('Failed to derive key from password:', error);
+      console.error('useAuth: Failed to derive key from password:', error);
       throw error;
     }
   }, []);
