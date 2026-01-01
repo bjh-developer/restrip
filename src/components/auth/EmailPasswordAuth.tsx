@@ -39,8 +39,9 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
   const [existingAccountMethod, setExistingAccountMethod] = useState<string | null>(null);
   const [passkeyAuthenticated, setPasskeyAuthenticated] = useState(false);
   const [verifiedUserId, setVerifiedUserId] = useState<string | null>(null);
+  const [showFullyRegisteredAccount, setShowFullyRegisteredAccount] = useState(false);
 
-  const { setEncryptionKeyFromPassword } = useAuth();
+  const { setEncryptionKeyFromPassword, setEncryptionKeyFromPRF } = useAuth();
   const supabase = useMemo(() => createClient(), []);
 
   // Handle passkey linking mode
@@ -164,7 +165,14 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
             console.log('Has passkey:', accountData.hasPasskey);
             console.log('Account type:', accountData.accountType);
 
-            if (accountData.hasPasskey) {
+            if (accountData.accountType === 'password_and_passkey') {
+              // Account already has both passkey and password
+              setExistingAccountMethod(accountData.accountType);
+              setShowFullyRegisteredAccount(true);
+              setError(null);
+              setIsLoading(false);
+              return;
+            } else if (accountData.hasPasskey) {
               // Existing passkey account - offer to link password
               setExistingAccountMethod(accountData.accountType);
               setShowAccountLinking(true);
@@ -214,7 +222,14 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
             console.log('Has passkey (identities path):', accountData.hasPasskey);
             console.log('Account type (identities path):', accountData.accountType);
 
-            if (accountData.hasPasskey) {
+            if (accountData.accountType === 'password_and_passkey') {
+              // Account already has both passkey and password
+              setExistingAccountMethod(accountData.accountType);
+              setShowFullyRegisteredAccount(true);
+              setError(null);
+              setIsLoading(false);
+              return;
+            } else if (accountData.hasPasskey) {
               // Existing passkey account - offer to link password
               setExistingAccountMethod(accountData.accountType);
               setShowAccountLinking(true);
@@ -298,6 +313,9 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
       // Start WebAuthn authentication
       const authResponse = await startAuthentication({ optionsJSON: optionsWithSalt });
 
+      // Extract PRF output if available
+      const prfOutput = (authResponse as any).clientExtensionResults?.prf?.results?.first;
+      
       // Determine which credential was used and get its salt
       const usedCredentialId = authResponse.id;
       const usedSalt = credentialSalts[usedCredentialId];
@@ -333,6 +351,14 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
 
         if (signInError || !sessionData.session) {
           throw new Error('Failed to create session');
+        }
+
+        // Set encryption key from PRF output if available
+        if (prfOutput) {
+          await setEncryptionKeyFromPRF(prfOutput);
+          console.log('✅ Encryption key set from passkey PRF');
+        } else {
+          console.warn('⚠️ No PRF output received from passkey authentication');
         }
       }
 
@@ -527,6 +553,49 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
         </div>
       )}
 
+      {/* Fully registered account (has both passkey and password) */}
+      {showFullyRegisteredAccount && (
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">
+            ✓ Account Already Registered
+          </h3>
+          <p className="text-sm text-blue-800 mb-3">
+            This email is already registered with both passkey and password authentication. Please sign in using your preferred method.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setError(null);
+                setIsLoading(true);
+                const result = await authenticateWithPasskey(true);
+                if (result.success) {
+                  onSuccess?.();
+                } else {
+                  setError('Passkey authentication failed. Please try again.');
+                }
+                setIsLoading(false);
+              }}
+              disabled={isLoading}
+              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded transition"
+            >
+              {isLoading ? 'Authenticating...' : '🔑 Sign In With Passkey'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowFullyRegisteredAccount(false);
+                setMode('signin');
+              }}
+              disabled={isLoading}
+              className="w-full py-2 px-3 bg-white hover:bg-gray-50 disabled:bg-gray-100 text-blue-600 text-sm font-medium rounded border border-blue-300 transition"
+            >
+              🔒 Sign In With Password
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Account linking option */}
       {showAccountLinking && !passkeyAuthenticated && (
         <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -548,14 +617,21 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
             </button>
             <button
               type="button"
-              onClick={() => {
-                setShowAccountLinking(false);
-                setPasskeyAuthenticated(false);
-                setMode('signin');
+              onClick={async () => {
+                setError(null);
+                setIsLoading(true);
+                const result = await authenticateWithPasskey(true); // Create session
+                if (result.success) {
+                  onSuccess?.(); // Trigger success callback
+                } else {
+                  setError('Passkey authentication failed. Please try again.');
+                }
+                setIsLoading(false);
               }}
-              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium transition"
+              disabled={isLoading}
+              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 font-medium transition"
             >
-              Sign In Instead
+              {isLoading ? 'Authenticating...' : 'Sign In With Passkey Instead'}
             </button>
           </div>
         </div>
@@ -574,7 +650,7 @@ export function EmailPasswordAuth({ onSuccess, onError, signinOnly = false, pass
       )}
 
       {/* Show form only when not in account linking mode or when password linking */}
-      {!showAccountLinking || passkeyAuthenticated ? (
+      {(!showAccountLinking || passkeyAuthenticated) && !showFullyRegisteredAccount ? (
         <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email-password-email" className="block text-sm font-medium text-gray-700 mb-1">

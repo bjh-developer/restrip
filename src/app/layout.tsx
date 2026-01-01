@@ -4,7 +4,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "../styles/globals.css";
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { AuthProvider } from '../hooks/useAuth';
+import { Providers } from '../components/Providers';
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-display",
@@ -38,9 +38,9 @@ export default function RootLayout({
       <body
         className={`${playfairDisplay.variable} ${inter.variable} antialiased`}
       >
-        <AuthProvider>
+        <Providers>
           {children}
-        </AuthProvider>
+        </Providers>
         <Analytics />
         <SpeedInsights />
       </body>
