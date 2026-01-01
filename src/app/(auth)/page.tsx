@@ -129,6 +129,11 @@ export default function AuthPage() {
       });
     `;
     document.head.appendChild(script2);
+    
+    return () => {
+      script1.remove();
+      script2.remove();
+    };
   }, []);
 
   // Show loading state

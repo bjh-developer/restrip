@@ -41,15 +41,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // If user is authenticated and visits root, redirect to upload
-  if (request.nextUrl.pathname === '/') {
-    if (session) {
-      // Check if user has encryption key set (we can't check this in middleware)
-      // So we'll let the page handle this logic
-      // For now, just let authenticated users through to the auth page
-      // The page will redirect them if they have full auth
-    }
-  }
+  // Note: Root page (/) handles its own auth logic and redirects based on encryption key status
 
   return response;
 }
