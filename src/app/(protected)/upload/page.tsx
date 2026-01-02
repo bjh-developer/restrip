@@ -483,7 +483,7 @@ export default function UploadPage() {
       .refine(
         (data) => {
           if (data.deliveryMethod === "email") {
-            return z.string().email().safeParse(data.Delivery_Address).success;
+            return z.email().safeParse(data.Delivery_Address).success;
           } else if (data.deliveryMethod === "telegram") {
             return data.Delivery_Address.startsWith("@");
           }
