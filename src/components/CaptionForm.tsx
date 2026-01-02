@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 interface CaptionFormProps {
   onSubmit?: (data: FormData) => void;
@@ -14,9 +14,9 @@ interface FormData {
 
 export default function CaptionForm({ onSubmit }: CaptionFormProps) {
   const [formData, setFormData] = useState<FormData>({
-    caption: '',
-    email: '',
-    date: new Date().toISOString().split('T')[0],
+    caption: "",
+    email: "",
+    date: new Date().toISOString().split("T")[0],
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -26,7 +26,9 @@ export default function CaptionForm({ onSubmit }: CaptionFormProps) {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -36,7 +38,10 @@ export default function CaptionForm({ onSubmit }: CaptionFormProps) {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-4">
       <div>
-        <label htmlFor="caption" className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2">
+        <label
+          htmlFor="caption"
+          className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2"
+        >
           Caption
         </label>
         <textarea
@@ -52,7 +57,10 @@ export default function CaptionForm({ onSubmit }: CaptionFormProps) {
       </div>
 
       <div>
-        <label htmlFor="email" className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2">
+        <label
+          htmlFor="email"
+          className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2"
+        >
           Email
         </label>
         <input
@@ -68,7 +76,10 @@ export default function CaptionForm({ onSubmit }: CaptionFormProps) {
       </div>
 
       <div>
-        <label htmlFor="date" className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2">
+        <label
+          htmlFor="date"
+          className="block font-body text-xs font-medium text-grey uppercase tracking-wide mb-2"
+        >
           Date
         </label>
         <input

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useMemo, ReactNode, RefObject } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import React, { useEffect, useRef, useMemo, ReactNode, RefObject } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -24,17 +24,18 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
   baseOpacity = 0.1,
   baseRotation = 3,
   blurStrength = 4,
-  containerClassName = '',
-  textClassName = '',
-  rotationEnd = 'bottom bottom',
-  wordAnimationEnd = 'bottom bottom'
+  containerClassName = "",
+  textClassName = "",
+  rotationEnd = "bottom bottom",
+  wordAnimationEnd = "bottom bottom",
 }) => {
   const containerRef = useRef<HTMLHeadingElement>(null);
 
   const splitText = useMemo(() => {
-    const text = typeof children === 'string' ? children : String(children || '');
+    const text =
+      typeof children === "string" ? children : String(children || "");
     if (!text.trim()) return null;
-    
+
     return text.split(/(\s+)/).map((word, index) => {
       if (word.match(/^\s+$/)) return word;
       return (
@@ -49,66 +50,72 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
     const el = containerRef.current;
     if (!el || !splitText) return;
 
-    const scroller = scrollContainerRef && scrollContainerRef.current ? scrollContainerRef.current : window;
+    const scroller =
+      scrollContainerRef && scrollContainerRef.current
+        ? scrollContainerRef.current
+        : window;
 
     // Store references to this component's ScrollTriggers
     const triggers: ScrollTrigger[] = [];
 
     const rotationAnimation = gsap.fromTo(
       el,
-      { transformOrigin: '0% 50%', rotate: baseRotation },
+      { transformOrigin: "0% 50%", rotate: baseRotation },
       {
-        ease: 'none',
+        ease: "none",
         rotate: 0,
         scrollTrigger: {
           trigger: el,
           scroller,
-          start: 'top bottom',
+          start: "top bottom",
           end: rotationEnd,
-          scrub: true
-        }
-      }
+          scrub: true,
+        },
+      },
     );
-    if (rotationAnimation.scrollTrigger) triggers.push(rotationAnimation.scrollTrigger);
+    if (rotationAnimation.scrollTrigger)
+      triggers.push(rotationAnimation.scrollTrigger);
 
-    const wordElements = el.querySelectorAll<HTMLElement>('.word');
+    const wordElements = el.querySelectorAll<HTMLElement>(".word");
 
     const opacityAnimation = gsap.fromTo(
       wordElements,
-      { opacity: baseOpacity, willChange: 'opacity' },
+      { opacity: baseOpacity, willChange: "opacity" },
       {
-        ease: 'none',
+        ease: "none",
         opacity: 1,
         stagger: 0.05,
         scrollTrigger: {
           trigger: el,
           scroller,
-          start: 'top bottom-=20%',
+          start: "top bottom-=20%",
           end: wordAnimationEnd,
-          scrub: true
-        }
-      }
+          scrub: true,
+        },
+      },
     );
-    if (opacityAnimation.scrollTrigger) triggers.push(opacityAnimation.scrollTrigger);
+    if (opacityAnimation.scrollTrigger)
+      triggers.push(opacityAnimation.scrollTrigger);
 
     if (enableBlur) {
       const blurAnimation = gsap.fromTo(
         wordElements,
         { filter: `blur(${blurStrength}px)` },
         {
-          ease: 'none',
-          filter: 'blur(0px)',
+          ease: "none",
+          filter: "blur(0px)",
           stagger: 0.05,
           scrollTrigger: {
             trigger: el,
             scroller,
-            start: 'top bottom-=20%',
+            start: "top bottom-=20%",
             end: wordAnimationEnd,
-            scrub: true
-          }
-        }
+            scrub: true,
+          },
+        },
       );
-      if (blurAnimation.scrollTrigger) triggers.push(blurAnimation.scrollTrigger);
+      if (blurAnimation.scrollTrigger)
+        triggers.push(blurAnimation.scrollTrigger);
     }
 
     // Refresh ScrollTrigger after setup to recalculate positions
@@ -116,13 +123,24 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
 
     return () => {
       // Only kill this component's triggers
-      triggers.forEach(trigger => trigger.kill());
+      triggers.forEach((trigger) => trigger.kill());
     };
-  }, [scrollContainerRef, enableBlur, baseRotation, baseOpacity, rotationEnd, wordAnimationEnd, blurStrength, splitText]);
+  }, [
+    scrollContainerRef,
+    enableBlur,
+    baseRotation,
+    baseOpacity,
+    rotationEnd,
+    wordAnimationEnd,
+    blurStrength,
+    splitText,
+  ]);
 
   return (
     <h2 ref={containerRef} className={`my-5 ${containerClassName}`}>
-      <p className={`text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] font-semibold font-body text-soft-black ${textClassName}`}>
+      <p
+        className={`text-[clamp(1.6rem,4vw,3rem)] leading-[1.5] font-semibold font-body text-soft-black ${textClassName}`}
+      >
         {splitText || children}
       </p>
     </h2>

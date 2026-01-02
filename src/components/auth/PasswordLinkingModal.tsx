@@ -88,9 +88,9 @@ export function PasswordLinkingModal({
           </h2>
           <button
             onClick={() => {
-               resetForm();
-               onClose();
-             }}
+              resetForm();
+              onClose();
+            }}
             className="text-gray-400 hover:text-gray-600"
           >
             ✕
@@ -168,9 +168,9 @@ export function PasswordLinkingModal({
               type="button"
               variant="outline"
               onClick={() => {
-               resetForm();
-               onClose();
-             }}
+                resetForm();
+                onClose();
+              }}
               className="flex-1"
               disabled={isLoading}
             >

@@ -22,7 +22,7 @@ import {
 // Create Supabase admin client (bypasses RLS)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export async function POST(request: NextRequest) {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     if (!credential || !salt) {
       return NextResponse.json(
         { error: "Credential and salt are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       console.error("Credential not found:", credError);
       return NextResponse.json(
         { error: "Passkey not found. It may have been deleted." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "Authentication failed: Invalid credential state" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     if (userError || !userData.user) {
       return NextResponse.json(
         { error: "User account not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (!challengeData) {
       return NextResponse.json(
         { error: "Login session expired. Please try again." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { error: "Login session expired. Please try again." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -161,14 +161,14 @@ export async function POST(request: NextRequest) {
       console.error("Authentication verification failed:", verifyError);
       return NextResponse.json(
         { error: "Authentication failed. Please try again." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!verification.verified) {
       return NextResponse.json(
         { error: "Authentication verification failed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "Failed to complete authentication session" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { error: "Failed to complete authentication session" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to create session:", sessionError);
       return NextResponse.json(
         { error: "Failed to create session" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
     console.error("Login verify error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

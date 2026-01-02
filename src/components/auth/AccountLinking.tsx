@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
@@ -10,7 +10,7 @@ interface AccountLinkingProps {
 
 export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
@@ -22,29 +22,30 @@ export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
     try {
       // Guard: ensure user is authenticated and has an ID
       if (!user?.id) {
-        throw new Error('You must be signed in to link a password');
+        throw new Error("You must be signed in to link a password");
       }
 
-      const response = await fetch('/api/auth/link-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/auth/link-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          method: 'password',
+          method: "password",
           password,
-          userId: user.id
+          userId: user.id,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add password');
+        throw new Error(data.error || "Failed to add password");
       }
 
-      setPassword('');
+      setPassword("");
       onSuccess?.();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add password';
+      const message =
+        err instanceof Error ? err.message : "Failed to add password";
       setError(message);
       onError?.(err instanceof Error ? err : new Error(message));
     } finally {
@@ -55,7 +56,7 @@ export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
   const handleAddPasskey = () => {
     // Redirect to passkey registration flow
     // Since user is already authenticated, it will link to their existing account
-    window.location.href = '/auth/passkey';
+    window.location.href = "/auth/passkey";
   };
 
   return (
@@ -93,7 +94,7 @@ export function AccountLinking({ onSuccess, onError }: AccountLinkingProps) {
             disabled={isLoading || !password}
             className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition"
           >
-            {isLoading ? 'Adding Password...' : 'Add Password'}
+            {isLoading ? "Adding Password..." : "Add Password"}
           </button>
         </form>
       </div>

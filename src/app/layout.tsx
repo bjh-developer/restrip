@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 // @ts-ignore
 import "../styles/globals.css";
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
-import { Providers } from '../components/Providers';
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Providers } from "../components/Providers";
 
 const playfairDisplay = Playfair_Display({
   variable: "--font-display",
@@ -22,7 +22,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "ReStrip - Photo strips that come back to you",
-  description: "Transform your photo strip memories into digital treasures. A small memory that returns when you least expect it.",
+  description:
+    "Transform your photo strip memories into digital treasures. A small memory that returns when you least expect it.",
 };
 
 export default function RootLayout({
@@ -38,9 +39,7 @@ export default function RootLayout({
       <body
         className={`${playfairDisplay.variable} ${inter.variable} antialiased`}
       >
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
         <Analytics />
         <SpeedInsights />
       </body>

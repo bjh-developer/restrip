@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -19,25 +19,27 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
+            request.cookies.set(name, value),
           );
           response = NextResponse.next({
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
   // Protected routes - redirect to home if not authenticated
-  if (request.nextUrl.pathname.startsWith('/upload')) {
+  if (request.nextUrl.pathname.startsWith("/upload")) {
     if (!session) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
@@ -47,5 +49,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/upload/:path*'],
+  matcher: ["/", "/upload/:path*"],
 };

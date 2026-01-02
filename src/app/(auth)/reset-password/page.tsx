@@ -1,23 +1,24 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '../../../lib/supabase/client';
-import { Input } from '../../../../components/ui/input';
-import { Button } from '../../../../components/ui/button';
-import { Label } from '../../../../components/ui/label';
-import Link from 'next/link';
+import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "../../../lib/supabase/client";
+import { Input } from "../../../../components/ui/input";
+import { Button } from "../../../../components/ui/button";
+import { Label } from "../../../../components/ui/label";
+import Link from "next/link";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [step, setStep] = useState<'request' | 'reset'>('request');
-  const [redirectTimeoutId, setRedirectTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [step, setStep] = useState<"request" | "reset">("request");
+  const [redirectTimeoutId, setRedirectTimeoutId] =
+    useState<NodeJS.Timeout | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -39,15 +40,18 @@ export default function ResetPasswordPage() {
 
     try {
       if (!isValidEmail(email)) {
-        throw new Error('Please enter a valid email address');
+        throw new Error("Please enter a valid email address");
       }
 
       // Attempt to send reset email
       // Note: We don't check if the account exists to prevent email enumeration attacks
       // Supabase will silently handle non-existent emails
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password?next=reset`,
-      });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/reset-password?next=reset`,
+        },
+      );
 
       if (resetError) {
         throw resetError;
@@ -56,8 +60,9 @@ export default function ResetPasswordPage() {
       // Show success regardless of whether email exists (security: prevent enumeration)
       setShowSuccess(true);
     } catch (err) {
-      console.error('Password reset request error:', err);
-      const message = err instanceof Error ? err.message : 'Failed to request password reset';
+      console.error("Password reset request error:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to request password reset";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -72,18 +77,21 @@ export default function ResetPasswordPage() {
 
     try {
       if (!isValidPassword(password)) {
-        throw new Error('Password must be at least 8 characters long');
+        throw new Error("Password must be at least 8 characters long");
       }
 
       if (password !== confirmPassword) {
-        throw new Error('Passwords do not match');
+        throw new Error("Passwords do not match");
       }
 
       // Get session with fresh token from URL
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+
       if (sessionError || !sessionData?.session) {
-        throw new Error('Reset session expired. Please request a new password reset.');
+        throw new Error(
+          "Reset session expired. Please request a new password reset.",
+        );
       }
 
       const { error: updateError } = await supabase.auth.updateUser({
@@ -93,19 +101,20 @@ export default function ResetPasswordPage() {
       if (updateError) {
         throw updateError;
       }
-      
+
       // Show success immediately
       setShowSuccess(true);
-      
+
       // Schedule redirect after delay
       const timeoutId = setTimeout(() => {
-        router.push('/?mode=signin');
+        router.push("/?mode=signin");
       }, 1500);
-      
+
       setRedirectTimeoutId(timeoutId);
     } catch (err) {
-      console.error('Password update error:', err);
-      const message = err instanceof Error ? err.message : 'Failed to update password';
+      console.error("Password update error:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to update password";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -115,8 +124,8 @@ export default function ResetPasswordPage() {
   // Check if we're in reset mode from redirect
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('next') === 'reset') {
-      setStep('reset');
+    if (params.get("next") === "reset") {
+      setStep("reset");
     }
   }, []);
 
@@ -136,28 +145,27 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 font-display">ReStrip</h1>
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-            {step === 'request' ? 'Reset Password' : 'Set New Password'}
+            {step === "request" ? "Reset Password" : "Set New Password"}
           </h2>
           <p className="text-gray-600">
-            {step === 'request'
-              ? 'Enter your email to receive a password reset link'
-              : 'Create a new password for your account'}
+            {step === "request"
+              ? "Enter your email to receive a password reset link"
+              : "Create a new password for your account"}
           </p>
         </div>
 
         {/* Success Message */}
-        {showSuccess && step === 'request' && (
+        {showSuccess && step === "request" && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-800 font-medium">
-              ✓ Check your email
-            </p>
+            <p className="text-green-800 font-medium">✓ Check your email</p>
             <p className="text-green-700 text-sm mt-1">
-              If an account exists with this email address, a password reset link has been sent to your inbox.
+              If an account exists with this email address, a password reset
+              link has been sent to your inbox.
             </p>
           </div>
         )}
 
-        {showSuccess && step === 'reset' && (
+        {showSuccess && step === "reset" && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-800 font-medium">
               ✓ Password updated successfully
@@ -183,7 +191,7 @@ export default function ResetPasswordPage() {
         )}
 
         {/* Request Reset Form */}
-        {step === 'request' && (
+        {step === "request" && (
           <form onSubmit={handleRequestReset} className="space-y-6">
             <div>
               <Label htmlFor="email">Email Address</Label>
@@ -203,13 +211,13 @@ export default function ResetPasswordPage() {
               disabled={isLoading || showSuccess || !email}
               className="w-full"
             >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
+              {isLoading ? "Sending..." : "Send Reset Link"}
             </Button>
           </form>
         )}
 
         {/* Reset Password Form */}
-        {step === 'reset' && !showSuccess && (
+        {step === "reset" && !showSuccess && (
           <form onSubmit={handleResetPassword} className="space-y-6">
             <div>
               <Label htmlFor="password">New Password</Label>
@@ -245,7 +253,7 @@ export default function ResetPasswordPage() {
               disabled={isLoading || !password || !confirmPassword}
               className="w-full"
             >
-              {isLoading ? 'Updating...' : 'Update Password'}
+              {isLoading ? "Updating..." : "Update Password"}
             </Button>
           </form>
         )}
@@ -253,15 +261,14 @@ export default function ResetPasswordPage() {
         {/* Footer Links */}
         <div className="mt-8 text-center space-y-2">
           <p className="text-sm text-gray-600">
-            {step === 'request'
-              ? 'Remember your password?'
-              : 'Need to reset your email?'}
-            {' '}
+            {step === "request"
+              ? "Remember your password?"
+              : "Need to reset your email?"}{" "}
             <Link
-              href={step === 'request' ? '/?mode=signin' : '/reset-password'}
+              href={step === "request" ? "/?mode=signin" : "/reset-password"}
               className="font-semibold text-blue-500 hover:text-blue-700 underline"
             >
-              {step === 'request' ? 'Sign in' : 'Request new reset'}
+              {step === "request" ? "Sign in" : "Request new reset"}
             </Link>
           </p>
         </div>

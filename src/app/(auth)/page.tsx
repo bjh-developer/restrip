@@ -67,14 +67,15 @@ export default function AuthPage() {
   const { user, isLoading: authLoading, hasEncryptionKey, signOut } = useAuth();
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
-  const [showEmailVerificationMessage, setShowEmailVerificationMessage] = useState(false);
+  const [showEmailVerificationMessage, setShowEmailVerificationMessage] =
+    useState(false);
   const [isPasskeyRegistration, setIsPasskeyRegistration] = useState(false);
 
   // Redirect to upload if fully authenticated
   useEffect(() => {
     if (user && hasEncryptionKey) {
-      console.log('AuthPage: User fully authenticated, redirecting to /upload');
-      router.push('/upload');
+      console.log("AuthPage: User fully authenticated, redirecting to /upload");
+      router.push("/upload");
     }
   }, [user, hasEncryptionKey, router]);
 
@@ -82,26 +83,32 @@ export default function AuthPage() {
   useEffect(() => {
     const checkEmailVerification = async () => {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const type = hashParams.get('type');
-      
-      if (type === 'signup' || type === 'email') {
+      const type = hashParams.get("type");
+
+      if (type === "signup" || type === "email") {
         setActiveTab("password");
         setShowEmailVerificationMessage(true);
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
       }
-      
-      if (user?.user_metadata?.auth_method === 'password') {
+
+      if (user?.user_metadata?.auth_method === "password") {
         setActiveTab("password");
       }
     };
-    
+
     checkEmailVerification();
   }, [user]);
 
   // Check for passkey registration hash
   useEffect(() => {
     const checkPasskeyRegistration = () => {
-      setIsPasskeyRegistration(window.location.hash === '#passkey-registration');
+      setIsPasskeyRegistration(
+        window.location.hash === "#passkey-registration",
+      );
     };
 
     checkPasskeyRegistration();
@@ -110,8 +117,8 @@ export default function AuthPage() {
       checkPasskeyRegistration();
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
   // Load UserJot SDK
@@ -129,7 +136,7 @@ export default function AuthPage() {
       });
     `;
     document.head.appendChild(script2);
-    
+
     return () => {
       script1.remove();
       script2.remove();
@@ -164,7 +171,7 @@ export default function AuthPage() {
               />
             </div>
             <div className="w-full max-w-md mx-auto p-6">
-              <PasskeyAuth onSuccess={() => router.push('/upload')} />
+              <PasskeyAuth onSuccess={() => router.push("/upload")} />
             </div>
           </div>
           <Footer />
@@ -199,9 +206,16 @@ export default function AuthPage() {
               </p>
             </div>
 
-            {passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
-              <PasskeyAuth onSuccess={() => router.push('/upload')} />
-            ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification' || user?.user_metadata?.auth_method === 'password_and_passkey') ? (
+            {passkeySupported &&
+            (user?.user_metadata?.auth_method === "passkey" ||
+              user?.user_metadata?.auth_method ===
+                "passkey_pending_verification") ? (
+              <PasskeyAuth onSuccess={() => router.push("/upload")} />
+            ) : !passkeySupported &&
+              (user?.user_metadata?.auth_method === "passkey" ||
+                user?.user_metadata?.auth_method ===
+                  "passkey_pending_verification" ||
+                user?.user_metadata?.auth_method === "password_and_passkey") ? (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl">⚠️</span>
@@ -210,13 +224,19 @@ export default function AuthPage() {
                       Passkey Not Supported on This Device
                     </h3>
                     <p className="text-sm text-amber-800 mb-3">
-                      Your account uses passkey authentication, but this device or browser doesn't support passkeys.
+                      Your account uses passkey authentication, but this device
+                      or browser doesn't support passkeys.
                     </p>
                     <div className="space-y-2 text-sm text-amber-700">
                       <p className="font-medium">What you can do:</p>
                       <ul className="list-disc list-inside space-y-1 ml-2">
-                        <li>Try accessing your account from a supported device</li>
-                        <li>Use a compatible browser (Chrome, Safari, Edge, or Firefox)</li>
+                        <li>
+                          Try accessing your account from a supported device
+                        </li>
+                        <li>
+                          Use a compatible browser (Chrome, Safari, Edge, or
+                          Firefox)
+                        </li>
                         <li>Contact support if you need to link a password</li>
                       </ul>
                     </div>
@@ -224,7 +244,10 @@ export default function AuthPage() {
                 </div>
               </div>
             ) : (
-              <EmailPasswordAuth onSuccess={() => router.push('/upload')} signinOnly />
+              <EmailPasswordAuth
+                onSuccess={() => router.push("/upload")}
+                signinOnly
+              />
             )}
 
             <div className="mt-6 pt-4 border-t border-gray-200 text-center">
@@ -249,7 +272,7 @@ export default function AuthPage() {
 
   // User is not authenticated - show full auth UI
   const handleSuccess = () => {
-    router.push('/upload');
+    router.push("/upload");
   };
 
   return (
@@ -279,8 +302,8 @@ export default function AuthPage() {
               Sign In/Up to Continue
             </h2>
             <p className="text-gray-600 text-sm">
-              Passkey / Password blocks anyone (even us) from viewing your uploaded
-              images.
+              Passkey / Password blocks anyone (even us) from viewing your
+              uploaded images.
             </p>
           </div>
 
@@ -356,7 +379,8 @@ export default function AuthPage() {
               <li className="flex items-start gap-2">
                 <span className="text-green-500">✓</span>
                 <span>
-                  Images are Zero-Knowledge Encrypted on your device before upload
+                  Images are Zero-Knowledge Encrypted on your device before
+                  upload
                 </span>
               </li>
               <li className="flex items-start gap-2">
@@ -370,14 +394,16 @@ export default function AuthPage() {
               {passkeySupported && (
                 <li className="flex items-start gap-2">
                   <span className="text-green-500">✓</span>
-                  <span>Passkeys use hardware security for maximum protection</span>
+                  <span>
+                    Passkeys use hardware security for maximum protection
+                  </span>
                 </li>
               )}
               <li className="flex items-start gap-2">
                 <span className="text-green-500">✓</span>
                 <span>
-                  If you lose your passkey or password, you will lose access to your
-                  data. That's the cost of true privacy.
+                  If you lose your passkey or password, you will lose access to
+                  your data. That's the cost of true privacy.
                 </span>
               </li>
             </ul>
@@ -422,10 +448,7 @@ function Footer() {
           .
         </p>
         <div className="mt-4 flex justify-center space-x-4">
-          <a
-            href="/privacy-policy"
-            className="text-warm-beige hover:underline"
-          >
+          <a href="/privacy-policy" className="text-warm-beige hover:underline">
             Privacy Policy
           </a>
           <a href="/contact" className="text-warm-beige hover:underline">

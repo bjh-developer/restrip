@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export type PasskeySupport = {
   /** WebAuthn is available in this browser */
@@ -19,7 +19,7 @@ export type PasskeySupport = {
 
 /**
  * Hook to detect browser passkey support
- * 
+ *
  * Checks for:
  * - WebAuthn API availability
  * - Platform authenticator (built-in biometrics)
@@ -39,16 +39,18 @@ export function usePasskeySupport(): PasskeySupport {
   useEffect(() => {
     async function checkSupport() {
       // Check if we're in a browser environment
-      if (typeof window === 'undefined') {
-        setSupport(prev => ({ ...prev, isLoading: false }));
+      if (typeof window === "undefined") {
+        setSupport((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
       // Check if WebAuthn API is available in the browser
       const webAuthnAvailable = !!(
         window.PublicKeyCredential &&
-        typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function' &&
-        typeof PublicKeyCredential.isConditionalMediationAvailable === 'function'
+        typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable ===
+          "function" &&
+        typeof PublicKeyCredential.isConditionalMediationAvailable ===
+          "function"
       );
 
       if (!webAuthnAvailable) {
@@ -87,7 +89,7 @@ export function usePasskeySupport(): PasskeySupport {
           isLoading: false,
         });
       } catch (error) {
-        console.error('Error checking passkey support:', error);
+        console.error("Error checking passkey support:", error);
         setSupport({
           webAuthnAvailable: true,
           platformAuthenticatorAvailable: false,
@@ -110,20 +112,20 @@ export function usePasskeySupport(): PasskeySupport {
  */
 export function getPasskeySupportMessage(support: PasskeySupport): string {
   if (support.isLoading) {
-    return 'Checking passkey support...';
+    return "Checking passkey support...";
   }
-  
+
   if (support.passkeySupported) {
-    return 'Your browser supports passkeys with Face ID, Touch ID, or Windows Hello';
+    return "Your browser supports passkeys with Face ID, Touch ID, or Windows Hello";
   }
-  
+
   if (support.webAuthnAvailable && !support.platformAuthenticatorAvailable) {
-    return 'Your device doesn\'t have a built-in authenticator. Using password login instead.';
+    return "Your device doesn't have a built-in authenticator. Using password login instead.";
   }
-  
+
   if (!support.webAuthnAvailable) {
-    return 'Your browser doesn\'t support passkeys. Using password login instead.';
+    return "Your browser doesn't support passkeys. Using password login instead.";
   }
-  
-  return 'Passkeys not fully supported. Using password login instead.';
+
+  return "Passkeys not fully supported. Using password login instead.";
 }

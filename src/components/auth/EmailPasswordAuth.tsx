@@ -170,7 +170,7 @@ export function EmailPasswordAuth({
 
             if (!checkResponse.ok) {
               throw new Error(
-                `Account type check failed: ${checkResponse.status}`
+                `Account type check failed: ${checkResponse.status}`,
               );
             }
 
@@ -196,7 +196,7 @@ export function EmailPasswordAuth({
             } else {
               // Existing password account - suggest signing in
               setError(
-                "An account with this email already exists. Please sign in instead."
+                "An account with this email already exists. Please sign in instead.",
               );
               setMode("signin");
               setIsLoading(false);
@@ -231,22 +231,22 @@ export function EmailPasswordAuth({
 
             if (!checkResponse.ok) {
               throw new Error(
-                `Account type check failed: ${checkResponse.status}`
+                `Account type check failed: ${checkResponse.status}`,
               );
             }
 
             const accountData = await checkResponse.json();
             console.log(
               "Account type check response (identities path):",
-              accountData
+              accountData,
             );
             console.log(
               "Has passkey (identities path):",
-              accountData.hasPasskey
+              accountData.hasPasskey,
             );
             console.log(
               "Account type (identities path):",
-              accountData.accountType
+              accountData.accountType,
             );
 
             if (accountData.accountType === "password_and_passkey") {
@@ -266,7 +266,7 @@ export function EmailPasswordAuth({
             } else {
               // Existing password account - suggest signing in
               setError(
-                "An account with this email already exists. Please sign in instead."
+                "An account with this email already exists. Please sign in instead.",
               );
               setMode("signin");
               setIsLoading(false);
@@ -275,7 +275,7 @@ export function EmailPasswordAuth({
           } catch (checkError) {
             console.error(
               "Account type check error (identities path):",
-              checkError
+              checkError,
             );
             // If we can't check account type, assume passkey for security and offer linking
             setExistingAccountMethod("passkey");
@@ -303,7 +303,7 @@ export function EmailPasswordAuth({
 
   // Authenticate with passkey before allowing account linking
   const authenticateWithPasskey = async (
-    createSession: boolean = true
+    createSession: boolean = true,
   ): Promise<{ success: boolean; userId?: string }> => {
     try {
       // Get authentication options from server
@@ -443,7 +443,7 @@ export function EmailPasswordAuth({
       setError("Linking password to your account...");
       console.log(
         "Calling link-account API with verified userId:",
-        verifiedUserId
+        verifiedUserId,
       );
 
       const response = await fetch("/api/auth/link-account", {
@@ -478,7 +478,7 @@ export function EmailPasswordAuth({
       if (signInError) {
         console.error("Failed to sign in after linking:", signInError);
         throw new Error(
-          "Account linked but failed to sign in. Please try signing in manually."
+          "Account linked but failed to sign in. Please try signing in manually.",
         );
       }
 
@@ -617,7 +617,7 @@ export function EmailPasswordAuth({
                     onSuccess?.();
                   } else {
                     setError(
-                      "Passkey authentication failed. Please try again."
+                      "Passkey authentication failed. Please try again.",
                     );
                   }
                 } catch (err) {
@@ -678,7 +678,7 @@ export function EmailPasswordAuth({
                     onSuccess?.(); // Trigger success callback
                   } else {
                     setError(
-                      "Passkey authentication failed. Please try again."
+                      "Passkey authentication failed. Please try again.",
                     );
                   }
                 } catch (err) {
@@ -752,8 +752,8 @@ export function EmailPasswordAuth({
                 passkeyAuthenticated
                   ? "new-password"
                   : mode === "signin"
-                  ? "current-password"
-                  : "new-password"
+                    ? "current-password"
+                    : "new-password"
               }
             />
             {(passkeyAuthenticated || mode === "signup") && (
@@ -807,10 +807,10 @@ export function EmailPasswordAuth({
             {isLoading
               ? "Please wait..."
               : passkeyAuthenticated
-              ? "Link Password to Account"
-              : mode === "signin"
-              ? "Sign In"
-              : "Create Account"}
+                ? "Link Password to Account"
+                : mode === "signin"
+                  ? "Sign In"
+                  : "Create Account"}
           </button>
         </form>
       ) : null}

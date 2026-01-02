@@ -14,7 +14,11 @@ import ScrollReveal from "../../../components/ScrollReveal";
 import ShinyText from "../../../components/ShinyText";
 import { PasswordLinkingModal } from "../../../components/auth/PasswordLinkingModal";
 import { useAuth } from "../../../hooks/useAuth";
-import { encryptImage, encryptData, getEncryptionKey } from "../../../lib/encryption";
+import {
+  encryptImage,
+  encryptData,
+  getEncryptionKey,
+} from "../../../lib/encryption";
 import {
   Announcement,
   AnnouncementTag,
@@ -55,67 +59,74 @@ function base64ToUint8Array(base64: string): Uint8Array {
 type PeriodOption = "surprise" | "custom period" | "custom date";
 type DeliveryMethod = "email" | "telegram";
 
-const UploadImage = React.memo(({
-  displayImage,
-  onImageUpload,
-  isLoading,
-  error,
-}: {
-  displayImage?: string;
-  onImageUpload?: (base64Image: string) => void;
-  isLoading?: boolean;
-  error?: boolean;
-}) => {
-  const [files, setFiles] = useState<File[] | undefined>();
-  const [filePreview, setFilePreview] = useState<string | undefined>();
-  const handleDrop = useCallback((files: File[]) => {
-    console.log(files);
-    setFiles(files);
-    if (files.length > 0) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (typeof e.target?.result === "string") {
-          setFilePreview(e.target?.result);
-          onImageUpload?.(e.target?.result);
+const UploadImage = React.memo(
+  ({
+    displayImage,
+    onImageUpload,
+    isLoading,
+    error,
+  }: {
+    displayImage?: string;
+    onImageUpload?: (base64Image: string) => void;
+    isLoading?: boolean;
+    error?: boolean;
+  }) => {
+    const [files, setFiles] = useState<File[] | undefined>();
+    const [filePreview, setFilePreview] = useState<string | undefined>();
+    const handleDrop = useCallback(
+      (files: File[]) => {
+        console.log(files);
+        setFiles(files);
+        if (files.length > 0) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (typeof e.target?.result === "string") {
+              setFilePreview(e.target?.result);
+              onImageUpload?.(e.target?.result);
+            }
+          };
+          reader.readAsDataURL(files[0]);
         }
-      };
-      reader.readAsDataURL(files[0]);
-    }
-  }, [onImageUpload]);
-  return (
-    <Dropzone
-      accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
-      onDrop={handleDrop}
-      onError={console.error}
-      src={files}
-      multiple={false}
-      className={error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
-    >
-      <DropzoneEmptyState />
-      <DropzoneContent>
-        {(displayImage || filePreview) && (
-          <div className="w-full flex items-center justify-center py-4 relative">
-            <img
-              alt="Preview"
-              className="max-w-full max-h-96 object-contain rounded-md"
-              src={displayImage || filePreview}
-            />
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-soft-black/50 rounded-md z-10">
-                <Spinner
-                  variant="pinwheel"
-                  className="text-pastel-blue"
-                  size={128}
-                  style={{ width: "128px", height: "128px" }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </DropzoneContent>
-    </Dropzone>
-  );
-});
+      },
+      [onImageUpload],
+    );
+    return (
+      <Dropzone
+        accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
+        onDrop={handleDrop}
+        onError={console.error}
+        src={files}
+        multiple={false}
+        className={
+          error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+        }
+      >
+        <DropzoneEmptyState />
+        <DropzoneContent>
+          {(displayImage || filePreview) && (
+            <div className="w-full flex items-center justify-center py-4 relative">
+              <img
+                alt="Preview"
+                className="max-w-full max-h-96 object-contain rounded-md"
+                src={displayImage || filePreview}
+              />
+              {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-soft-black/50 rounded-md z-10">
+                  <Spinner
+                    variant="pinwheel"
+                    className="text-pastel-blue"
+                    size={128}
+                    style={{ width: "128px", height: "128px" }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </DropzoneContent>
+      </Dropzone>
+    );
+  },
+);
 UploadImage.displayName = "UploadImage";
 
 const AnnouncementBanner = () => (
@@ -146,60 +157,65 @@ const AnnouncementPill = () => (
   </Announcement>
 );
 
-const AutoCropSwitch = React.memo(({
-  autoCropEnabled,
-  onToggle,
-  isProcessing,
-  imageUploaded,
-}: {
-  autoCropEnabled: boolean;
-  onToggle: (checked: boolean) => void;
-  isProcessing: boolean;
-  imageUploaded?: boolean;
-}) => (
-  <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
-    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
-      <Brush className="size-5 text-soft-black" />
-    </div>
-    <div className="flex flex-1 flex-col gap-1">
-      <div className="flex items-center justify-between gap-4">
-        <Label className="font-medium" htmlFor="feature-toggle">
-          Enable auto-crop{" "}
-          {(isProcessing && "(Processing...)") ||
-            (!imageUploaded && "(Upload image first)")}
-        </Label>
-        <Switch
-          id="feature-toggle"
-          checked={autoCropEnabled}
-          onCheckedChange={onToggle}
-          disabled={isProcessing || imageUploaded === false}
-        />
+const AutoCropSwitch = React.memo(
+  ({
+    autoCropEnabled,
+    onToggle,
+    isProcessing,
+    imageUploaded,
+  }: {
+    autoCropEnabled: boolean;
+    onToggle: (checked: boolean) => void;
+    isProcessing: boolean;
+    imageUploaded?: boolean;
+  }) => (
+    <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
+        <Brush className="size-5 text-soft-black" />
       </div>
-      <p className="text-muted-foreground text-sm text-left">
-        Auto crops out photo strip just like it had been scanned. (Recommended
-        for physical copy)
-      </p>
+      <div className="flex flex-1 flex-col gap-1">
+        <div className="flex items-center justify-between gap-4">
+          <Label className="font-medium" htmlFor="feature-toggle">
+            Enable auto-crop{" "}
+            {(isProcessing && "(Processing...)") ||
+              (!imageUploaded && "(Upload image first)")}
+          </Label>
+          <Switch
+            id="feature-toggle"
+            checked={autoCropEnabled}
+            onCheckedChange={onToggle}
+            disabled={isProcessing || imageUploaded === false}
+          />
+        </div>
+        <p className="text-muted-foreground text-sm text-left">
+          Auto crops out photo strip just like it had been scanned. (Recommended
+          for physical copy)
+        </p>
+      </div>
     </div>
-  </div>
-));
+  ),
+);
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function UploadPage() {
   const router = useRouter();
   const { user, signOut, hasEncryptionKey, isLoading: authLoading } = useAuth();
-  
+
   // Redirect to auth if not authenticated
   useEffect(() => {
     if (!authLoading && (!user || !hasEncryptionKey)) {
-      console.log('UploadPage: Not fully authenticated, redirecting to /');
-      router.push('/');
+      console.log("UploadPage: Not fully authenticated, redirecting to /");
+      router.push("/");
     }
   }, [user, hasEncryptionKey, authLoading, router]);
 
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("surprise");
+  const [selectedPeriod, setSelectedPeriod] =
+    useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
-  const [scheduledSendTime, setScheduledSendTime] = useState<Date | undefined>();
+  const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
   const [isProcessing, setIsProcessing] = useState(false);
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
@@ -225,20 +241,24 @@ export default function UploadPage() {
   const checkPasskeyStatus = useCallback(async () => {
     if (user?.email) {
       try {
-        const response = await fetch('/api/auth/check-account-type', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/auth/check-account-type", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: user.email }),
         });
 
         if (response.ok) {
           const data = await response.json();
           setHasPasskey(data.hasPasskey || false);
-          setShowPasskeySetup(data.accountType === 'password' && !data.hasPasskey);
-          setShowPasswordSetup(data.accountType === 'passkey' && data.hasPasskey);
+          setShowPasskeySetup(
+            data.accountType === "password" && !data.hasPasskey,
+          );
+          setShowPasswordSetup(
+            data.accountType === "passkey" && data.hasPasskey,
+          );
         }
       } catch (error) {
-        console.error('Failed to check passkey status:', error);
+        console.error("Failed to check passkey status:", error);
         setHasPasskey(null);
         setShowPasskeySetup(false);
         setShowPasswordSetup(false);
@@ -251,63 +271,72 @@ export default function UploadPage() {
   }, [user?.email]);
 
   // Handle adding passkey authentication
-  const handleAddPasskey = useCallback(async (userEmail: string) => {
-    try {
-      setPasskeyError(null);
-      const response = await fetch('/api/auth/passkey/register-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail }),
-      });
+  const handleAddPasskey = useCallback(
+    async (userEmail: string) => {
+      try {
+        setPasskeyError(null);
+        const response = await fetch("/api/auth/passkey/register-options", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: userEmail }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to get registration options');
-      }
+        if (!response.ok) {
+          throw new Error("Failed to get registration options");
+        }
 
-      const { options, salt } = await response.json();
-      const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
+        const { options, salt } = await response.json();
+        const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
 
-      const optionsWithSalt = {
-        ...options,
-        extensions: {
-          ...options.extensions,
-          prf: {
-            eval: {
-              first: saltBytes,
+        const optionsWithSalt = {
+          ...options,
+          extensions: {
+            ...options.extensions,
+            prf: {
+              eval: {
+                first: saltBytes,
+              },
             },
           },
-        },
-      };
+        };
 
-      const { startRegistration } = await import('@simplewebauthn/browser');
-      const registrationResponse = await startRegistration({ optionsJSON: optionsWithSalt });
+        const { startRegistration } = await import("@simplewebauthn/browser");
+        const registrationResponse = await startRegistration({
+          optionsJSON: optionsWithSalt,
+        });
 
-      const verifyResponse = await fetch('/api/auth/passkey/register-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          response: registrationResponse,
-          salt: salt,
-        }),
-      });
+        const verifyResponse = await fetch(
+          "/api/auth/passkey/register-verify",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: userEmail,
+              response: registrationResponse,
+              salt: salt,
+            }),
+          },
+        );
 
-      if (verifyResponse.ok) {
-        await checkPasskeyStatus();
-        setShowPasskeySetup(false);
-        setPasskeyError(null);
-      } else {
-        const errorData = await verifyResponse.json().catch(() => ({}));
-        const errorMessage = errorData.error || 'Passkey registration failed';
-        console.error('Passkey registration failed:', errorMessage);
-        setPasskeyError(`Registration failed: ${errorMessage}`);
+        if (verifyResponse.ok) {
+          await checkPasskeyStatus();
+          setShowPasskeySetup(false);
+          setPasskeyError(null);
+        } else {
+          const errorData = await verifyResponse.json().catch(() => ({}));
+          const errorMessage = errorData.error || "Passkey registration failed";
+          console.error("Passkey registration failed:", errorMessage);
+          setPasskeyError(`Registration failed: ${errorMessage}`);
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        console.error("Failed to add passkey:", error);
+        setPasskeyError(`Failed to add passkey: ${errorMessage}`);
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('Failed to add passkey:', error);
-      setPasskeyError(`Failed to add passkey: ${errorMessage}`);
-    }
-  }, [checkPasskeyStatus]);
+    },
+    [checkPasskeyStatus],
+  );
 
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
@@ -321,7 +350,7 @@ export default function UploadPage() {
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
     setValidationErrors([]);
-    setFieldErrors(prev => ({ ...prev, image: undefined }));
+    setFieldErrors((prev) => ({ ...prev, image: undefined }));
   }, []);
 
   // Refresh ScrollTrigger when image is uploaded
@@ -335,7 +364,9 @@ export default function UploadPage() {
   }, [originalImage]);
 
   // Upload image to API route for processing
-  const processImageWithRunPod = async (base64Image: string): Promise<string> => {
+  const processImageWithRunPod = async (
+    base64Image: string,
+  ): Promise<string> => {
     try {
       const response = await fetch("/api/crop-image", {
         method: "POST",
@@ -345,7 +376,9 @@ export default function UploadPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       const data = await response.json();
@@ -363,110 +396,122 @@ export default function UploadPage() {
   };
 
   // Handle autocrop toggle
-  const handleAutoCropToggle = useCallback(async (checked: boolean) => {
-    setAutoCropEnabled(checked);
+  const handleAutoCropToggle = useCallback(
+    async (checked: boolean) => {
+      setAutoCropEnabled(checked);
 
-    if (checked && originalImage) {
-      if (croppedImage) {
-        console.log("Using cached cropped image from memory");
-        return;
+      if (checked && originalImage) {
+        if (croppedImage) {
+          console.log("Using cached cropped image from memory");
+          return;
+        }
+
+        setIsCropping(true);
+        try {
+          const croppedResult = await processImageWithRunPod(originalImage);
+          setCroppedImage(croppedResult);
+          console.log("Image cropped successfully");
+
+          setTimeout(() => {
+            ScrollTrigger.refresh();
+          }, 100);
+        } catch (error) {
+          console.error("Failed to crop image:", error);
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error occurred";
+          alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
+          setAutoCropEnabled(false);
+        } finally {
+          setIsCropping(false);
+        }
       }
+    },
+    [originalImage, croppedImage],
+  );
 
-      setIsCropping(true);
-      try {
-        const croppedResult = await processImageWithRunPod(originalImage);
-        setCroppedImage(croppedResult);
-        console.log("Image cropped successfully");
-        
-        setTimeout(() => {
-          ScrollTrigger.refresh();
-        }, 100);
-      } catch (error) {
-        console.error("Failed to crop image:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
-        setAutoCropEnabled(false);
-      } finally {
-        setIsCropping(false);
-      }
-    }
-  }, [originalImage, croppedImage]);
+  const handlePeriodSelect = useCallback(
+    (period: PeriodOption, date?: Date) => {
+      setSelectedPeriod(period);
 
-  const handlePeriodSelect = useCallback((period: PeriodOption, date?: Date) => {
-    setSelectedPeriod(period);
+      let sendTime: Date | undefined;
 
-    let sendTime: Date;
+      if (date) {
+        const now = new Date();
+        const selectedDate = new Date(date);
+        const isToday =
+          selectedDate.getFullYear() === now.getFullYear() &&
+          selectedDate.getMonth() === now.getMonth() &&
+          selectedDate.getDate() === now.getDate();
 
-    if (date) {
-      const now = new Date();
-      const selectedDate = new Date(date);
-      const isToday =
-        selectedDate.getFullYear() === now.getFullYear() &&
-        selectedDate.getMonth() === now.getMonth() &&
-        selectedDate.getDate() === now.getDate();
+        if (isToday) {
+          const currentHour = now.getHours();
+          if (currentHour >= 18) {
+            const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+            const isStillToday =
+              oneHourFromNow.getDate() === now.getDate() &&
+              oneHourFromNow.getMonth() === now.getMonth() &&
+              oneHourFromNow.getFullYear() === now.getFullYear();
 
-      if (isToday) {
-        const currentHour = now.getHours();
-        if (currentHour >= 18) {
-          const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-          const isStillToday =
-            oneHourFromNow.getDate() === now.getDate() &&
-            oneHourFromNow.getMonth() === now.getMonth() &&
-            oneHourFromNow.getFullYear() === now.getFullYear();
-
-          if (isStillToday) {
-            sendTime = oneHourFromNow;
+            if (isStillToday) {
+              sendTime = oneHourFromNow;
+            } else {
+              const endOfDay = new Date(now);
+              endOfDay.setHours(23, 59, 0, 0);
+              sendTime = endOfDay;
+            }
           } else {
-            const endOfDay = new Date(now);
-            endOfDay.setHours(23, 59, 0, 0);
-            sendTime = endOfDay;
+            const sixPmToday = new Date(selectedDate);
+            sixPmToday.setHours(18, 0, 0, 0);
+            sendTime = sixPmToday;
           }
         } else {
-          const sixPmToday = new Date(selectedDate);
-          sixPmToday.setHours(18, 0, 0, 0);
-          sendTime = sixPmToday;
+          sendTime = new Date(selectedDate);
+          sendTime.setHours(18, 0, 0, 0);
         }
-      } else {
-        sendTime = new Date(selectedDate);
+
+        setScheduledSendTime(sendTime);
+
+        if (period === "custom date") {
+          setCustomDate(sendTime);
+        } else if (period === "custom period") {
+          setCustomPeriod(sendTime.toISOString());
+        }
+
+        setValidationErrors([]);
+        setFieldErrors((prev) => ({ ...prev, period: undefined }));
+      } else if (period === "surprise") {
+        const now = new Date();
+        const randomDays = Math.floor(Math.random() * (180 - 30 + 1)) + 30;
+        sendTime = new Date(now.getTime() + randomDays * 24 * 60 * 60 * 1000);
         sendTime.setHours(18, 0, 0, 0);
+
+        setScheduledSendTime(sendTime);
+        setValidationErrors([]);
+        setFieldErrors((prev) => ({ ...prev, period: undefined }));
+      } else {
+        setScheduledSendTime(undefined);
+        setCustomDate(undefined);
+        setCustomPeriod(undefined);
       }
 
-      setScheduledSendTime(sendTime);
-
-      if (period === "custom date") {
-        setCustomDate(sendTime);
-      } else if (period === "custom period") {
-        setCustomPeriod(sendTime.toISOString());
+      if (sendTime) {
+        console.log(
+          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`,
+        );
       }
-      
+    },
+    [],
+  );
+
+  const handleDeliveryMethodSelect = useCallback(
+    (method: DeliveryMethod, value?: string) => {
+      setDeliveryMethod(method);
+      setDeliveryAddress(value || "");
       setValidationErrors([]);
-      setFieldErrors(prev => ({ ...prev, period: undefined }));
-    } else if (period === "surprise") {
-      const now = new Date();
-      const randomDays = Math.floor(Math.random() * (180 - 30 + 1)) + 30;
-      sendTime = new Date(now.getTime() + randomDays * 24 * 60 * 60 * 1000);
-      sendTime.setHours(18, 0, 0, 0);
-
-      setScheduledSendTime(sendTime);
-      setValidationErrors([]);
-      setFieldErrors(prev => ({ ...prev, period: undefined }));
-    } else {
-      setScheduledSendTime(undefined);
-      setCustomDate(undefined);
-      setCustomPeriod(undefined);
-    }
-
-    if (sendTime!) {
-      console.log(`📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`);
-    }
-  }, []);
-
-  const handleDeliveryMethodSelect = useCallback((method: DeliveryMethod, value?: string) => {
-    setDeliveryMethod(method);
-    setDeliveryAddress(value || "");
-    setValidationErrors([]);
-    setFieldErrors(prev => ({ ...prev, deliveryAddress: undefined }));
-  }, []);
+      setFieldErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+    },
+    [],
+  );
 
   const handleStartProcessing = async () => {
     setValidationErrors([]);
@@ -492,7 +537,7 @@ export default function UploadPage() {
         {
           message: "Invalid email/telegram username format",
           path: ["Delivery_Address"],
-        }
+        },
       );
 
     const validationResult = SnapSchema.safeParse({
@@ -505,47 +550,60 @@ export default function UploadPage() {
 
     if (!validationResult.success) {
       const errors: typeof fieldErrors = {};
-      
+
       validationResult.error?.issues?.forEach((e) => {
         const field = e.path[0];
-        if (field === 'Image') {
-          errors.image = 'Please upload a photo before continuing';
+        if (field === "Image") {
+          errors.image = "Please upload a photo before continuing";
         }
-        if (field === 'Caption') {
-          errors.caption = 'Please add a caption for your photo';
+        if (field === "Caption") {
+          errors.caption = "Please add a caption for your photo";
         }
-        if (field === 'sendTime') {
-          if (selectedPeriod === 'custom period') {
-            errors.period = 'Please select a time period for delivery';
-          } else if (selectedPeriod === 'custom date') {
-            errors.period = 'Please select a specific date for delivery';
+        if (field === "sendTime") {
+          if (selectedPeriod === "custom period") {
+            errors.period = "Please select a time period for delivery";
+          } else if (selectedPeriod === "custom date") {
+            errors.period = "Please select a specific date for delivery";
           } else {
-            errors.period = 'Please select when to deliver your memory';
+            errors.period = "Please select when to deliver your memory";
           }
         }
-        if (field === 'Delivery_Address') {
-          if (deliveryMethod === 'email') {
-            errors.deliveryAddress = 'Please enter a valid email address';
+        if (field === "Delivery_Address") {
+          if (deliveryMethod === "email") {
+            errors.deliveryAddress = "Please enter a valid email address";
           } else {
-            errors.deliveryAddress = 'Please enter a valid Telegram username (starting with @)';
+            errors.deliveryAddress =
+              "Please enter a valid Telegram username (starting with @)";
           }
         }
       });
-      
+
       setFieldErrors(errors);
-      
+
       setTimeout(() => {
         if (errors.image && imageRef.current) {
-          imageRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          imageRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         } else if (errors.caption && captionRef.current) {
-          captionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          captionRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         } else if (errors.period && periodRef.current) {
-          periodRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          periodRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         } else if (errors.deliveryAddress && deliveryRef.current) {
-          deliveryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          deliveryRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         }
       }, 100);
-      
+
       return;
     }
 
@@ -553,28 +611,95 @@ export default function UploadPage() {
     setIsProcessing(true);
     try {
       console.log("All inputs are valid. Proceeding with processing...");
-      
+
       const encryptionKey = await getEncryptionKey();
       if (!encryptionKey) {
-        throw new Error("Encryption key not available. Please sign in again to continue.");
+        throw new Error(
+          "Encryption key not available. Please sign in again to continue.",
+        );
       }
 
-      const imageToUpload = (autoCropEnabled && croppedImage) ? croppedImage : originalImage;
-      
+      const imageToUpload =
+        autoCropEnabled && croppedImage ? croppedImage : originalImage;
+
       console.log("🔐 Encrypting image...");
-      const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(imageToUpload!, encryptionKey);
+      const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
+        imageToUpload!,
+        encryptionKey,
+      );
       console.log("✅ Image encrypted successfully");
 
       console.log("🔐 Encrypting caption...");
-      const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(caption, encryptionKey);
+      const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(
+        caption,
+        encryptionKey,
+      );
       console.log("✅ Caption encrypted successfully");
 
       console.log("Processing with period:", selectedPeriod);
-      console.log("Scheduled send time:", scheduledSendTime?.toISOString(), `(${scheduledSendTime?.toLocaleString()})`);
+      console.log(
+        "Scheduled send time:",
+        scheduledSendTime?.toISOString(),
+        `(${scheduledSendTime?.toLocaleString()})`,
+      );
       console.log("📦 Encrypted payload ready for upload");
+
+      console.log("🚀 Uploading encrypted image blob to server...");
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: JSON.stringify({
+          encryptedImage,
+          userId: user?.id,
+        }),
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const { storagePath } = await uploadResponse.json();
+      console.log(
+        "✅ Image uploaded successfully to storage path:",
+        storagePath,
+      );
+
+      console.log("🚀 Saving snap metadata to database...");
+      const createSnapResponse = await fetch("/api/create-snap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id,
+          storagePath,
+          encryptedCaption,
+          captionIv,
+          imageIv,
+          scheduledSendTime: scheduledSendTime?.toISOString(),
+          deliveryMethod,
+          deliveryAddress,
+          periodType: selectedPeriod,
+        }),
+      });
+
+      if (!createSnapResponse.ok) {
+        throw new Error("Failed to save snap metadata");
+      }
+
+      const snapData = await createSnapResponse.json();
+      console.log("✅ Snap saved successfully!", snapData);
+
+      // Success! Show confirmation or redirect
+      alert("🎉 Your memory has been scheduled for delivery!");
+
+      // Reset form
+      setOriginalImage(undefined);
+      setCroppedImage(undefined);
+      setCaption("");
+      setDeliveryAddress("");
+      handlePeriodSelect("surprise");
     } catch (error) {
       console.error("Processing failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "Processing failed";
+      const errorMessage =
+        error instanceof Error ? error.message : "Processing failed";
       setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
@@ -584,7 +709,7 @@ export default function UploadPage() {
   // Handle sign out with redirect
   const handleSignOut = async () => {
     await signOut();
-    router.push('/');
+    router.push("/");
   };
 
   useEffect(() => {
@@ -595,7 +720,7 @@ export default function UploadPage() {
     setValidationErrors([]);
     setFieldErrors({});
     checkPasskeyStatus();
-    
+
     const timeoutId = setTimeout(() => {
       ScrollTrigger.refresh();
     }, 500);
@@ -685,7 +810,8 @@ export default function UploadPage() {
                     Add Password Authentication
                   </h3>
                   <p className="text-sm mb-3 text-green-700">
-                    Add a password to your account for additional login options. This provides a backup authentication method.
+                    Add a password to your account for additional login options.
+                    This provides a backup authentication method.
                   </p>
                   <button
                     onClick={() => setShowPasswordLinking(true)}
@@ -708,18 +834,37 @@ export default function UploadPage() {
         {/* Passkey setup banner */}
         {showPasskeySetup && (
           <div className="max-w-2xl mx-auto mb-4">
-            <div className={`border rounded-lg p-4 ${passkeyError ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+            <div
+              className={`border rounded-lg p-4 ${
+                passkeyError
+                  ? "bg-red-50 border-red-200"
+                  : "bg-blue-50 border-blue-200"
+              }`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className={`text-sm font-medium mb-1 ${passkeyError ? 'text-red-800' : 'text-blue-800'}`}>
-                    {passkeyError ? 'Passkey Setup Failed' : 'Add Passkey Authentication'}
+                  <h3
+                    className={`text-sm font-medium mb-1 ${
+                      passkeyError ? "text-red-800" : "text-blue-800"
+                    }`}
+                  >
+                    {passkeyError
+                      ? "Passkey Setup Failed"
+                      : "Add Passkey Authentication"}
                   </h3>
-                  <p className={`text-sm mb-3 ${passkeyError ? 'text-red-700' : 'text-blue-700'}`}>
-                    {passkeyError || 'Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use.'}
+                  <p
+                    className={`text-sm mb-3 ${
+                      passkeyError ? "text-red-700" : "text-blue-700"
+                    }`}
+                  >
+                    {passkeyError ||
+                      "Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use."}
                   </p>
                   {!passkeyError && (
                     <button
-                      onClick={() => user?.email && handleAddPasskey(user.email)}
+                      onClick={() =>
+                        user?.email && handleAddPasskey(user.email)
+                      }
                       className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                     >
                       Add Passkey
@@ -750,7 +895,11 @@ export default function UploadPage() {
                     setShowPasskeySetup(false);
                     setPasskeyError(null);
                   }}
-                  className={`ml-4 ${passkeyError ? 'text-red-400 hover:text-red-600' : 'text-blue-400 hover:text-blue-600'}`}
+                  className={`ml-4 ${
+                    passkeyError
+                      ? "text-red-400 hover:text-red-600"
+                      : "text-blue-400 hover:text-blue-600"
+                  }`}
                 >
                   ✕
                 </button>
@@ -770,7 +919,9 @@ export default function UploadPage() {
             </div>
             <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
               <UploadImage
-                displayImage={autoCropEnabled && croppedImage ? croppedImage : undefined}
+                displayImage={
+                  autoCropEnabled && croppedImage ? croppedImage : undefined
+                }
                 onImageUpload={handleImageUpload}
                 isLoading={isCropping}
                 error={!!fieldErrors.image}
@@ -795,17 +946,21 @@ export default function UploadPage() {
               </h3>
             </div>
             <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
-              <Textarea 
-                placeholder="Type caption here for your photo strip." 
+              <Textarea
+                placeholder="Type caption here for your photo strip."
                 value={caption}
                 onChange={(e) => {
                   setCaption(e.target.value);
                   if (validationErrors.length > 0) {
                     setValidationErrors([]);
                   }
-                  setFieldErrors(prev => ({ ...prev, caption: undefined }));
+                  setFieldErrors((prev) => ({ ...prev, caption: undefined }));
                 }}
-                className={fieldErrors.caption ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}
+                className={
+                  fieldErrors.caption
+                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                    : ""
+                }
               />
             </div>
             {fieldErrors.caption && (
@@ -840,7 +995,9 @@ export default function UploadPage() {
             </div>
             {fieldErrors.deliveryAddress && (
               <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-red-700 text-sm">{fieldErrors.deliveryAddress}</p>
+                <p className="text-red-700 text-sm">
+                  {fieldErrors.deliveryAddress}
+                </p>
               </div>
             )}
 
@@ -861,7 +1018,9 @@ export default function UploadPage() {
               disabled={isProcessing || !hasEncryptionKey}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? "Encrypting & Delivering..." : "Deliver to the Future!"}
+              {isProcessing
+                ? "Encrypting & Delivering..."
+                : "Deliver to the Future!"}
             </button>
 
             {/* Buy Me a Coffee Button */}

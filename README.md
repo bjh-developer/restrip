@@ -13,12 +13,13 @@ A nostalgic memory platform that transforms your photostrips into emotional time
 ReStrip is a time-delayed memory delivery platform. You upload a photostrip today, and we send it back to you months later via a beautiful surprise email.
 
 **Core Loop:**
+
 1. 🔐 **Sign In** — Create an account with passkey (biometric) or password authentication
 2. 📷 **Upload** — Take a photo of your photo strip or upload a digital one
 3. ✨ **Auto-crop** — Optional AI-powered cropping (YOLO11 segmentation model)
 4. 💬 **Caption** — Add a note for your future self
 5. 📅 **Schedule** — Pick a future date (surprise me, custom period, or specific date)
-6. 🔐 **Encrypt** — Your photo and caption are encrypted *on your device* before upload
+6. 🔐 **Encrypt** — Your photo and caption are encrypted _on your device_ before upload
 7. 💌 **Receive** — Months later, decrypt and view your memory
 
 **That's it. That's the magic.**
@@ -30,6 +31,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 ### ✅ Completed Features (Version 1.0)
 
 **Authentication & Security:**
+
 - ✅ **Passkey Authentication (WebAuthn/FIDO2)** — Passwordless sign-in with biometrics
 - ✅ **Email/Password Authentication** — Traditional fallback with Supabase Auth
 - ✅ **Account Linking** — Add both passkey and password to the same account
@@ -38,6 +40,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Session Management** — Secure sessions with middleware route protection
 
 **Upload & Processing:**
+
 - ✅ **Image Upload** — Drag & drop or click to upload
 - ✅ **AI Auto-Crop** — YOLO11 segmentation model (RunPod serverless GPU)
 - ✅ **In-Memory Caching** — Cropped images cached to avoid re-processing
@@ -45,6 +48,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Client-Side Encryption** — Images encrypted in browser before transmission
 
 **User Experience:**
+
 - ✅ **Period Picker** — Surprise me / Custom period / Specific date
 - ✅ **Caption Input** — Add notes for your future self
 - ✅ **Delivery Method** — Email or Telegram
@@ -53,6 +57,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Responsive Design** — Mobile-first with Tailwind CSS
 
 **Developer Experience:**
+
 - ✅ **Next.js 16 App Router** — File-based routing with route groups
 - ✅ **TypeScript** — Full type safety
 - ✅ **Middleware** — Route protection and session validation
@@ -69,17 +74,20 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 ### 📋 Roadmap
 
 **Phase 2: Memory Management**
+
 - [ ] User dashboard with encrypted memory vault
 - [ ] View past and scheduled memories
 - [ ] Edit/delete memories
 - [ ] Memory canvas for organizing photo strips
 
 **Phase 3: Social & Discovery**
+
 - [ ] Face detection and friend tagging (optional, privacy-respecting)
 - [ ] Share memories with friends (encrypted)
 - [ ] Social graph for connections
 
 **Phase 4: Advanced Features**
+
 - [ ] Mobile app (React Native)
 - [ ] Advanced image processing (color enhancement, filters)
 - [ ] Multiple delivery methods (push notifications, SMS)
@@ -94,17 +102,19 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 ### Authentication Methods
 
 #### 🔑 Passkey Authentication (Recommended)
+
 - **Technology**: WebAuthn/FIDO2 standard
 - **How it works**: Uses device biometrics (Face ID, fingerprint, Windows Hello)
 - **Security**: Hardware-backed cryptographic keys that never leave your device
 - **Encryption**: Uses PRF (Pseudo-Random Function) extension to derive unique encryption keys
-- **Benefits**: 
+- **Benefits**:
   - No passwords to remember or lose
   - Phishing-resistant (works only on registered domain)
   - Fast and convenient (biometric unlock)
   - Each passkey has its own encryption key via PRF
 
 #### 🔒 Email/Password Authentication (Fallback)
+
 - **Technology**: Supabase Auth with email verification
 - **How it works**: Traditional username/password with secure password hashing
 - **Encryption**: 600,000 PBKDF2 iterations to derive encryption key from password
@@ -114,6 +124,7 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
   - Can be recovered via email (with data loss warning)
 
 #### 🔗 Account Linking
+
 - **Flexibility**: Add both passkey and password to the same account
 - **Use case**: Use passkey on your primary device, password as backup
 - **Process**: Authenticate with one method, then add the other securely
@@ -161,16 +172,18 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 ✅ **End-to-End Encrypted**: Data encrypted before leaving your device  
 ✅ **Forward Secrecy**: Each upload uses unique random IV  
 ✅ **Hardware-Backed Keys**: Passkeys use secure enclaves (when available)  
-✅ **Industry Standard**: AES-256-GCM, PBKDF2 (600k iterations), HKDF  
+✅ **Industry Standard**: AES-256-GCM, PBKDF2 (600k iterations), HKDF
 
 ### Security Tradeoffs
 
 ⚠️ **Key Storage**: Encryption keys stored in `sessionStorage` for UX (persistence across page refreshes)
+
 - **Risk**: Vulnerable to XSS attacks (malicious scripts can steal keys)
 - **Mitigation**: 30-minute timeout, CSP headers, Subresource Integrity
 - **Best Practice**: Never use ReStrip on shared/public computers
 
 ⚠️ **Data Loss Risk**: If you lose your passkey/password, your data is **permanently lost**
+
 - This is the cost of true privacy
 - We cannot recover your data (by design)
 - Consider account linking for redundancy
@@ -178,11 +191,13 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 ### Implementation Details
 
 **Libraries Used:**
+
 - `@simplewebauthn/browser` + `@simplewebauthn/server` — WebAuthn implementation
 - Web Crypto API — Browser-native encryption (no external dependencies)
 - Supabase Auth — Session management and user authentication
 
 **Key Files:**
+
 - `src/lib/encryption.ts` — Encryption utilities (key derivation, AES-GCM)
 - `src/lib/webauthn/config.ts` — WebAuthn configuration (RP settings)
 - `src/hooks/useAuth.tsx` — Authentication context and state management
@@ -195,6 +210,7 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Next.js 16.0.10** — React framework with App Router and TypeScript
 - **React 19.2.0** — UI library
 - **Tailwind CSS** — Utility-first styling
@@ -206,24 +222,28 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 - **date-fns** — Date manipulation
 
 ### Authentication & Security
+
 - **@simplewebauthn/browser** — WebAuthn client
 - **@simplewebauthn/server** — WebAuthn server verification
 - **Supabase Auth** — User management and sessions
 - **Web Crypto API** — Native browser encryption (AES-256-GCM)
 
 ### Backend
+
 - **Next.js API Routes** — Serverless functions (Edge Runtime)
 - **Supabase** — PostgreSQL database, auth, and storage
 - **@supabase/ssr** — Server-side Supabase client
 - **Vercel** — Hosting and deployment
 
 ### External Services
+
 - **RunPod Serverless** — GPU-based AI image processing
 - **UserJot** — Feedback and feature request widget
 - **Vercel Analytics** — Usage analytics
 - **Vercel Speed Insights** — Performance monitoring
 
 ### Image Processing (Python on RunPod)
+
 - **Ultralytics YOLO11** — Object detection & segmentation for photostrip detection
 - **PyTorch 2.1.0 + CUDA 11.8** — Deep learning inference
 - **OpenCV** — Image processing & perspective transforms
@@ -315,6 +335,7 @@ rereel/
 **Tagline:** "Photo strips that come back to you."
 
 **Color Palette:**
+
 - Warm Beige: \`#F3E8D8\` (background)
 - Soft Black: \`#1C1C1C\` (text)
 - Blush Pink: \`#FFC9D1\` (primary CTA)
@@ -323,6 +344,7 @@ rereel/
 - Grey: \`#6B7280\` (secondary text)
 
 **Components:**
+
 - Shadcn UI base
 - Custom animations with GSAP
 - Smooth scroll reveals
@@ -333,6 +355,7 @@ rereel/
 ## 🔐 Security & Privacy
 
 **Privacy Promise:**
+
 - ✅ **Zero-Knowledge Encryption** — We literally cannot see your photos
 - ✅ **End-to-End Encrypted** — Data encrypted on your device before upload
 - ✅ **No Third-Party Training** — Your photos are never used for AI training
@@ -340,6 +363,7 @@ rereel/
 - ✅ **User Control** — You own your data (delete anytime)
 
 **Security Implementation:**
+
 - ✅ AES-256-GCM encryption (military-grade)
 - ✅ PBKDF2 (600,000 iterations) for password-based key derivation
 - ✅ HKDF with passkey PRF for hardware-backed keys
@@ -386,24 +410,24 @@ CREATE INDEX idx_credentials_user_id ON public.credentials(user_id);
 CREATE TABLE public.snaps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    
+
     -- Encrypted data
     encrypted_image_url TEXT NOT NULL,      -- Supabase Storage URL
     image_iv TEXT NOT NULL,                 -- Initialization vector for image
     encrypted_caption TEXT,                 -- Encrypted caption text
     caption_iv TEXT,                        -- Initialization vector for caption
-    
+
     -- Metadata (not encrypted)
     delivery_method TEXT NOT NULL,          -- 'email' or 'telegram'
     delivery_address TEXT NOT NULL,         -- Email address or Telegram username
     scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
     delivered BOOLEAN DEFAULT FALSE,
     delivered_at TIMESTAMP WITH TIME ZONE,
-    
+
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
     -- Constraints
     CONSTRAINT valid_delivery_method CHECK (delivery_method IN ('email', 'telegram'))
 );
@@ -459,6 +483,7 @@ CREATE POLICY "Users can delete own images"
 ## 🐛 Known Issues & Troubleshooting
 
 ### Known Issues
+
 - [x] ~~ScrollReveal animation broke after image upload~~ (Fixed: cleanup now only kills component's own triggers)
 - [x] ~~Spinner size not adjustable~~ (Fixed: added inline styles)
 - [x] ~~API key exposed to client~~ (Fixed: moved to server-side API route)
@@ -470,30 +495,36 @@ CREATE POLICY "Users can delete own images"
 ### Common Setup Issues
 
 **Issue**: `useAuth must be used within an AuthProvider`
+
 - **Solution**: Make sure `src/components/Providers.tsx` exists and wraps children in root layout
 - **Root Cause**: AuthProvider must be a client component wrapping the app
 
 **Issue**: Passkey registration fails with "RP ID mismatch"
+
 - **Solution**: Set `NEXT_PUBLIC_RP_ID` to match your domain (e.g., `localhost` for local dev)
 - **Root Cause**: WebAuthn requires exact domain match for security
 
 **Issue**: Build fails with prerendering errors
+
 - **Solution**: Add `export const dynamic = "force-dynamic"` to layouts using auth
 - **Root Cause**: Client components with hooks cannot be prerendered
 
 **Issue**: Encryption key not persisting across page refreshes
+
 - **Solution**: Check browser sessionStorage is enabled (not in private mode)
 - **Root Cause**: Keys stored in sessionStorage for UX
 
 ### Browser Compatibility
 
 **Passkey Support:**
+
 - ✅ Chrome/Edge 67+ (Windows, macOS, Android)
 - ✅ Safari 16+ (macOS, iOS)
 - ✅ Firefox 119+
 - ❌ Internet Explorer (not supported)
 
 **Web Crypto API:**
+
 - ✅ All modern browsers (Chrome, Firefox, Safari, Edge)
 - ❌ IE 11 and older
 
@@ -509,6 +540,7 @@ CREATE POLICY "Users can delete own images"
 ## 🎯 Project Goals & Metrics
 
 **Current Focus (Q1 2026):**
+
 - ✅ Complete zero-knowledge encryption architecture
 - ✅ Implement passkey and password authentication
 - 🔄 Finish upload and storage integration
@@ -517,6 +549,7 @@ CREATE POLICY "Users can delete own images"
 - 🎯 Validate core concept and user satisfaction
 
 **Success Metrics:**
+
 - **User Retention**: 50%+ of users create second memory
 - **Delivery Success**: 95%+ emails delivered on time
 - **Security**: Zero data breaches or leaks
@@ -525,6 +558,7 @@ CREATE POLICY "Users can delete own images"
 - **Satisfaction**: 4+ star average rating on feedback
 
 **Long-term Vision:**
+
 - Build the most trusted platform for private memories
 - Enable 1M+ memories delivered annually
 - Expand to social features while preserving privacy
@@ -552,6 +586,7 @@ CREATE POLICY "Users can delete own images"
 Inspired by photobooth culture and the magic of surprise. Built with love for nostalgia and privacy.
 
 **Special Thanks:**
+
 - The Next.js team for an amazing framework
 - Supabase for making backend development accessible
 - The WebAuthn/FIDO Alliance for modern authentication standards
@@ -559,6 +594,7 @@ Inspired by photobooth culture and the magic of surprise. Built with love for no
 - The open-source community
 
 **Powered by:**
+
 - [Next.js](https://nextjs.org/) — React framework
 - [Supabase](https://supabase.com/) — Backend as a Service
 - [SimpleWebAuthn](https://simplewebauthn.dev/) — WebAuthn library
@@ -577,6 +613,7 @@ Inspired by photobooth culture and the magic of surprise. Built with love for no
 ReStrip is currently in active development. Contributions are welcome!
 
 **How to Contribute:**
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
@@ -584,6 +621,7 @@ ReStrip is currently in active development. Contributions are welcome!
 5. Open a Pull Request
 
 **Areas for Contribution:**
+
 - Bug fixes and testing
 - Documentation improvements
 - UI/UX enhancements
@@ -597,7 +635,7 @@ Please read `TECHNICAL_DOCUMENTATION.md` before contributing to understand the a
 
 ## 🎬 The Vision
 
-We live in a world where memories are fleeting, photo strips pile up, and feelings fade. ReStrip slows time down. You capture a moment today and, months later, it comes back to make you smile. 
+We live in a world where memories are fleeting, photo strips pile up, and feelings fade. ReStrip slows time down. You capture a moment today and, months later, it comes back to make you smile.
 
 **ReStrip is a time machine for your happiest moments.**
 

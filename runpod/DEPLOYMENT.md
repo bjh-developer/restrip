@@ -71,6 +71,7 @@ docker run --rm \
    - **Execution Timeout**: 600 seconds (for large images)
 
 4. **Environment Variables** (if needed)
+
    ```
    PYTHONUNBUFFERED=1
    ```
@@ -128,6 +129,7 @@ print(response.json())
 ## 📊 Expected Response Format
 
 **Success:**
+
 ```json
 {
   "id": "request-id",
@@ -144,6 +146,7 @@ print(response.json())
 ```
 
 **Error:**
+
 ```json
 {
   "id": "request-id",
@@ -162,19 +165,23 @@ print(response.json())
 ## 🔧 Troubleshooting
 
 ### Image too large
+
 - Current image might be large due to PyTorch + YOLO
 - Consider using multi-stage builds
 - Remove unnecessary dependencies
 
 ### Model not found
+
 - Verify `runs/segment/train/weights/best.pt` exists
 - Check Dockerfile COPY path
 
 ### Out of memory
+
 - Increase Container Disk in RunPod settings
 - Or reduce model size / use quantized version
 
 ### Slow cold starts
+
 - Increase Min Workers to 1
 - Or accept 10-20s cold start for cost savings
 

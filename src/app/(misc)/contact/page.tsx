@@ -84,7 +84,9 @@ export default function ContactPage() {
                 <h3 className="font-display text-xl font-semibold text-soft-black mb-1">
                   {social.label}
                 </h3>
-                <p className="font-body text-sm text-grey">{social.description}</p>
+                <p className="font-body text-sm text-grey">
+                  {social.description}
+                </p>
               </a>
             );
           })}
