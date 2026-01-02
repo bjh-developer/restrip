@@ -1461,7 +1461,6 @@ From `src/components/`:
 
 - **PeriodPicker** - Date/period selection
 - **DeliveryMethodPicker** - Email/Telegram selection
-- **CameraCapture** - Camera integration (planned)
 - **ScrollReveal** - GSAP scroll animation wrapper
 - **ShinyText** - Animated gradient text
 
