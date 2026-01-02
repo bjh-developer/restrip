@@ -2,6 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
+  <p><em>Last updated: 2 Jan 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -203,8 +204,7 @@ graph TB
 - **State**: React Context + Hooks
 - **Animations**: GSAP + ScrollTrigger
 
-####Backend
-
+#### Backend
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth + SimpleWebAuthn
@@ -218,21 +218,42 @@ graph TB
 
 ### Request Flow Example
 
+### Request Flow Example
+
 **User uploads a photo:**
 
-1. **Client**: User selects image in dropzone
-2. **Client**: Image converted to base64
-3. **Client** → **Server**: POST to `/api/crop-image`
-4. **Server** → **RunPod**: Forward image for AI processing
-5. **RunPod**: YOLO11 detects and crops photo strip
-6. **Server** → **Client**: Return cropped image
-7. **Client**: Cache cropped image
-8. **Client**: User fills form and clicks submit
-9. **Client**: Derive encryption key from passkey/password
-10. **Client**: Encrypt image + caption with AES-256-GCM
-11. **Client** → **Server**: POST encrypted data
-12. **Server**: Store in Supabase
-13. **Server**: Schedule delivery job
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as Client Browser
+    participant Server as Next.js API
+    participant RunPod as RunPod AI
+    participant Supabase as Supabase DB
+    
+    User->>Client: 1. Select image in dropzone
+    Client->>Client: 2. Convert image to base64
+    Client->>Server: 3. POST /api/crop-image<br/>(base64 image)
+    Server->>RunPod: 4. Forward image for AI processing
+    RunPod->>RunPod: 5. YOLO11 detects & crops photo strip
+    RunPod-->>Server: 6. Return cropped image (base64)
+    Server-->>Client: 7. Return cropped image
+    Client->>Client: 8. Cache cropped image
+    
+    User->>Client: 9. Fill form & click submit
+    Client->>Client: 10. Derive encryption key<br/>(passkey/password)
+    Client->>Client: 11. Encrypt image + caption<br/>(AES-256-GCM)
+    Client->>Server: 12. POST encrypted data
+    Server->>Supabase: 13. Store encrypted snap
+    Supabase-->>Server: 14. Confirm storage
+    Server->>Server: 15. Schedule delivery job
+    Server-->>Client: 16. Success response
+    Client-->>User: 17. Show success message
+```
+
+**Key Steps:**
+- **Steps 1-7**: Image upload and AI auto-crop
+- **Steps 8-11**: Client-side encryption (zero-knowledge)
+- **Steps 12-17**:  Secure storage and scheduling
 
 ---
 
@@ -254,6 +275,8 @@ app/
   (misc)/
     contact/
       page.tsx        → URL: /contact
+    privacy-policy/
+      page.tsx        → URL: /privacy-policy
 ```
 
 **Benefits:**
@@ -667,7 +690,7 @@ Both can be linked to the same account for redundancy.
 
 1. **Registration:**
    - User provides email
-   - System sends email verification link
+   - Supabase sends verification email
    - User clicks verification link in email
    - Server generates WebAuthn challenge
    - Browser prompts for biometric (Face ID, fingerprint)
@@ -703,7 +726,7 @@ Both can be linked to the same account for redundancy.
 1. **Sign Up:**
    - User provides email and password
    - Supabase sends verification email
-   - User clicks link to verify
+   - User clicks verification link in email
    - Encryption key derived from password using PBKDF2
 
 2. **Sign In:**
@@ -1471,7 +1494,6 @@ From `src/components/`:
 
 - **PeriodPicker** - Date/period selection
 - **DeliveryMethodPicker** - Email/Telegram selection
-- **CameraCapture** - Camera integration (planned)
 - **ScrollReveal** - GSAP scroll animation wrapper
 - **ShinyText** - Animated gradient text
 
@@ -1922,8 +1944,7 @@ npm install
 **Issue**: "Encryption key expired"
 
 **Solution:**
-
-- This is by design (30-minute timeout)
+- This is by design (10-minute timeout)
 - User must re-authenticate
 - Consider account linking for easier re-auth
 
