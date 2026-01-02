@@ -1905,7 +1905,7 @@ npm install
 **Issue**: "Encryption key expired"
 
 **Solution:**
-- This is by design (30-minute timeout)
+- This is by design (10-minute timeout)
 - User must re-authenticate
 - Consider account linking for easier re-auth
 
