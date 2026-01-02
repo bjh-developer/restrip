@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "../../../lib/supabase/server";
 
-const supabase = createClient(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
@@ -9,8 +10,21 @@ const supabase = createClient(
 // Save snap metadata to database
 export async function POST(request: NextRequest) {
   try {
+    // Verify authenticated user
+    const supabase = await createServerClient();
     const {
-      userId,
+      data: { user: sessionUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !sessionUser) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const {
       storagePath,
       encryptedCaption,
       captionIv,
@@ -22,7 +36,6 @@ export async function POST(request: NextRequest) {
     } = await request.json();
 
     if (
-      !userId ||
       !storagePath ||
       !encryptedCaption ||
       !captionIv ||
@@ -39,9 +52,15 @@ export async function POST(request: NextRequest) {
     }
 
     const sendTime = new Date(scheduledSendTime);
+    if (isNaN(sendTime.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid scheduled send time" },
+        { status: 400 }
+      );
+    }
 
-    const { data, error } = await supabase.from("snaps").insert({
-      user_id: userId,
+    const { data, error } = await supabaseAdmin.from("snaps").insert({
+      user_id: sessionUser.id,
       storage_path: storagePath,
       encrypted_caption: encryptedCaption,
       caption_iv: captionIv,

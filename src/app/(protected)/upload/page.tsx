@@ -433,7 +433,7 @@ export default function UploadPage() {
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
 
-      let sendTime: Date;
+      let sendTime: Date | undefined;
 
       if (date) {
         const now = new Date();
@@ -494,7 +494,7 @@ export default function UploadPage() {
         setCustomPeriod(undefined);
       }
 
-      if (sendTime!) {
+      if (sendTime) {
         console.log(
           `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`
         );

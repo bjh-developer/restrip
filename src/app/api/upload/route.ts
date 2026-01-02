@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "../../../lib/supabase/server";
 
-const supabase = createClient(
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
@@ -9,9 +10,23 @@ const supabase = createClient(
 // Upload to Supabase Storage
 export async function POST(request: NextRequest) {
   try {
-    const { encryptedImage, userId } = await request.json();
+    // Verify authenticated user
+    const supabase = await createServerClient();
+    const {
+      data: { user: sessionUser },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!encryptedImage || !userId) {
+    if (authError || !sessionUser) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const { encryptedImage } = await request.json();
+
+    if (!encryptedImage) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -25,10 +40,10 @@ export async function POST(request: NextRequest) {
     // Generate unique file path
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(7);
-    const filePath = `${userId}/${timestamp}-${randomId}.enc`;
+    const filePath = `${sessionUser.id}/${timestamp}-${randomId}.enc`;
 
     // Upload encrypted blob to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabaseAdmin.storage
       .from("encrypted-images")
       .upload(filePath, buffer, {
         contentType: "application/octet-stream",
