@@ -1,6 +1,12 @@
+<div align="center">
+
+![ReStrip Logo](ReStrip_logo_v2.png)
+
 # 📚 ReStrip Technical Documentation
 
 **Complete Full-Stack Analysis for Developers**
+
+</div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
 
@@ -159,28 +165,32 @@ npm run lint   # Run ESLint
 
 ### High-Level Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│          CLIENT (Browser)                   │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │ React   │ │  Auth   │ │Encryption│       │
-│  │   UI    │ │ Context │ │  Layer   │       │
-│  └─────────┘ └─────────┘ └─────────┘       │
-└─────────────────┬───────────────────────────┘
-                  │ HTTPS
-┌─────────────────▼───────────────────────────┐
-│        NEXT.JS SERVER (Vercel)              │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │   API   │ │  Middle │ │   SSR   │       │
-│  │  Routes │ │  -ware  │ │  Pages  │       │
-│  └─────────┘ └─────────┘ └─────────┘       │
-└───────┬────────────┬────────────┬───────────┘
-        │            │            │
-┌───────▼──┐  ┌──────▼───┐  ┌────▼────┐
-│Supabase  │  │  RunPod  │  │ Storage │
-│Database  │  │   YOLO   │  │ (Future)│
-│  + Auth  │  │    AI    │  │         │
-└──────────┘  └──────────┘  └─────────┘
+```mermaid
+graph TB
+    subgraph Client["CLIENT (Browser)"]
+        UI["React UI<br/>Components"]
+        Auth["Auth Context<br/>(hooks)"]
+        Encrypt["Encryption<br/>Layer"]
+        UI --> Auth
+        Auth --> Encrypt
+    end
+    
+    subgraph Server["NEXT.JS SERVER (Vercel)"]
+        API["API Routes<br/>(/api/*)"]
+        Middleware["Middleware<br/>(Auth Gate)"]
+        SSR["SSR Pages<br/>(Rendering)"]
+    end
+    
+    subgraph External["External Services"]
+        Supabase["Supabase<br/>Database + Auth"]
+        RunPod["RunPod<br/>Serverless (YOLO AI)"]
+        Storage["Storage<br/>(Future)"]
+    end
+    
+    Client -->|HTTPS| Server
+    Server --> Supabase
+    Server --> RunPod
+    Server --> Storage
 ```
 
 ### Technology Stack Layers
@@ -319,10 +329,12 @@ Handles WebAuthn passkey registration and authentication.
 
 **Flow:**
 1. Check if email exists → Register or Login
-2. Get options from server
-3. Call browser WebAuthn API
-4. Verify with server
-5. Derive encryption key from PRF output
+2. If registering, send email verification first
+3. User verifies email via link
+4. Get WebAuthn options from server
+5. Call browser WebAuthn API
+6. Verify with server
+7. Derive encryption key from PRF output
 6. Store key in sessionStorage
 
 **EmailPasswordAuth.tsx**
@@ -634,7 +646,9 @@ Both can be linked to the same account for redundancy.
 
 1. **Registration:**
    - User provides email
-   - Server generates challenge
+   - System sends email verification link
+   - User clicks verification link in email
+   - Server generates WebAuthn challenge
    - Browser prompts for biometric (Face ID, fingerprint)
    - Device creates cryptographic key pair
    - Public key sent to server, private key stays on device
@@ -735,11 +749,18 @@ await supabase.auth.updateUser({ password: newPassword });
 
 ### Encryption Flow
 
-```
-User Data → Encryption Key Derivation → AES-256-GCM Encryption → Upload
-                                                                     ↓
-                                                                Server Storage
-                                                              (Encrypted at Rest)
+```mermaid
+graph LR
+    A["User Data"] --> B["Encryption Key<br/>Derivation"]
+    B --> C["AES-256-GCM<br/>Encryption"]
+    C --> D["Upload to<br/>Server"]
+    D --> E["Server Storage<br/>(Encrypted at Rest)"]
+    
+    style A fill:#fff2c9
+    style B fill:#cfe7ff
+    style C fill:#ffc9d1
+    style D fill:#f3e8d8
+    style E fill:#ebebeb
 ```
 
 ### Key Derivation
@@ -823,12 +844,12 @@ async function decryptData(
 
 **Challenge**: Persist key across page refreshes while maintaining security
 
-**Solution**: Store in `sessionStorage` with 30-minute timeout
+**Solution**: Store in `sessionStorage` with 10-minute timeout
 
 **Security Tradeoffs:**
 - ⚠️ Vulnerable to XSS attacks
 - ✅ Cleared on tab close
-- ✅ 30-minute expiry
+- ✅ 10-minute expiry
 - ✅ CSP headers reduce XSS risk
 
 **Implementation:**
@@ -847,34 +868,48 @@ export async function setEncryptionKey(key: CryptoKey): Promise<void> {
 }
 
 export async function getEncryptionKey(): Promise<CryptoKey | null> {
-  // Check in-memory first
-  if (encryptionKeyStore) return encryptionKeyStore;
+  // If key is in memory, return it
+  if (encryptionKeyStore) {
+    return encryptionKeyStore;
+  }
   
-  // Restore from sessionStorage
-  const keyBase64 = sessionStorage.getItem('restrip_encryption_key');
-  const timestampStr = sessionStorage.getItem('restrip_encryption_key_timestamp');
-  
-  if (!keyBase64 || !timestampStr) return null;
-  
-  // Check expiry (30 minutes)
-  const age = Date.now() - parseInt(timestampStr);
-  if (age > 30 * 60 * 1000) {
+  // Try to restore from sessionStorage
+  try {
+    const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
+    const timestampStr = sessionStorage.getItem(ENCRYPTION_KEY_TIMESTAMP_KEY);
+    
+    if (!keyBase64 || !timestampStr) {
+      return null;
+    }
+    
+    // Check if key has expired
+    const timestamp = parseInt(timestampStr, 10);
+    const age = Date.now() - timestamp;
+    
+    if (age > KEY_EXPIRY_MS) {
+      console.warn('⚠️ Encryption key expired (10 min timeout). Please re-authenticate.');
+      clearEncryptionKey();
+      return null;
+    }
+    
+    const keyBuffer = base64ToArrayBuffer(keyBase64);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyBuffer,
+      { name: 'AES-GCM', length: 256 },
+      true, // Make it extractable so it can be persisted again if needed
+      ['encrypt', 'decrypt']
+    );
+    
+    encryptionKeyStore = key;
+    console.log('✅ Encryption key restored from sessionStorage');
+    return key;
+  } catch (error) {
+    console.error('Failed to restore encryption key:', error);
+    // Clear invalid stored key
     clearEncryptionKey();
     return null;
   }
-  
-  // Import key
-  const keyBuffer = base64ToArrayBuffer(keyBase64);
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyBuffer,
-    { name: 'AES-GCM', length: 256 },
-    true,
-    ['encrypt', 'decrypt']
-  );
-  
-  encryptionKeyStore = key;
-  return key;
 }
 ```
 
@@ -886,101 +921,285 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
 
 **Technology**: PostgreSQL with Row Level Security (RLS)
 
-### Current Schema
+### Complete Database Schema
 
-**Credentials Table:**
+Run this SQL in your Supabase SQL Editor to set up the complete database:
 
 ```sql
-CREATE TABLE public.credentials (
-    id TEXT PRIMARY KEY,                    -- Credential ID from WebAuthn
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    public_key BYTEA NOT NULL,              -- Public key for verification
-    counter BIGINT NOT NULL DEFAULT 0,      -- Signature counter
-    transports TEXT[],                      -- usb, nfc, ble, internal
-    backup_eligible BOOLEAN DEFAULT FALSE,
-    backup_state BOOLEAN DEFAULT FALSE,
-    salt TEXT NOT NULL,                     -- For PRF key derivation
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_used_at TIMESTAMP WITH TIME ZONE
+-- =====================================================
+-- ReStrip Passkey Authentication Schema
+-- Run this in your Supabase SQL Editor
+-- =====================================================
+
+-- 1. Create passkey_credentials table to store public keys
+CREATE TABLE IF NOT EXISTS public.passkey_credentials (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  credential_id TEXT UNIQUE NOT NULL,           -- Base64URL encoded credential ID
+  public_key TEXT NOT NULL,                      -- Base64URL encoded public key
+  counter BIGINT DEFAULT 0,                      -- For replay attack prevention
+  device_type TEXT DEFAULT 'platform',           -- 'platform' or 'cross-platform'
+  backed_up BOOLEAN DEFAULT false,               -- Is credential synced (iCloud Keychain, etc)
+  transports TEXT[],                             -- ['internal', 'hybrid', 'usb', etc]
+  aaguid TEXT,                                   -- Authenticator identifier
+  device_name TEXT,                              -- User-friendly device name
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_credentials_user_id ON public.credentials(user_id);
-```
+-- Create indexes for faster lookups
+CREATE INDEX IF NOT EXISTS idx_passkey_user_id ON public.passkey_credentials(user_id);
+CREATE INDEX IF NOT EXISTS idx_passkey_credential_id ON public.passkey_credentials(credential_id);
 
-### Planned Schema
-
-**Snaps Table (encrypted memories):**
-
-```sql
-CREATE TABLE public.snaps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    
-    -- Encrypted data
-    encrypted_image_url TEXT NOT NULL,      -- Supabase Storage URL
-    image_iv TEXT NOT NULL,                 -- Initialization vector
-    encrypted_caption TEXT,
-    caption_iv TEXT,
-    
-    -- Metadata (not encrypted)
-    delivery_method TEXT NOT NULL,          -- 'email' or 'telegram'
-    delivery_address TEXT NOT NULL,
-    scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    delivered BOOLEAN DEFAULT FALSE,
-    delivered_at TIMESTAMP WITH TIME ZONE,
-    
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- 2. Create snaps table with user_id for authenticated uploads
+CREATE TABLE IF NOT EXISTS public.snaps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  delivery_method TEXT NOT NULL DEFAULT 'email',  -- 'email' or 'telegram'
+  delivery_address TEXT NOT NULL,                 -- Email or @telegram_username
+  encrypted_image_url TEXT NOT NULL,              -- URL to encrypted image in storage
+  encrypted_cropped_url TEXT,                     -- URL to encrypted cropped image
+  encrypted_caption TEXT,                         -- AES encrypted caption
+  caption_iv TEXT,                                -- IV for caption decryption
+  period_type TEXT NOT NULL,                      -- 'surprise', 'custom_period', 'custom_date'
+  send_date DATE NOT NULL,
+  send_time TIMESTAMPTZ NOT NULL,
+  delivered BOOLEAN DEFAULT FALSE,
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes
-CREATE INDEX idx_snaps_user_id ON public.snaps(user_id);
-CREATE INDEX idx_snaps_scheduled_send ON public.snaps(scheduled_send_time, delivered);
-```
+-- Create indexes for snaps
+CREATE INDEX IF NOT EXISTS idx_snaps_user_id ON public.snaps(user_id);
+CREATE INDEX IF NOT EXISTS idx_snaps_send_date ON public.snaps(send_date, delivered);
+CREATE INDEX IF NOT EXISTS idx_snaps_delivery ON public.snaps(delivery_address);
 
-### Row Level Security (RLS)
+-- 3. Create challenge store for WebAuthn (temporary storage)
+CREATE TABLE IF NOT EXISTS public.webauthn_challenges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,                                     -- For registration before user exists
+  challenge TEXT NOT NULL,                        -- Base64URL encoded challenge
+  type TEXT NOT NULL,                             -- 'registration' or 'authentication'
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-**Purpose**: Ensure users can only access their own data
+CREATE INDEX IF NOT EXISTS idx_challenge_email ON public.webauthn_challenges(email);
+CREATE INDEX IF NOT EXISTS idx_challenge_user_id ON public.webauthn_challenges(user_id);
 
-**Example Policies:**
 
-```sql
+-- 4. Row Level Security (RLS) Policies
+
+-- Enable RLS on all tables
+ALTER TABLE public.passkey_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.snaps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.webauthn_challenges ENABLE ROW LEVEL SECURITY;
 
--- Users can only view their own snaps
+-- Passkey credentials: Users can only see/manage their own credentials
+CREATE POLICY "Users can view own passkey credentials"
+  ON public.passkey_credentials FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own passkey credentials"
+  ON public.passkey_credentials FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own passkey credentials"
+  ON public.passkey_credentials FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own passkey credentials"
+  ON public.passkey_credentials FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Snaps: Users can only see/manage their own snaps
 CREATE POLICY "Users can view own snaps"
-    ON public.snaps FOR SELECT
-    USING (auth.uid() = user_id);
+  ON public.snaps FOR SELECT
+  USING (auth.uid() = user_id);
 
--- Users can only insert snaps for themselves
 CREATE POLICY "Users can insert own snaps"
-    ON public.snaps FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+  ON public.snaps FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own snaps"
+  ON public.snaps FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete own snaps"
+  ON public.snaps FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- WebAuthn challenges: Service role only (API routes use service role)
+-- No policies needed - handled by service role key
+
+-- 5. Create storage bucket for encrypted images
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('encrypted-images', 'encrypted-images', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage policy: Users can only access their own files
+CREATE POLICY "Users can upload own encrypted images"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'encrypted-images' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can view own encrypted images"
+  ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'encrypted-images' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "Users can delete own encrypted images"
+  ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'encrypted-images' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- 6. Function to clean up expired challenges (run periodically)
+CREATE OR REPLACE FUNCTION cleanup_expired_challenges()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM public.webauthn_challenges WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 7. Function to update snaps timestamp
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER snaps_updated_at
+  BEFORE UPDATE ON public.snaps
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
+
+-- =====================================================
+-- Add Per-Credential PRF Salt for WebAuthn Isolation
+-- 
+-- This migration adds the 'salt' column to store unique,
+-- cryptographically random salts for each credential.
+-- 
+-- Security: Each credential must have a unique salt to ensure
+-- per-credential isolation and prevent salt reuse attacks.
+-- =====================================================
+
+-- Add salt column to passkey_credentials table
+-- salt: Base64-encoded cryptographically random 32-byte value
+ALTER TABLE public.passkey_credentials 
+ADD COLUMN IF NOT EXISTS salt TEXT;
+
+-- Create index for salt lookups (useful for future optimizations)
+CREATE INDEX IF NOT EXISTS idx_passkey_salt ON public.passkey_credentials(salt);
+
+-- Add constraint to ensure salt is non-empty if present
+ALTER TABLE public.passkey_credentials 
+ADD CONSTRAINT check_salt_not_empty CHECK (salt IS NULL OR salt != '');
+
+-- Auto-generate salts for existing credentials
+-- This ensures all credentials (old and new) have salts
+UPDATE public.passkey_credentials 
+SET salt = encode(gen_random_bytes(32), 'base64')
+WHERE salt IS NULL;
+
+-- Verify migration completed successfully
+-- Run this query to confirm all credentials have salts:
+-- SELECT COUNT(*) as total, COUNT(salt) as with_salt FROM passkey_credentials;
+-- Both counts should be equal, indicating 100% salt coverage
+
+-- Create RPC function to check if user exists by email
+-- This function queries the auth.users table which is not directly accessible via PostgREST
+CREATE OR REPLACE FUNCTION check_user_exists(user_email TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM auth.users WHERE email = LOWER(user_email)
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Revoke all default permissions
+REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM public;
+REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM anon;
+
+-- Grant execute permission only to service_role
+GRANT EXECUTE ON FUNCTION check_user_exists(TEXT) TO service_role;
+
+-- RPC function for efficient account type lookup
+-- This should be created in your Supabase database
+
+CREATE OR REPLACE FUNCTION get_account_type(user_email TEXT)
+RETURNS TABLE(account_type TEXT, has_passkey BOOLEAN)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    user_record RECORD;
+    passkey_count INTEGER;
+BEGIN
+    -- Find user by email
+    SELECT * INTO user_record
+    FROM auth.users
+    WHERE email = LOWER(user_email)
+    LIMIT 1;
+
+    -- If user not found, return none
+    IF user_record.id IS NULL THEN
+        RETURN QUERY SELECT 'none'::TEXT, false;
+        RETURN;
+    END IF;
+
+    -- Get auth method from metadata
+    DECLARE
+        auth_method TEXT := COALESCE(user_record.raw_user_meta_data->>'auth_method', 'password');
+    BEGIN
+        -- Check for passkey credentials
+        SELECT COUNT(*) INTO passkey_count
+        FROM passkey_credentials
+        WHERE user_id = user_record.id
+        LIMIT 1;
+
+        -- Determine if user has passkey
+        DECLARE
+            has_passkey BOOLEAN := (passkey_count > 0) OR (auth_method = 'passkey') OR (auth_method = 'password_and_passkey');
+        BEGIN
+            RETURN QUERY SELECT auth_method, has_passkey;
+        END;
+    END;
+END;
+$$;
 ```
 
-### Supabase Storage
+### Schema Explanation
 
-**Planned Implementation:**
+**passkey_credentials table:**
+- Stores WebAuthn public keys for passkey authentication
+- Each credential has a unique salt for PRF-based encryption key derivation
+- Tracks device information and usage
 
-```
-encrypted_images/
-  ├── user-uuid/
-  │   ├── snap-uuid-1.png
-  │   ├── snap-uuid-2.png
-  │   └── ...
-```
+**snaps table:**
+- Stores encrypted photo strip memories
+- References encrypted images in Supabase Storage
+- Tracks delivery schedule and status
 
-**Storage Policies:**
+**webauthn_challenges table:**
+- Temporary storage for WebAuthn challenges
+- Expires after use for security
 
-```sql
--- Users can upload to their folder
-CREATE POLICY "Users can upload own images"
-    ON storage.objects FOR INSERT
-    WITH CHECK (
-        bucket_id = 'encrypted_images' AND
-        auth.uid()::text = (storage.foldername(name))[1]
-    );
-```
+**Helper Functions:**
+- `cleanup_expired_challenges()`: Clean up old challenges
+- `check_user_exists()`: Check if email is registered
+- `get_account_type()`: Get user's authentication method
 
 ---
 
