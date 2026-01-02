@@ -201,7 +201,7 @@ graph TB
 - **State**: React Context + Hooks
 - **Animations**: GSAP + ScrollTrigger
 
-####Backend
+#### Backend
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth + SimpleWebAuthn
