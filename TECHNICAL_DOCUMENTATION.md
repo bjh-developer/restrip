@@ -91,17 +91,20 @@ Create `.env.local` file:
 
 ```env
 # Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=https://<supabase id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase anon key>
+SUPABASE_SERVICE_ROLE_KEY=<supabase service role key>
 
-# WebAuthn Configuration (Passkeys)
-NEXT_PUBLIC_RP_ID=localhost  # For local dev
-NEXT_PUBLIC_RP_NAME="ReStrip"
-NEXT_PUBLIC_RP_ORIGIN=http://localhost:3000
+# RunPod Configuration (Server-side only)
+RUNPOD_API_KEY=<runpod api key>
+RUNPOD_ENDPOINT_ID=<runpod endpoint id>
 
-# RunPod Configuration (AI Image Processing)
-RUNPOD_API_KEY=your_runpod_api_key
-RUNPOD_ENDPOINT_ID=your_runpod_endpoint_id
+# Application Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Comma-separated list of allowed origins (supports wildcard patterns like *.vercel.app)
+NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
+# Comma-separated list of allowed RP domains (for WebAuthn RP ID validation)
+NEXT_PUBLIC_ALLOWED_RP_DOMAINS=localhost,127.0.0.1
 ```
 
 #### 4. Supabase Setup
