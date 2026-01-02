@@ -2,6 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
+  <p><em>Last updated: 2 Jan 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
