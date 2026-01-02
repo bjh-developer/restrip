@@ -27,7 +27,8 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
   const [authSuccess, setAuthSuccess] = useState(false);
-  const [showEmailVerificationMessage, setShowEmailVerificationMessage] = useState(false);
+  const [showEmailVerificationMessage, setShowEmailVerificationMessage] =
+    useState(false);
   const [isPasskeyRegistration, setIsPasskeyRegistration] = useState(false);
 
   // Check if user came from email verification link
@@ -35,30 +36,36 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
     const checkEmailVerification = async () => {
       // Check URL hash for confirmation token
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const type = hashParams.get('type');
-      
-      if (type === 'signup' || type === 'email') {
+      const type = hashParams.get("type");
+
+      if (type === "signup" || type === "email") {
         // User clicked email verification link
         setActiveTab("password");
         setShowEmailVerificationMessage(true);
-        
+
         // Clean up the URL
-        window.history.replaceState({}, document.title, window.location.pathname);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
       }
-      
+
       // Also check if user's auth method is password
-      if (user?.user_metadata?.auth_method === 'password') {
+      if (user?.user_metadata?.auth_method === "password") {
         setActiveTab("password");
       }
     };
-    
+
     checkEmailVerification();
   }, [user]);
 
   // Check for passkey registration hash
   useEffect(() => {
     const checkPasskeyRegistration = () => {
-      setIsPasskeyRegistration(window.location.hash === '#passkey-registration');
+      setIsPasskeyRegistration(
+        window.location.hash === "#passkey-registration",
+      );
     };
 
     // Check initially
@@ -69,10 +76,10 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
       checkPasskeyRegistration();
     };
 
-    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener("hashchange", handleHashChange);
 
     return () => {
-      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
 
@@ -83,13 +90,13 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
       setTimeout(() => {
         try {
           // Guard: Ensure ScrollTrigger is available and has refresh method
-          if (ScrollTrigger && typeof ScrollTrigger.refresh === 'function') {
+          if (ScrollTrigger && typeof ScrollTrigger.refresh === "function") {
             ScrollTrigger.refresh();
           }
         } catch (error) {
           // Silently fail if ScrollTrigger is not available or refresh fails
           // This is non-critical for authentication functionality
-          console.debug('ScrollTrigger.refresh() failed:', error);
+          console.debug("ScrollTrigger.refresh() failed:", error);
         }
       }, 100);
     }
@@ -106,7 +113,9 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
 
   // User is authenticated with encryption key
   if (user && hasEncryptionKey) {
-    console.log('AuthGate: User authenticated with encryption key, showing main app');
+    console.log(
+      "AuthGate: User authenticated with encryption key, showing main app",
+    );
     return <>{children}</>;
   }
 
@@ -115,15 +124,19 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
   if (user && !hasEncryptionKey && !showEmailVerificationMessage) {
     // Check if user is in passkey registration flow
     if (isPasskeyRegistration) {
-      console.log('AuthGate: User in passkey registration flow, showing passkey auth');
+      console.log(
+        "AuthGate: User in passkey registration flow, showing passkey auth",
+      );
       return (
         <div className="w-full max-w-md mx-auto p-6">
           <PasskeyAuth />
         </div>
       );
     }
-    
-    console.log('AuthGate: User authenticated but missing encryption key, showing re-auth page');
+
+    console.log(
+      "AuthGate: User authenticated but missing encryption key, showing re-auth page",
+    );
     return (
       <div className="w-full max-w-md mx-auto p-6">
         <div className="text-center mb-6">
@@ -136,9 +149,16 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
           </p>
         </div>
 
-        {passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification') ? (
+        {passkeySupported &&
+        (user?.user_metadata?.auth_method === "passkey" ||
+          user?.user_metadata?.auth_method ===
+            "passkey_pending_verification") ? (
           <PasskeyAuth onSuccess={() => setAuthSuccess(true)} />
-        ) : !passkeySupported && (user?.user_metadata?.auth_method === 'passkey' || user?.user_metadata?.auth_method === 'passkey_pending_verification' || user?.user_metadata?.auth_method === 'password_and_passkey') ? (
+        ) : !passkeySupported &&
+          (user?.user_metadata?.auth_method === "passkey" ||
+            user?.user_metadata?.auth_method ===
+              "passkey_pending_verification" ||
+            user?.user_metadata?.auth_method === "password_and_passkey") ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="flex items-start gap-3">
               <span className="text-2xl">⚠️</span>
@@ -147,21 +167,34 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
                   Passkey Not Supported on This Device
                 </h3>
                 <p className="text-sm text-amber-800 mb-3">
-                  Your account uses passkey authentication, but this device or browser doesn't support passkeys.
+                  Your account uses passkey authentication, but this device or
+                  browser doesn't support passkeys.
                 </p>
                 <div className="space-y-2 text-sm text-amber-700">
                   <p className="font-medium">What you can do:</p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Try accessing your account from a supported device (modern smartphone, laptop with biometrics)</li>
-                    <li>Use a compatible browser (Chrome, Safari, Edge, or Firefox)</li>
-                    <li>Contact support if you need to link a password to your account</li>
+                    <li>
+                      Try accessing your account from a supported device (modern
+                      smartphone, laptop with biometrics)
+                    </li>
+                    <li>
+                      Use a compatible browser (Chrome, Safari, Edge, or
+                      Firefox)
+                    </li>
+                    <li>
+                      Contact support if you need to link a password to your
+                      account
+                    </li>
                   </ul>
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <EmailPasswordAuth onSuccess={() => setAuthSuccess(true)} signinOnly />
+          <EmailPasswordAuth
+            onSuccess={() => setAuthSuccess(true)}
+            signinOnly
+          />
         )}
 
         {/* Sign out button */}

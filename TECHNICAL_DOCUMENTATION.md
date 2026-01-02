@@ -37,16 +37,17 @@ ReStrip is a **time-delayed memory delivery platform** that allows users to uplo
 
 ### Key Features
 
-- 🔐 **Zero-Knowledge Encryption**: Photos encrypted client-side before upload  
-- 🔑 **Modern Authentication**: Passkey (biometric) and password options  
-- 🤖 **AI Auto-Crop**: YOLO11-powered photo strip detection  
-- 📅 **Flexible Scheduling**: Random surprise, custom period, or specific date  
-- 🎨 **Beautiful UX**: Smooth animations and responsive design  
+- 🔐 **Zero-Knowledge Encryption**: Photos encrypted client-side before upload
+- 🔑 **Modern Authentication**: Passkey (biometric) and password options
+- 🤖 **AI Auto-Crop**: YOLO11-powered photo strip detection
+- 📅 **Flexible Scheduling**: Random surprise, custom period, or specific date
+- 🎨 **Beautiful UX**: Smooth animations and responsive design
 - 🔒 **Privacy-First**: No third-party data sharing or AI training
 
 ### Technology Philosophy
 
 ReStrip prioritizes:
+
 1. **Privacy**: User data is sacred and encrypted
 2. **Security**: Modern standards (WebAuthn, AES-256-GCM)
 3. **User Experience**: Simple, delightful interactions
@@ -173,19 +174,19 @@ graph TB
         UI --> Auth
         Auth --> Encrypt
     end
-    
+
     subgraph Server["NEXT.JS SERVER (Vercel)"]
         API["API Routes<br/>(/api/*)"]
         Middleware["Middleware<br/>(Auth Gate)"]
         SSR["SSR Pages<br/>(Rendering)"]
     end
-    
+
     subgraph External["External Services"]
         Supabase["Supabase<br/>Database + Auth"]
         RunPod["RunPod<br/>Serverless (YOLO AI)"]
         Storage["Storage<br/>(Future)"]
     end
-    
+
     Client -->|HTTPS| Server
     Server --> Supabase
     Server --> RunPod
@@ -195,6 +196,7 @@ graph TB
 ### Technology Stack Layers
 
 #### Frontend
+
 - **Framework**: Next.js 16 with React 19
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS + Shadcn UI
@@ -202,12 +204,14 @@ graph TB
 - **Animations**: GSAP + ScrollTrigger
 
 ####Backend
+
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth + SimpleWebAuthn
 - **External Services**: RunPod (AI processing)
 
 #### Security
+
 - **Encryption**: Web Crypto API (AES-256-GCM)
 - **Key Derivation**: HKDF (passkey) + PBKDF2 (password)
 - **Authentication**: WebAuthn/FIDO2 + Email/Password
@@ -253,6 +257,7 @@ app/
 ```
 
 **Benefits:**
+
 - Shared layouts for route groups
 - Logical organization
 - Clean URLs
@@ -264,6 +269,7 @@ app/
 Landing page with sign-in/sign-up functionality.
 
 **Features:**
+
 - Passkey authentication (primary)
 - Email/password authentication (fallback)
 - Tab switcher based on passkey support
@@ -276,7 +282,7 @@ Landing page with sign-in/sign-up functionality.
 // Redirect if authenticated
 useEffect(() => {
   if (user && hasEncryptionKey) {
-    router.push('/upload');
+    router.push("/upload");
   }
 }, [user, hasEncryptionKey, router]);
 ```
@@ -284,6 +290,7 @@ useEffect(() => {
 **2. Upload Page** (`src/app/(protected)/upload/page.tsx`)
 
 Main application page with 4-step flow:
+
 1. Upload photo strip
 2. Write caption
 3. Select delivery period
@@ -304,18 +311,20 @@ const [caption, setCaption] = useState<string>("");
 Uses Zod for type-safe validation:
 
 ```typescript
-const SnapSchema = z.object({
-  Image: z.string().min(1, "Image is required"),
-  Caption: z.string().min(1),
-  sendTime: z.date(),
-  deliveryMethod: z.enum(["email", "telegram"]),
-  Delivery_Address: z.string().min(1),
-}).refine((data) => {
-  if (data.deliveryMethod === "email") {
-    return z.string().email().safeParse(data.Delivery_Address).success;
-  }
-  return data.Delivery_Address.startsWith("@");
-});
+const SnapSchema = z
+  .object({
+    Image: z.string().min(1, "Image is required"),
+    Caption: z.string().min(1),
+    sendTime: z.date(),
+    deliveryMethod: z.enum(["email", "telegram"]),
+    Delivery_Address: z.string().min(1),
+  })
+  .refine((data) => {
+    if (data.deliveryMethod === "email") {
+      return z.string().email().safeParse(data.Delivery_Address).success;
+    }
+    return data.Delivery_Address.startsWith("@");
+  });
 ```
 
 ### Key Components
@@ -327,6 +336,7 @@ const SnapSchema = z.object({
 Handles WebAuthn passkey registration and authentication.
 
 **Flow:**
+
 1. Check if email exists → Register or Login
 2. If registering, send email verification first
 3. User verifies email via link
@@ -334,13 +344,14 @@ Handles WebAuthn passkey registration and authentication.
 5. Call browser WebAuthn API
 6. Verify with server
 7. Derive encryption key from PRF output
-6. Store key in sessionStorage
+8. Store key in sessionStorage
 
 **EmailPasswordAuth.tsx**
 
 Traditional email/password authentication.
 
 **Features:**
+
 - Sign up with email verification
 - Sign in with password
 - Password reset flow
@@ -351,6 +362,7 @@ Traditional email/password authentication.
 **PeriodPicker.tsx**
 
 Date/period selection component with three options:
+
 - **Surprise Me**: Random 30-180 days
 - **Custom Period**: Select days/months/years
 - **Custom Date**: Calendar picker
@@ -358,6 +370,7 @@ Date/period selection component with three options:
 **DeliveryMethodPicker.tsx**
 
 Choose delivery method:
+
 - **Email**: Enter email address
 - **Telegram** (future): Enter @username
 
@@ -366,6 +379,7 @@ Choose delivery method:
 GSAP-powered scroll animation wrapper.
 
 **Usage:**
+
 ```typescript
 <ScrollReveal baseOpacity={0} enableBlur={true}>
   <p>This text animates on scroll</p>
@@ -377,7 +391,7 @@ GSAP-powered scroll animation wrapper.
 Animated gradient text effect.
 
 ```typescript
-<ShinyText 
+<ShinyText
   text="Photo strips that come back to you."
   speed={15}
 />
@@ -399,16 +413,17 @@ Custom components in `src/components/ui/shadcn-io/`:
 Centralized authentication state management.
 
 **Provides:**
+
 ```typescript
 const {
-  user,                    // Current user or null
-  session,                 // Supabase session
-  authMethod,              // 'passkey' | 'password' | null
-  isLoading,               // Auth check in progress
-  hasEncryptionKey,        // Encryption key available
-  signOut,                 // Sign out function
+  user, // Current user or null
+  session, // Supabase session
+  authMethod, // 'passkey' | 'password' | null
+  isLoading, // Auth check in progress
+  hasEncryptionKey, // Encryption key available
+  signOut, // Sign out function
   setEncryptionKeyFromPRF, // Set key from passkey
-  setEncryptionKeyFromPassword // Set key from password
+  setEncryptionKeyFromPassword, // Set key from password
 } = useAuth();
 ```
 
@@ -419,7 +434,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
-  
+
   useEffect(() => {
     // Get initial session
     const initAuth = async () => {
@@ -432,9 +447,9 @@ export function AuthProvider({ children }) {
       }
       setIsLoading(false);
     };
-    
+
     initAuth();
-    
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -446,10 +461,10 @@ export function AuthProvider({ children }) {
         }
       }
     );
-    
+
     return () => subscription.unsubscribe();
   }, []);
-  
+
   return (
     <AuthContext.Provider value={{/* ... */}}>
       {children}
@@ -466,23 +481,23 @@ Detects if browser/device supports passkeys.
 export function usePasskeySupport() {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     const checkSupport = async () => {
       if (!window.PublicKeyCredential) {
         setPasskeySupported(false);
         return;
       }
-      
-      const available = await PublicKeyCredential
-        .isUserVerifyingPlatformAuthenticatorAvailable();
+
+      const available =
+        await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
       setPasskeySupported(available);
       setIsLoading(false);
     };
-    
+
     checkSupport();
   }, []);
-  
+
   return { passkeySupported, isLoading };
 }
 ```
@@ -496,6 +511,7 @@ export function usePasskeySupport() {
 API routes are serverless functions in `src/app/api/`.
 
 **Structure:**
+
 - Export named functions: `GET`, `POST`, `PUT`, `DELETE`
 - Receive `NextRequest`, return `NextResponse`
 - Run on Vercel Edge Runtime
@@ -504,7 +520,7 @@ API routes are serverless functions in `src/app/api/`.
 
 ```typescript
 // src/app/api/example/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -519,6 +535,7 @@ export async function POST(request: NextRequest) {
 **Purpose**: Proxy image to RunPod for AI cropping
 
 **Why a proxy?**
+
 - ✅ Keeps API key secret (server-side only)
 - ✅ Prevents key exposure to client
 - ✅ Allows rate limiting
@@ -529,27 +546,27 @@ export async function POST(request: NextRequest) {
 ```typescript
 export async function POST(request: NextRequest) {
   const { image } = await request.json();
-  
+
   const apiKey = process.env.RUNPOD_API_KEY;
   const endpointId = process.env.RUNPOD_ENDPOINT_ID;
-  
+
   const url = `https://api.runpod.ai/v2/${endpointId}/runsync`;
-  
+
   // Remove data URL prefix
-  const base64Data = image.split(',')[1] || image;
-  
+  const base64Data = image.split(",")[1] || image;
+
   // Call RunPod
   const response = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ input: { image: base64Data } }),
   });
-  
+
   const data = await response.json();
-  
+
   return NextResponse.json({
     success: true,
     photostrip: data.output.photostrip,
@@ -562,11 +579,13 @@ export async function POST(request: NextRequest) {
 Generate WebAuthn registration options.
 
 **Request:**
+
 ```json
 { "email": "user@example.com" }
 ```
 
 **Response:**
+
 ```json
 {
   "options": {
@@ -584,6 +603,7 @@ Generate WebAuthn registration options.
 Verify WebAuthn registration response.
 
 **Process:**
+
 1. Verify WebAuthn response
 2. Create/sign in user with Supabase
 3. Store credential in database
@@ -607,22 +627,24 @@ Verify WebAuthn authentication response.
 export async function middleware(request: NextRequest) {
   // Create Supabase client with cookie handling
   const supabase = createServerClient(/* ... */);
-  
+
   // Get session
-  const { data: { session } } = await supabase.auth.getSession();
-  
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   // Protect /upload route
-  if (request.nextUrl.pathname.startsWith('/upload')) {
+  if (request.nextUrl.pathname.startsWith("/upload")) {
     if (!session) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
-  
+
   return response;
 }
 
 export const config = {
-  matcher: ['/', '/upload/:path*'],
+  matcher: ["/", "/upload/:path*"],
 };
 ```
 
@@ -662,12 +684,14 @@ Both can be linked to the same account for redundancy.
    - PRF generates same encryption key
 
 **Benefits:**
+
 - ✅ Phishing-resistant
 - ✅ No passwords to remember
 - ✅ Hardware-backed security
 - ✅ Fast and convenient
 
 **Browser Support:**
+
 - Chrome/Edge 67+
 - Safari 16+
 - Firefox 119+
@@ -692,26 +716,26 @@ Both can be linked to the same account for redundancy.
 ```typescript
 async function deriveKeyFromPassword(password: string, salt: Uint8Array) {
   const keyMaterial = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     new TextEncoder().encode(password),
-    'PBKDF2',
+    "PBKDF2",
     false,
-    ['deriveKey']
+    ["deriveKey"],
   );
-  
+
   const key = await crypto.subtle.deriveKey(
     {
-      name: 'PBKDF2',
+      name: "PBKDF2",
       salt,
       iterations: 600000, // OWASP 2024 recommendation
-      hash: 'SHA-256',
+      hash: "SHA-256",
     },
     keyMaterial,
-    { name: 'AES-GCM', length: 256 },
+    { name: "AES-GCM", length: 256 },
     true,
-    ['encrypt', 'decrypt']
+    ["encrypt", "decrypt"],
   );
-  
+
   return key;
 }
 ```
@@ -721,6 +745,7 @@ async function deriveKeyFromPassword(password: string, salt: Uint8Array) {
 Users can add both authentication methods to one account:
 
 **Scenarios:**
+
 - Passkey user adds password backup
 - Password user upgrades to passkey
 
@@ -741,6 +766,7 @@ await supabase.auth.updateUser({ password: newPassword });
 ### Zero-Knowledge Encryption
 
 **What it means:**
+
 - Data encrypted on client before upload
 - Encryption key never leaves user's device
 - Server cannot decrypt data
@@ -754,7 +780,7 @@ graph LR
     B --> C["AES-256-GCM<br/>Encryption"]
     C --> D["Upload to<br/>Server"]
     D --> E["Server Storage<br/>(Encrypted at Rest)"]
-    
+
     style A fill:#fff2c9
     style B fill:#cfe7ff
     style C fill:#ffc9d1
@@ -769,26 +795,26 @@ graph LR
 ```typescript
 async function deriveKeyFromPRF(prfOutput: ArrayBuffer): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     prfOutput,
-    'HKDF',
+    "HKDF",
     false,
-    ['deriveKey']
+    ["deriveKey"],
   );
-  
+
   const key = await crypto.subtle.deriveKey(
     {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: new TextEncoder().encode('restrip-encryption-v1'),
-      info: new TextEncoder().encode('image-encryption'),
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new TextEncoder().encode("restrip-encryption-v1"),
+      info: new TextEncoder().encode("image-encryption"),
     },
     keyMaterial,
-    { name: 'AES-GCM', length: 256 },
+    { name: "AES-GCM", length: 256 },
     true,
-    ['encrypt', 'decrypt']
+    ["encrypt", "decrypt"],
   );
-  
+
   return key;
 }
 ```
@@ -804,13 +830,13 @@ Uses 600,000 iterations (OWASP 2024 recommendation).
 ```typescript
 async function encryptData(data: ArrayBuffer, key: CryptoKey) {
   const iv = crypto.getRandomValues(new Uint8Array(12)); // 96 bits for AES-GCM
-  
+
   const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: "AES-GCM", iv },
     key,
-    data
+    data,
   );
-  
+
   return {
     encrypted: arrayBufferToBase64(encrypted),
     iv: arrayBufferToBase64(iv.buffer),
@@ -824,17 +850,17 @@ async function encryptData(data: ArrayBuffer, key: CryptoKey) {
 async function decryptData(
   encryptedBase64: string,
   ivBase64: string,
-  key: CryptoKey
+  key: CryptoKey,
 ): Promise<ArrayBuffer> {
   const encrypted = base64ToArrayBuffer(encryptedBase64);
   const iv = base64ToArrayBuffer(ivBase64);
-  
+
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: new Uint8Array(iv) },
+    { name: "AES-GCM", iv: new Uint8Array(iv) },
     key,
-    encrypted
+    encrypted,
   );
-  
+
   return decrypted;
 }
 ```
@@ -846,6 +872,7 @@ async function decryptData(
 **Solution**: Store in `sessionStorage` with 10-minute timeout
 
 **Security Tradeoffs:**
+
 - ⚠️ Vulnerable to XSS attacks
 - ✅ Cleared on tab close
 - ✅ 10-minute expiry
@@ -856,14 +883,14 @@ async function decryptData(
 ```typescript
 export async function setEncryptionKey(key: CryptoKey): Promise<void> {
   encryptionKeyStore = key; // In-memory
-  
+
   // Export and store in sessionStorage
-  const exportedKey = await crypto.subtle.exportKey('raw', key);
+  const exportedKey = await crypto.subtle.exportKey("raw", key);
   const keyBase64 = arrayBufferToBase64(exportedKey);
   const timestamp = Date.now().toString();
-  
-  sessionStorage.setItem('restrip_encryption_key', keyBase64);
-  sessionStorage.setItem('restrip_encryption_key_timestamp', timestamp);
+
+  sessionStorage.setItem("restrip_encryption_key", keyBase64);
+  sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
 }
 
 export async function getEncryptionKey(): Promise<CryptoKey | null> {
@@ -871,40 +898,42 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
   if (encryptionKeyStore) {
     return encryptionKeyStore;
   }
-  
+
   // Try to restore from sessionStorage
   try {
     const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
     const timestampStr = sessionStorage.getItem(ENCRYPTION_KEY_TIMESTAMP_KEY);
-    
+
     if (!keyBase64 || !timestampStr) {
       return null;
     }
-    
+
     // Check if key has expired
     const timestamp = parseInt(timestampStr, 10);
     const age = Date.now() - timestamp;
-    
+
     if (age > KEY_EXPIRY_MS) {
-      console.warn('⚠️ Encryption key expired (10 min timeout). Please re-authenticate.');
+      console.warn(
+        "⚠️ Encryption key expired (10 min timeout). Please re-authenticate.",
+      );
       clearEncryptionKey();
       return null;
     }
-    
+
     const keyBuffer = base64ToArrayBuffer(keyBase64);
     const key = await crypto.subtle.importKey(
-      'raw',
+      "raw",
       keyBuffer,
-      { name: 'AES-GCM', length: 256 },
+      { name: "AES-GCM", length: 256 },
       true, // Make it extractable so it can be persisted again if needed
-      ['encrypt', 'decrypt']
+      ["encrypt", "decrypt"],
     );
-    
+
     encryptionKeyStore = key;
-    console.log('✅ Encryption key restored from sessionStorage');
+    console.log("✅ Encryption key restored from sessionStorage");
     return key;
   } catch (error) {
-    console.error('Failed to restore encryption key:', error);
+    console.error("Failed to restore encryption key:", error);
     // Clear invalid stored key
     clearEncryptionKey();
     return null;
@@ -1084,29 +1113,29 @@ CREATE TRIGGER snaps_updated_at
 
 -- =====================================================
 -- Add Per-Credential PRF Salt for WebAuthn Isolation
--- 
+--
 -- This migration adds the 'salt' column to store unique,
 -- cryptographically random salts for each credential.
--- 
+--
 -- Security: Each credential must have a unique salt to ensure
 -- per-credential isolation and prevent salt reuse attacks.
 -- =====================================================
 
 -- Add salt column to passkey_credentials table
 -- salt: Base64-encoded cryptographically random 32-byte value
-ALTER TABLE public.passkey_credentials 
+ALTER TABLE public.passkey_credentials
 ADD COLUMN IF NOT EXISTS salt TEXT;
 
 -- Create index for salt lookups (useful for future optimizations)
 CREATE INDEX IF NOT EXISTS idx_passkey_salt ON public.passkey_credentials(salt);
 
 -- Add constraint to ensure salt is non-empty if present
-ALTER TABLE public.passkey_credentials 
+ALTER TABLE public.passkey_credentials
 ADD CONSTRAINT check_salt_not_empty CHECK (salt IS NULL OR salt != '');
 
 -- Auto-generate salts for existing credentials
 -- This ensures all credentials (old and new) have salts
-UPDATE public.passkey_credentials 
+UPDATE public.passkey_credentials
 SET salt = encode(gen_random_bytes(32), 'base64')
 WHERE salt IS NULL;
 
@@ -1182,20 +1211,24 @@ $$;
 ### Schema Explanation
 
 **passkey_credentials table:**
+
 - Stores WebAuthn public keys for passkey authentication
 - Each credential has a unique salt for PRF-based encryption key derivation
 - Tracks device information and usage
 
 **snaps table:**
+
 - Stores encrypted photo strip memories
 - References encrypted images in Supabase Storage
 - Tracks delivery schedule and status
 
 **webauthn_challenges table:**
+
 - Temporary storage for WebAuthn challenges
 - Expires after use for security
 
 **Helper Functions:**
+
 - `cleanup_expired_challenges()`: Clean up old challenges
 - `check_user_exists()`: Check if email is registered
 - `get_account_type()`: Get user's authentication method
@@ -1209,6 +1242,7 @@ $$;
 **Purpose**: GPU-accelerated AI image processing
 
 **Why RunPod?**
+
 - ✅ Serverless (pay per use)
 - ✅ GPU access (CUDA)
 - ✅ Fast inference
@@ -1239,39 +1273,39 @@ def detect_crop_photostrip(image_data):
     # Decode base64 image
     image_bytes = base64.b64decode(image_data)
     img = Image.open(BytesIO(image_bytes))
-    
+
     # Run YOLO11 prediction
     results = model.predict(source=img)
-    
+
     # Extract first detection
     for r in results:
         img = np.copy(r.orig_img)
-        
+
         # Get segmentation mask
         for c in r:
             contour = c.masks.xy[0].astype(np.int32)
-            
+
             # Create binary mask
             mask = np.zeros(img.shape[:2], np.uint8)
             cv2.drawContours(mask, [contour], -1, 255, cv2.FILLED)
-            
+
             # Isolate photo strip with transparent background
             isolated = np.dstack([img, mask])
-            
+
             # Get bounding box
             x1, y1, x2, y2 = c.boxes.xyxy.cpu().numpy().squeeze().astype(np.int32)
             iso_crop = isolated[y1:y2, x1:x2]
-    
+
     # Straighten using perspective transform
     straightened = straighten_transparent_crop(iso_crop)
-    
+
     # Ensure vertical orientation
     final = ensure_vertical_orientation(straightened)
-    
+
     # Encode to base64
     success, buffer = cv2.imencode('.png', final)
     photostrip_base64 = base64.b64encode(buffer.tobytes()).decode('utf-8')
-    
+
     return { 'success': True, 'photostrip': photostrip_base64 }
 ```
 
@@ -1281,18 +1315,18 @@ def detect_crop_photostrip(image_data):
 def straighten_transparent_crop(iso_crop):
     # Extract alpha channel (transparency mask)
     alpha = iso_crop[:, :, 3]
-    
+
     # Find contour of photo strip
     contours, _ = cv2.findContours(alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contour = max(contours, key=cv2.contourArea)
-    
+
     # Get minimum area rectangle (handles rotation)
     rect = cv2.minAreaRect(contour)
     box = cv2.boxPoints(rect)
-    
+
     # Order corners: top-left, top-right, bottom-right, bottom-left
     rect_ordered = order_points(box.astype("float32"))
-    
+
     # Calculate output dimensions
     (tl, tr, br, bl) = rect_ordered
     maxWidth = max(
@@ -1303,7 +1337,7 @@ def straighten_transparent_crop(iso_crop):
         int(np.sqrt((tr[0] - br[0])**2 + (tr[1] - br[1])**2)),
         int(np.sqrt((tl[0] - bl[0])**2 + (tl[1] - bl[1])**2))
     )
-    
+
     # Define destination points (perfect rectangle)
     dst = np.array([
         [0, 0],
@@ -1311,10 +1345,10 @@ def straighten_transparent_crop(iso_crop):
         [maxWidth - 1, maxHeight - 1],
         [0, maxHeight - 1]
     ], dtype="float32")
-    
+
     # Get perspective transform matrix
     M = cv2.getPerspectiveTransform(rect_ordered, dst)
-    
+
     # Apply transform
     straightened = cv2.warpPerspective(
         iso_crop, M, (maxWidth, maxHeight),
@@ -1322,7 +1356,7 @@ def straighten_transparent_crop(iso_crop):
         borderMode=cv2.BORDER_CONSTANT,
         borderValue=(0, 0, 0, 0)  # Transparent border
     )
-    
+
     return straightened
 ```
 
@@ -1374,31 +1408,31 @@ torchvision>=0.15.0
 
 ### Authentication Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/auth/passkey/register-options` | POST | Generate WebAuthn registration options |
-| `/api/auth/passkey/register-verify` | POST | Verify WebAuthn registration response |
-| `/api/auth/passkey/login-options` | POST | Generate WebAuthn authentication options |
-| `/api/auth/passkey/login-verify` | POST | Verify WebAuthn authentication response |
-| `/api/auth/check-email` | POST | Check if email exists |
-| `/api/auth/check-account-type` | POST | Get user's authentication methods |
-| `/api/auth/link-account` | POST | Link password to passkey account |
+| Endpoint                             | Method | Purpose                                  |
+| ------------------------------------ | ------ | ---------------------------------------- |
+| `/api/auth/passkey/register-options` | POST   | Generate WebAuthn registration options   |
+| `/api/auth/passkey/register-verify`  | POST   | Verify WebAuthn registration response    |
+| `/api/auth/passkey/login-options`    | POST   | Generate WebAuthn authentication options |
+| `/api/auth/passkey/login-verify`     | POST   | Verify WebAuthn authentication response  |
+| `/api/auth/check-email`              | POST   | Check if email exists                    |
+| `/api/auth/check-account-type`       | POST   | Get user's authentication methods        |
+| `/api/auth/link-account`             | POST   | Link password to passkey account         |
 
 ### Image Processing
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/crop-image` | POST | Proxy to RunPod for AI cropping |
+| Endpoint          | Method | Purpose                         |
+| ----------------- | ------ | ------------------------------- |
+| `/api/crop-image` | POST   | Proxy to RunPod for AI cropping |
 
 ### Memory Management (Planned)
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/create-snap` | POST | Create new encrypted memory |
-| `/api/upload` | POST | Upload encrypted image to storage |
-| `/api/snaps` | GET | List user's memories |
-| `/api/snaps/[id]` | GET | Get specific memory |
-| `/api/snaps/[id]` | DELETE | Delete memory |
+| Endpoint           | Method | Purpose                           |
+| ------------------ | ------ | --------------------------------- |
+| `/api/create-snap` | POST   | Create new encrypted memory       |
+| `/api/upload`      | POST   | Upload encrypted image to storage |
+| `/api/snaps`       | GET    | List user's memories              |
+| `/api/snaps/[id]`  | GET    | Get specific memory               |
+| `/api/snaps/[id]`  | DELETE | Delete memory                     |
 
 ---
 
@@ -1460,6 +1494,7 @@ From `src/components/auth/`:
 **AuthProvider** (`src/hooks/useAuth.tsx`)
 
 Manages authentication state:
+
 - User object
 - Session
 - Auth method
@@ -1471,10 +1506,10 @@ Manages authentication state:
 ```typescript
 function MyComponent() {
   const { user, hasEncryptionKey } = useAuth();
-  
+
   if (!user) return <SignIn />;
   if (!hasEncryptionKey) return <SetupEncryption />;
-  
+
   return <App />;
 }
 ```
@@ -1497,7 +1532,7 @@ const [scheduledSendTime, setScheduledSendTime] = useState<Date>();
 **Controlled Components:**
 
 ```typescript
-<Textarea 
+<Textarea
   value={caption}
   onChange={(e) => setCaption(e.target.value)}
 />
@@ -1522,11 +1557,12 @@ if (!result.success) {
 **Encryption Key:**
 
 ```typescript
-sessionStorage.setItem('restrip_encryption_key', keyBase64);
-sessionStorage.setItem('restrip_encryption_key_timestamp', timestamp);
+sessionStorage.setItem("restrip_encryption_key", keyBase64);
+sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
 ```
 
 **Benefits:**
+
 - Persists across page refreshes
 - Cleared on tab close
 - Not shared between tabs
@@ -1590,7 +1626,7 @@ boxShadow: {
 **Using Tailwind Classes:**
 
 ```typescript
-<button className="bg-blush-pink hover:bg-yellow-cream 
+<button className="bg-blush-pink hover:bg-yellow-cream
                    transition-all rounded-md px-4 py-2
                    font-body font-semibold">
   Click Me
@@ -1632,7 +1668,7 @@ gsap.from(element, {
     start: "top 80%",
     end: "top 50%",
     scrub: 1,
-  }
+  },
 });
 ```
 
@@ -1713,12 +1749,15 @@ chore: update dependencies
 ### Environment Management
 
 **Local Development:**
+
 - `.env.local` - Git-ignored, for local secrets
 
 **Production:**
+
 - Set env vars in Vercel dashboard
 
 **Never commit:**
+
 - API keys
 - Database passwords
 - Private keys
@@ -1733,11 +1772,11 @@ chore: update dependencies
 
 ```typescript
 // ❌ DON'T
-console.log('Password:', password);
-console.log('Encryption key:', key);
+console.log("Password:", password);
+console.log("Encryption key:", key);
 
 // ✅ DO
-console.log('Login successful');
+console.log("Login successful");
 ```
 
 **2. Validate All Inputs**
@@ -1756,10 +1795,7 @@ const result = schema.safeParse(input);
 
 ```typescript
 // Supabase handles this automatically
-const { data } = await supabase
-  .from('snaps')
-  .select()
-  .eq('user_id', userId);  // Safe from SQL injection
+const { data } = await supabase.from("snaps").select().eq("user_id", userId); // Safe from SQL injection
 ```
 
 **4. Sanitize User Input**
@@ -1774,16 +1810,14 @@ const sanitized = DOMPurify.sanitize(userInput);
 ```typescript
 // In API routes (future)
 if (await isRateLimited(request)) {
-  return NextResponse.json(
-    { error: 'Too many requests' },
-    { status: 429 }
-  );
+  return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 }
 ```
 
 ### For Users
 
 **Security Guidance:**
+
 - ⚠️ Never use on shared/public computers
 - ⚠️ Sign out after use on non-personal devices
 - ⚠️ Use latest browser versions
@@ -1834,12 +1868,14 @@ async headers() {
 **Issue**: "useAuth must be used within an AuthProvider"
 
 **Solution:**
+
 - Ensure `Providers.tsx` wraps app in root layout
 - Check `AuthProvider` is exported correctly
 
 **Issue**: Passkey registration fails
 
 **Solutions:**
+
 - Check `NEXT_PUBLIC_RP_ID` matches domain
 - For localhost: use `localhost` (no port)
 - For production: use domain without https://
@@ -1848,6 +1884,7 @@ async headers() {
 **Issue**: Email verification not working
 
 **Solutions:**
+
 - Check Supabase email settings
 - Verify Site URL in Supabase dashboard
 - Check Redirect URLs include your domain
@@ -1858,6 +1895,7 @@ async headers() {
 
 **Solution:**
 Add to layout:
+
 ```typescript
 export const dynamic = "force-dynamic";
 ```
@@ -1865,6 +1903,7 @@ export const dynamic = "force-dynamic";
 **Issue**: "Module not found"
 
 **Solution:**
+
 ```bash
 rm -rf node_modules package-lock.json
 npm install
@@ -1875,6 +1914,7 @@ npm install
 **Issue**: Encryption key not persisting
 
 **Solutions:**
+
 - Check browser not in private/incognito mode
 - Verify sessionStorage is enabled
 - Check for console errors
@@ -1882,6 +1922,7 @@ npm install
 **Issue**: "Encryption key expired"
 
 **Solution:**
+
 - This is by design (30-minute timeout)
 - User must re-authenticate
 - Consider account linking for easier re-auth
@@ -1891,6 +1932,7 @@ npm install
 **Issue**: Crop image fails
 
 **Solutions:**
+
 - Check `RUNPOD_API_KEY` is set correctly
 - Verify `RUNPOD_ENDPOINT_ID` is correct
 - Check RunPod endpoint is running
@@ -1899,11 +1941,13 @@ npm install
 **Issue**: "No photostrip in response"
 
 **Causes:**
+
 - Photo strip not detected in image
 - Image quality too low
 - Photo strip too small or obscured
 
 **Solutions:**
+
 - Use clearer photo
 - Ensure photo strip is main object
 - Try without auto-crop
@@ -1924,11 +1968,11 @@ npm install
 
 ```typescript
 // In useAuth
-console.log('Auth state:', { user, hasEncryptionKey });
+console.log("Auth state:", { user, hasEncryptionKey });
 
 // In API routes
-console.log('Request body:', body);
-console.log('Response:', data);
+console.log("Request body:", body);
+console.log("Response:", data);
 ```
 
 **3. Test in Different Browsers:**
@@ -1971,9 +2015,10 @@ rm -rf .next
 
 ## Conclusion
 
-This technical documentation covers the complete ReStrip codebase, from frontend React components to backend API routes, authentication, encryption, and AI image processing. 
+This technical documentation covers the complete ReStrip codebase, from frontend React components to backend API routes, authentication, encryption, and AI image processing.
 
 **Key Takeaways:**
+
 - ReStrip uses zero-knowledge encryption for privacy
 - Modern authentication with WebAuthn passkeys and email/password
 - Next.js 16 App Router with TypeScript
@@ -1982,6 +2027,7 @@ This technical documentation covers the complete ReStrip codebase, from frontend
 - Security-first architecture
 
 **Next Steps:**
+
 1. Set up local development environment
 2. Explore the codebase
 3. Make small changes to understand flow
@@ -1990,6 +2036,7 @@ This technical documentation covers the complete ReStrip codebase, from frontend
 6. Try building a new feature
 
 **Resources:**
+
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Supabase Documentation](https://supabase.com/docs)
 - [WebAuthn Guide](https://webauthn.guide/)

@@ -88,7 +88,7 @@ const UploadImage = React.memo(
           reader.readAsDataURL(files[0]);
         }
       },
-      [onImageUpload]
+      [onImageUpload],
     );
     return (
       <Dropzone
@@ -125,7 +125,7 @@ const UploadImage = React.memo(
         </DropzoneContent>
       </Dropzone>
     );
-  }
+  },
 );
 UploadImage.displayName = "UploadImage";
 
@@ -193,7 +193,7 @@ const AutoCropSwitch = React.memo(
         </p>
       </div>
     </div>
-  )
+  ),
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
@@ -251,10 +251,10 @@ export default function UploadPage() {
           const data = await response.json();
           setHasPasskey(data.hasPasskey || false);
           setShowPasskeySetup(
-            data.accountType === "password" && !data.hasPasskey
+            data.accountType === "password" && !data.hasPasskey,
           );
           setShowPasswordSetup(
-            data.accountType === "passkey" && data.hasPasskey
+            data.accountType === "passkey" && data.hasPasskey,
           );
         }
       } catch (error) {
@@ -315,7 +315,7 @@ export default function UploadPage() {
               response: registrationResponse,
               salt: salt,
             }),
-          }
+          },
         );
 
         if (verifyResponse.ok) {
@@ -335,7 +335,7 @@ export default function UploadPage() {
         setPasskeyError(`Failed to add passkey: ${errorMessage}`);
       }
     },
-    [checkPasskeyStatus]
+    [checkPasskeyStatus],
   );
 
   // Refs for scrolling to error sections
@@ -365,7 +365,7 @@ export default function UploadPage() {
 
   // Upload image to API route for processing
   const processImageWithRunPod = async (
-    base64Image: string
+    base64Image: string,
   ): Promise<string> => {
     try {
       const response = await fetch("/api/crop-image", {
@@ -377,7 +377,7 @@ export default function UploadPage() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
+          errorData.error || `HTTP error! status: ${response.status}`,
         );
       }
 
@@ -426,7 +426,7 @@ export default function UploadPage() {
         }
       }
     },
-    [originalImage, croppedImage]
+    [originalImage, croppedImage],
   );
 
   const handlePeriodSelect = useCallback(
@@ -496,11 +496,11 @@ export default function UploadPage() {
 
       if (sendTime) {
         console.log(
-          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`
+          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`,
         );
       }
     },
-    []
+    [],
   );
 
   const handleDeliveryMethodSelect = useCallback(
@@ -510,7 +510,7 @@ export default function UploadPage() {
       setValidationErrors([]);
       setFieldErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
     },
-    []
+    [],
   );
 
   const handleStartProcessing = async () => {
@@ -537,7 +537,7 @@ export default function UploadPage() {
         {
           message: "Invalid email/telegram username format",
           path: ["Delivery_Address"],
-        }
+        },
       );
 
     const validationResult = SnapSchema.safeParse({
@@ -615,7 +615,7 @@ export default function UploadPage() {
       const encryptionKey = await getEncryptionKey();
       if (!encryptionKey) {
         throw new Error(
-          "Encryption key not available. Please sign in again to continue."
+          "Encryption key not available. Please sign in again to continue.",
         );
       }
 
@@ -625,14 +625,14 @@ export default function UploadPage() {
       console.log("🔐 Encrypting image...");
       const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
         imageToUpload!,
-        encryptionKey
+        encryptionKey,
       );
       console.log("✅ Image encrypted successfully");
 
       console.log("🔐 Encrypting caption...");
       const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(
         caption,
-        encryptionKey
+        encryptionKey,
       );
       console.log("✅ Caption encrypted successfully");
 
@@ -640,7 +640,7 @@ export default function UploadPage() {
       console.log(
         "Scheduled send time:",
         scheduledSendTime?.toISOString(),
-        `(${scheduledSendTime?.toLocaleString()})`
+        `(${scheduledSendTime?.toLocaleString()})`,
       );
       console.log("📦 Encrypted payload ready for upload");
 
@@ -660,7 +660,7 @@ export default function UploadPage() {
       const { storagePath } = await uploadResponse.json();
       console.log(
         "✅ Image uploaded successfully to storage path:",
-        storagePath
+        storagePath,
       );
 
       console.log("🚀 Saving snap metadata to database...");

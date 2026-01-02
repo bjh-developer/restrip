@@ -1,37 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
     const { image } = await request.json();
 
     if (!image) {
-      return NextResponse.json(
-        { error: 'No image provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
     const apiKey = process.env.RUNPOD_API_KEY;
     const endpointId = process.env.RUNPOD_ENDPOINT_ID;
 
     if (!apiKey || !endpointId) {
-      console.error('Missing RunPod configuration');
+      console.error("Missing RunPod configuration");
       return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
+        { error: "Server configuration error" },
+        { status: 500 },
       );
     }
 
     const url = `https://api.runpod.ai/v2/${endpointId}/runsync`;
 
     // Remove data URL prefix if present
-    const base64Data = image.split(',')[1] || image;
+    const base64Data = image.split(",")[1] || image;
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         input: {
@@ -45,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    console.log('RunPod response:', data);
+    console.log("RunPod response:", data);
 
     // Extract the cropped image from output.photostrip
     if (data.output?.photostrip) {
@@ -55,15 +52,15 @@ export async function POST(request: NextRequest) {
       });
     } else {
       return NextResponse.json(
-        { error: 'No photostrip in response' },
-        { status: 500 }
+        { error: "No photostrip in response" },
+        { status: 500 },
       );
     }
   } catch (error) {
-    console.error('Crop image error:', error);
+    console.error("Crop image error:", error);
     return NextResponse.json(
-      { error: 'Failed to process image' },
-      { status: 500 }
+      { error: "Failed to process image" },
+      { status: 500 },
     );
   }
 }

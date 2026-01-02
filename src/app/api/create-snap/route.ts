@@ -4,7 +4,7 @@ import { createClient as createServerClient } from "../../../lib/supabase/server
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
 );
 
 // Save snap metadata to database
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (authError || !sessionUser) {
       return NextResponse.json(
         { error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (isNaN(sendTime.getTime())) {
       return NextResponse.json(
         { error: "Invalid scheduled send time" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -75,18 +75,18 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json(
         { error: "Failed to create snap" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     return NextResponse.json(
       { message: "Create snap endpoint" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to create snap" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

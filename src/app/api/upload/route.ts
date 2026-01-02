@@ -4,7 +4,7 @@ import { createClient as createServerClient } from "../../../lib/supabase/server
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
 );
 
 // Upload to Supabase Storage
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (authError || !sessionUser) {
       return NextResponse.json(
         { error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (!encryptedImage) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       console.error("Supabase storage error:", error);
       return NextResponse.json(
         { error: "Failed to upload to storage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       {
         storagePath: data.path,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Upload failed:", error);

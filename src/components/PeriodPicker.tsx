@@ -65,7 +65,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
 
     if (period === "surprise") {
       const surpriseDate = new Date(
-        today.getTime() + Math.random() * (6 * 30 * 24 * 60 * 60 * 1000) // Random date within 1-6 months
+        today.getTime() + Math.random() * (6 * 30 * 24 * 60 * 60 * 1000), // Random date within 1-6 months
       );
       onSelect(period, surpriseDate);
     } else {
@@ -85,7 +85,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
     if (range?.from) {
       if (range.to) {
         const differenceInDays = Math.ceil(
-          (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24)
+          (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24),
         );
 
         if (differenceInDays < 2) {
@@ -97,7 +97,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
         setCustomPeriod({ from: range.from, to: range.to });
         const random = new Date(
           range.from.getTime() +
-            Math.random() * (range.to.getTime() - range.from.getTime())
+            Math.random() * (range.to.getTime() - range.from.getTime()),
         );
         setRandomDate(random);
         onSelect("custom period", random);
@@ -145,7 +145,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
                 {customPeriod?.from && customPeriod?.to
                   ? `${format(customPeriod.from, "LLL dd, y")} - ${format(
                       customPeriod.to,
-                      "LLL dd, y"
+                      "LLL dd, y",
                     )}`
                   : "Select a date range"}
               </Button>

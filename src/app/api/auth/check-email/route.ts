@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
     // Call the RPC function to check if user exists
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to search for user:", error);
       return NextResponse.json(
         { error: "Failed to verify email" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     console.error("Check email error:", error);
     return NextResponse.json(
       { error: "Failed to check email" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

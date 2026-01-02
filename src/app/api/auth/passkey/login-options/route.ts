@@ -21,7 +21,7 @@ import {
 // Create Supabase admin client (bypasses RLS)
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export async function POST(request: NextRequest) {
@@ -38,13 +38,13 @@ export async function POST(request: NextRequest) {
     if (email) {
       const { data: users } = await supabaseAdmin.auth.admin.listUsers();
       const user = users?.users?.find(
-        (u) => u.email?.toLowerCase() === email.toLowerCase()
+        (u) => u.email?.toLowerCase() === email.toLowerCase(),
       );
 
       if (!user) {
         return NextResponse.json(
           { error: "No account found with this email" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             error:
               "No passkeys found for this account. Please use password login.",
           },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -96,10 +96,10 @@ export async function POST(request: NextRequest) {
       allowCredentials: email ? allowCredentials : undefined,
     });
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       console.log(
         "🔍 Generated options.allowCredentials:",
-        JSON.stringify(options.allowCredentials)
+        JSON.stringify(options.allowCredentials),
       );
       console.log("🔍 rpID:", rpID);
     }
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
       console.error("Failed to store challenge:", challengeError);
       return NextResponse.json(
         { error: "Failed to generate login options" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
     console.error("Login options error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
