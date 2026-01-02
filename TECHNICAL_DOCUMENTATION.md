@@ -669,7 +669,7 @@ Both can be linked to the same account for redundancy.
 
 1. **Registration:**
    - User provides email
-   - System sends email verification link
+   - Supabase sends verification email
    - User clicks verification link in email
    - Server generates WebAuthn challenge
    - Browser prompts for biometric (Face ID, fingerprint)
@@ -703,7 +703,7 @@ Both can be linked to the same account for redundancy.
 1. **Sign Up:**
    - User provides email and password
    - Supabase sends verification email
-   - User clicks link to verify
+   - User clicks verification link in email
    - Encryption key derived from password using PBKDF2
 
 2. **Sign In:**
