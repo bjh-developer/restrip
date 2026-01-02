@@ -271,6 +271,8 @@ app/
   (misc)/
     contact/
       page.tsx        → URL: /contact
+    privacy-policy/
+      page.tsx        → URL: /privacy-policy
 ```
 
 **Benefits:**
