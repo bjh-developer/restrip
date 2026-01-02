@@ -1,11 +1,7 @@
 <div align="center">
-
-![ReStrip Logo](ReStrip_logo_v2.png)
-
-# 📚 ReStrip Technical Documentation
-
-**Complete Full-Stack Analysis for Developers**
-
+  <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
+  <h1>ReStrip Technical Documentation</h1>
+  <p><em>Photo strips that come back to you.</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -1999,6 +1995,8 @@ This technical documentation covers the complete ReStrip codebase, from frontend
 
 ---
 
-**Happy Coding! 🚀**
+## 📞 Support
 
-For questions or contributions, please open an issue on GitHub or contact the team.
+- **Feature Requests:** [UserJot Board](https://restrip.userjot.com/)
+- **Contact:** [/contact](/contact)
+- **Issues:** [GitHub Issues](https://github.com/bjh-developer/restrip/issues)
