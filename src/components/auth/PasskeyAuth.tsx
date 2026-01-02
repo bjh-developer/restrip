@@ -717,7 +717,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
           <div className="animate-pulse mb-4">
             <span className="text-4xl">🔓</span>
           </div>
-          <p className="text-gray-700">Use your passkey to sign in...</p>
+          <p className="text-gray-700">Using your passkey to sign in...</p>
         </div>
       )}
 
