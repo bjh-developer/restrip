@@ -4,12 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import {
+  getEncryptionKey,
+  deriveKEKFromPassword,
+  wrapKey,
+} from "../../lib/encryption";
 
 interface PasswordLinkingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   userId: string;
+  email: string;
 }
 
 export function PasswordLinkingModal({
@@ -17,6 +23,7 @@ export function PasswordLinkingModal({
   onClose,
   onSuccess,
   userId,
+  email,
 }: PasswordLinkingModalProps) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -50,15 +57,32 @@ export function PasswordLinkingModal({
     setIsLoading(true);
 
     try {
+      // Get the existing master key from passkey session
+      const existingMasterKey = await getEncryptionKey();
+      if (!existingMasterKey) {
+        throw new Error(
+          "No encryption key found. Please refresh the page and try again.",
+        );
+      }
+
+      // Wrap the existing master key with password KEK
+      // Use lowercase email as salt (consistent with signup/signin)
+      const salt = new TextEncoder().encode(email.toLowerCase());
+      const kek = await deriveKEKFromPassword(password, salt);
+      const wrappedKey = await wrapKey(existingMasterKey, kek);
+      console.log("🔑 Wrapped existing master key with password KEK");
+
       const response = await fetch("/api/auth/link-account", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           method: "password",
           password,
           userId,
+          wrappedKey, // Pass wrapped key to server
         }),
       });
 

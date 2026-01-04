@@ -115,8 +115,8 @@ export function EmailPasswordAuth({
 
         if (wrappedKey) {
           // Derive KEK from password and unwrap master key
-          const saltString = data.user.id;
-          const salt = new TextEncoder().encode(saltString);
+          // Use email as salt (consistent with signup)
+          const salt = new TextEncoder().encode(email.toLowerCase());
           const kek = await deriveKEKFromPassword(password, salt);
           const masterKey = await unwrapKey(wrappedKey, kek);
           await setEncryptionKey(masterKey);
@@ -131,16 +131,18 @@ export function EmailPasswordAuth({
         } else {
           // Legacy user without wrapped key - migrate to key wrapping
           console.log("🔄 Migrating legacy user to key wrapping...");
-          const saltString = data.user.id;
-          const salt = new TextEncoder().encode(saltString);
+          // Use user.id for legacy derivation (original method)
+          const legacySalt = new TextEncoder().encode(data.user.id);
 
           // Derive key using legacy method
-          await setEncryptionKeyFromPassword(password, salt);
+          await setEncryptionKeyFromPassword(password, legacySalt);
 
           // Get the key we just derived and wrap it for future use
+          // Use email as salt for new wrapped key (consistent with new signups)
           const masterKey = await getEncryptionKey();
           if (masterKey) {
-            const kek = await deriveKEKFromPassword(password, salt);
+            const newSalt = new TextEncoder().encode(email.toLowerCase());
+            const kek = await deriveKEKFromPassword(password, newSalt);
             const wrappedKey = await wrapKey(masterKey, kek);
 
             // Store wrapped key in user metadata
@@ -199,7 +201,8 @@ export function EmailPasswordAuth({
     try {
       // Generate master key and wrap it with password-derived KEK
       const masterKey = await generateMasterKey();
-      const salt = new TextEncoder().encode(email); // Use email as salt for signup (will use user ID later)
+      // Use lowercase email as salt for consistency
+      const salt = new TextEncoder().encode(email.toLowerCase());
       const kek = await deriveKEKFromPassword(password, salt);
       const wrappedKey = await wrapKey(masterKey, kek);
 
@@ -537,8 +540,8 @@ export function EmailPasswordAuth({
       }
 
       // Wrap the existing master key with password KEK
-      const saltString = verifiedUserId!;
-      const salt = new TextEncoder().encode(saltString);
+      // Use lowercase email as salt (consistent with signup/signin)
+      const salt = new TextEncoder().encode(email.toLowerCase());
       const kek = await deriveKEKFromPassword(password, salt);
       const wrappedKey = await wrapKey(existingMasterKey, kek);
       console.log("🔑 Wrapped existing master key with password KEK");
@@ -588,9 +591,9 @@ export function EmailPasswordAuth({
       }
 
       // Unwrap master key using password KEK
-      const userIdSalt = signInData.user!.id;
-      const userSalt = new TextEncoder().encode(userIdSalt);
-      const passwordKek = await deriveKEKFromPassword(password, userSalt);
+      // Use lowercase email as salt (consistent with signup/signin)
+      const emailSalt = new TextEncoder().encode(email.toLowerCase());
+      const passwordKek = await deriveKEKFromPassword(password, emailSalt);
       const masterKey = await unwrapKey(storedWrappedKey, passwordKek);
       await setEncryptionKey(masterKey);
       setHasEncryptionKey(true); // Update auth context

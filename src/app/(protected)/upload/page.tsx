@@ -1136,7 +1136,7 @@ export default function UploadPage() {
       </div>
 
       {/* Password Linking Modal */}
-      {showPasswordLinking && user?.id && (
+      {showPasswordLinking && user?.id && user?.email && (
         <PasswordLinkingModal
           isOpen={showPasswordLinking}
           onClose={() => setShowPasswordLinking(false)}
@@ -1146,6 +1146,7 @@ export default function UploadPage() {
             checkPasskeyStatus();
           }}
           userId={user.id}
+          email={user.email}
         />
       )}
 
