@@ -57,7 +57,11 @@ export function EmailPasswordAuth({
   const [showFullyRegisteredAccount, setShowFullyRegisteredAccount] =
     useState(false);
 
-  const { setEncryptionKeyFromPassword, setEncryptionKeyFromPRF } = useAuth();
+  const {
+    setEncryptionKeyFromPassword,
+    setEncryptionKeyFromPRF,
+    setHasEncryptionKey,
+  } = useAuth();
   const supabase = useMemo(() => createClient(), []);
 
   // Handle passkey linking mode
@@ -116,6 +120,7 @@ export function EmailPasswordAuth({
           const kek = await deriveKEKFromPassword(password, salt);
           const masterKey = await unwrapKey(wrappedKey, kek);
           await setEncryptionKey(masterKey);
+          setHasEncryptionKey(true); // Update auth context
           console.log("✅ Master key unwrapped from password KEK");
         } else {
           // Legacy user without wrapped key - migrate to key wrapping
@@ -545,6 +550,7 @@ export function EmailPasswordAuth({
         const kek = await deriveKEKFromPassword(password, salt);
         const masterKey = await unwrapKey(wrappedKey, kek);
         await setEncryptionKey(masterKey);
+        setHasEncryptionKey(true); // Update auth context
         console.log("✅ Master key unwrapped after linking");
       } else {
         // Legacy passkey user linking password - wrap existing key
