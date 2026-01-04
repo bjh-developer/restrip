@@ -689,17 +689,19 @@ export default function UploadPage() {
 
       // Success! Show confirmation based on delivery method
       if (deliveryMethod === "telegram" && snapData.snap?.id) {
-        const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
+        const botUsername =
+          process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
         const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
-        
+
         // Show modal with Telegram link
         const shouldOpenTelegram = window.confirm(
           "🎉 Memory scheduled!\n\n" +
-          "Click OK to open Telegram and start the bot.\n" +
-          "The bot will send your memory back on the scheduled date.\n\n" +
-          "Telegram username: @" + botUsername
+            "Click OK to open Telegram and start the bot.\n" +
+            "The bot will send your memory back on the scheduled date.\n\n" +
+            "Telegram username: @" +
+            botUsername,
         );
-        
+
         if (shouldOpenTelegram) {
           window.open(telegramLink, "_blank");
         }
