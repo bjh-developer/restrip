@@ -75,35 +75,21 @@ export function PasswordLinkingModal({
       const wrappedKey = await wrapKey(existingMasterKey, kek);
       console.log("🔑 Wrapped existing master key with password KEK");
 
-      const response = await fetch("/api/auth/link-account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // Use client-side updateUser to add password without invalidating session
+      // This is preferred over admin API which invalidates all sessions
+      const { data: userData, error: updateError } = await supabase.auth.updateUser({
+        password,
+        data: {
+          wrapped_encryption_key: wrappedKey,
+          auth_method: "password_and_passkey",
         },
-        credentials: "include",
-        body: JSON.stringify({
-          method: "password",
-          password,
-          userId,
-          wrappedKey, // Pass wrapped key to server
-        }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to link password");
+      if (updateError) {
+        throw new Error(updateError.message || "Failed to link password");
       }
 
-      // Refresh the session to pick up the updated user_metadata
-      // This prevents the session from becoming stale after the admin update
-      const { error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError) {
-        console.warn("Failed to refresh session after linking:", refreshError);
-        // Don't throw - the link was successful, just session refresh failed
-      } else {
-        console.log("✅ Session refreshed after password linking");
-      }
+      console.log("✅ Password linked successfully via client API");
 
       resetForm();
       onSuccess();
