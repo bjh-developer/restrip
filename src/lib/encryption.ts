@@ -149,6 +149,114 @@ export function generateIV(): Uint8Array {
 }
 
 /**
+ * Generate a random master encryption key
+ * This key is used for all memory encryption and wrapped with auth-specific KEKs
+ */
+export async function generateMasterKey(): Promise<CryptoKey> {
+  return await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true, // Extractable (needed for key wrapping)
+    ["encrypt", "decrypt"],
+  );
+}
+
+/**
+ * Wrap (encrypt) a master encryption key with a Key Encryption Key (KEK)
+ * This enables cross-compatible auth: both password and passkey can unlock the same master key
+ */
+export async function wrapKey(
+  masterKey: CryptoKey,
+  kek: CryptoKey,
+): Promise<string> {
+  const wrappedKeyBuffer = await crypto.subtle.wrapKey(
+    "raw",
+    masterKey,
+    kek,
+    "AES-KW",
+  );
+  return arrayBufferToBase64(wrappedKeyBuffer);
+}
+
+/**
+ * Unwrap (decrypt) a master encryption key using a Key Encryption Key (KEK)
+ */
+export async function unwrapKey(
+  wrappedKeyBase64: string,
+  kek: CryptoKey,
+): Promise<CryptoKey> {
+  const wrappedKeyBuffer = base64ToArrayBuffer(wrappedKeyBase64);
+
+  return await crypto.subtle.unwrapKey(
+    "raw",
+    wrappedKeyBuffer,
+    kek,
+    "AES-KW",
+    { name: "AES-GCM", length: 256 },
+    true, // Extractable
+    ["encrypt", "decrypt"],
+  );
+}
+
+/**
+ * Derive a Key Encryption Key (KEK) from passkey PRF output
+ * Used for wrapping/unwrapping the master encryption key
+ */
+export async function deriveKEKFromPRF(
+  prfOutput: ArrayBuffer,
+): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    prfOutput,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+
+  return await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new TextEncoder().encode("restrip-kek-v1"),
+      info: new TextEncoder().encode("key-encryption-key"),
+    },
+    keyMaterial,
+    { name: "AES-KW", length: 256 },
+    false, // Not extractable (KEK should never leave memory)
+    ["wrapKey", "unwrapKey"],
+  );
+}
+
+/**
+ * Derive a Key Encryption Key (KEK) from password
+ * Used for wrapping/unwrapping the master encryption key
+ */
+export async function deriveKEKFromPassword(
+  password: string,
+  salt: Uint8Array,
+): Promise<CryptoKey> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+
+  return await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt as BufferSource,
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    { name: "AES-KW", length: 256 },
+    false, // Not extractable (KEK should never leave memory)
+    ["wrapKey", "unwrapKey"],
+  );
+}
+
+/**
  * Encrypt data using AES-GCM
  * Returns: { encrypted: base64, iv: base64 }
  */

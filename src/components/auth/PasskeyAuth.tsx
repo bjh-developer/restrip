@@ -12,6 +12,14 @@ import type {
 import { useAuth } from "../../hooks/useAuth";
 import { usePasskeySupport } from "../../hooks/usePasskeySupport";
 import { createClient } from "../../lib/supabase/client";
+import {
+  generateMasterKey,
+  deriveKEKFromPRF,
+  wrapKey,
+  unwrapKey,
+  setEncryptionKey,
+  getEncryptionKey,
+} from "../../lib/encryption";
 
 // Helper to convert base64url to Uint8Array
 function base64urlToUint8Array(base64url: string): Uint8Array {
@@ -253,6 +261,69 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
     }
   };
 
+  // Helper to authenticate and wrap master key with PRF-derived KEK
+  const authenticateAndWrapKey = async (
+    credentialId: string,
+    masterKey: CryptoKey,
+  ) => {
+    try {
+      // Get authentication options
+      const optionsRes = await fetch("/api/auth/passkey/login-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!optionsRes.ok) {
+        throw new Error("Failed to get auth options for key wrapping");
+      }
+
+      const { options, credentialSalts } = await optionsRes.json();
+      const saltBytes = base64ToUint8Array(credentialSalts[credentialId]);
+
+      // Authenticate to get PRF output
+      const authResponse = await startAuthentication({
+        optionsJSON: {
+          ...options,
+          extensions: {
+            ...options.extensions,
+            prf: {
+              eval: {
+                first: saltBytes,
+              },
+            },
+          },
+        },
+      });
+
+      // Extract PRF output
+      const extensionResults = authResponse.clientExtensionResults as {
+        prf?: { results?: { first?: ArrayBuffer } };
+      };
+
+      if (!extensionResults?.prf?.results?.first) {
+        console.warn("⚠️ No PRF output, cannot wrap key");
+        return;
+      }
+
+      // Derive KEK from PRF and wrap master key
+      const kek = await deriveKEKFromPRF(extensionResults.prf.results.first);
+      const wrappedKey = await wrapKey(masterKey, kek);
+
+      // Store wrapped key on server
+      await fetch("/api/auth/passkey/store-wrapped-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credentialId, wrappedKey }),
+      });
+
+      console.log("✅ Master key wrapped and stored for passkey");
+    } catch (error) {
+      console.error("Failed to wrap key:", error);
+      // Don't throw - this is non-critical, user can still use direct derivation
+    }
+  };
+
   // Handle passkey registration
   const handleRegister = async () => {
     setError(null);
@@ -313,6 +384,30 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         optionsJSON: options,
       });
 
+      // Get PRF output from registration response if available
+      let wrappedMasterKey: string | null = null;
+      const extensionResults = registrationResponse.clientExtensionResults as {
+        prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } };
+      };
+
+      if (extensionResults?.prf) {
+        console.log("🔑 PRF enabled, generating wrapped master key...");
+
+        // Check if user already has a master key (password user adding passkey)
+        let masterKey = await getEncryptionKey();
+
+        if (!masterKey) {
+          // New user or no existing key - generate new master key
+          masterKey = await generateMasterKey();
+          console.log("✅ Generated new master encryption key");
+        } else {
+          console.log("✅ Reusing existing master encryption key");
+        }
+
+        // Need to authenticate to get PRF output (registration doesn't return PRF results)
+        // We'll do this after registration verification
+      }
+
       // Verify registration with server, passing the salt
       const verifyRes = await fetch("/api/auth/passkey/register-verify", {
         method: "POST",
@@ -332,10 +427,22 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       const verifyData = await verifyRes.json();
       console.log("✅ Registration successful:", verifyData);
 
-      // For existing password users, we need to authenticate to get encryption key
+      // Store the credential ID for later use
+      const credentialId = registrationResponse.id;
+
+      // For existing password users, we need to authenticate to get PRF and wrap existing key
       if (existingAccountType === "password") {
-        console.log("✅ Passkey added to existing account");
-        // Authenticate with the new passkey to get encryption key
+        console.log("✅ Passkey added to existing password account");
+        // Get existing master key from current session
+        const existingMasterKey = await getEncryptionKey();
+
+        if (existingMasterKey) {
+          console.log("🔑 Wrapping existing master key for passkey...");
+          // Authenticate to get PRF output
+          await authenticateAndWrapKey(credentialId, existingMasterKey);
+        }
+
+        // Authenticate with the new passkey to complete the flow
         setHasExistingCredentials(true);
         await handleLogin();
         return; // handleLogin will call onSuccess
@@ -357,6 +464,19 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         }
 
         console.log("✅ Supabase session created after registration");
+
+        // For new passkey users, wrap the newly generated master key
+        if (extensionResults?.prf) {
+          // Generate master key for new user
+          const newMasterKey = await generateMasterKey();
+          console.log("🔑 Generated master key for new passkey user");
+
+          // Authenticate to get PRF output and wrap the key
+          await authenticateAndWrapKey(credentialId, newMasterKey);
+
+          // Set the master key in session
+          await setEncryptionKey(newMasterKey);
+        }
       } else {
         console.warn("⚠️ No token received from registration verification");
         throw new Error(
@@ -476,12 +596,65 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       console.log("✅ Login successful:", verifyData);
 
       // Derive encryption key directly from PRF output
-      // With phone-first passkey flow, the same passkey (synced via iCloud/Google)
-      // produces the same PRF output everywhere, so we don't need key wrapping
+      // Check if we have a wrapped key stored in the credential
       if (prfOutput) {
-        console.log("🔑 Deriving encryption key from PRF...");
-        await setEncryptionKeyFromPRF(prfOutput);
-        console.log("✅ Encryption key set");
+        console.log("🔑 Deriving KEK from PRF...");
+
+        // Fetch the wrapped key for this credential from the server
+        const wrappedKeyRes = await fetch(
+          `/api/auth/passkey/wrapped-key?credentialId=${usedCredentialId}`,
+        );
+
+        if (wrappedKeyRes.ok) {
+          const { wrappedKey } = await wrappedKeyRes.json();
+
+          if (wrappedKey) {
+            // Unwrap master key using PRF-derived KEK
+            const kek = await deriveKEKFromPRF(prfOutput);
+            const masterKey = await unwrapKey(wrappedKey, kek);
+            await setEncryptionKey(masterKey);
+            console.log("✅ Master key unwrapped from passkey PRF");
+          } else {
+            // Legacy passkey without wrapped key - migrate to key wrapping
+            console.log("🔄 Migrating legacy passkey to key wrapping...");
+
+            // Derive key using legacy method
+            await setEncryptionKeyFromPRF(prfOutput);
+
+            // Get the key we just derived and wrap it for future use
+            const masterKey = await getEncryptionKey();
+            if (masterKey) {
+              const kek = await deriveKEKFromPRF(prfOutput);
+              const wrappedKey = await wrapKey(masterKey, kek);
+
+              // Store wrapped key for this credential
+              const storeRes = await fetch(
+                "/api/auth/passkey/store-wrapped-key",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    credentialId: usedCredentialId,
+                    wrappedKey,
+                  }),
+                },
+              );
+
+              if (!storeRes.ok) {
+                console.warn(
+                  "⚠️ Failed to migrate passkey to key wrapping:",
+                  await storeRes.text(),
+                );
+              } else {
+                console.log("✅ Successfully migrated passkey to key wrapping");
+              }
+            }
+          }
+        } else {
+          // Fallback to legacy direct derivation
+          console.log("⚠️ Wrapped key fetch failed, using legacy derivation");
+          await setEncryptionKeyFromPRF(prfOutput);
+        }
       } else {
         console.log("⚠️ PRF not available, encryption key not set");
         // PRF should always be available with modern passkeys

@@ -6,6 +6,14 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import type { PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { createClient } from "../../lib/supabase/client";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  generateMasterKey,
+  deriveKEKFromPassword,
+  wrapKey,
+  unwrapKey,
+  setEncryptionKey,
+  getEncryptionKey,
+} from "../../lib/encryption";
 
 // Helper to convert base64 to Uint8Array
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -98,11 +106,49 @@ export function EmailPasswordAuth({
       }
 
       if (data.user) {
-        // Derive encryption key from password
-        // Use user ID as salt for deterministic key derivation
-        const saltString = data.user.id;
-        const salt = new TextEncoder().encode(saltString);
-        await setEncryptionKeyFromPassword(password, salt);
+        // Get wrapped master key from user metadata
+        const wrappedKey = data.user.user_metadata?.wrapped_encryption_key;
+
+        if (wrappedKey) {
+          // Derive KEK from password and unwrap master key
+          const saltString = data.user.id;
+          const salt = new TextEncoder().encode(saltString);
+          const kek = await deriveKEKFromPassword(password, salt);
+          const masterKey = await unwrapKey(wrappedKey, kek);
+          await setEncryptionKey(masterKey);
+          console.log("✅ Master key unwrapped from password KEK");
+        } else {
+          // Legacy user without wrapped key - migrate to key wrapping
+          console.log("🔄 Migrating legacy user to key wrapping...");
+          const saltString = data.user.id;
+          const salt = new TextEncoder().encode(saltString);
+
+          // Derive key using legacy method
+          await setEncryptionKeyFromPassword(password, salt);
+
+          // Get the key we just derived and wrap it for future use
+          const masterKey = await getEncryptionKey();
+          if (masterKey) {
+            const kek = await deriveKEKFromPassword(password, salt);
+            const wrappedKey = await wrapKey(masterKey, kek);
+
+            // Store wrapped key in user metadata
+            const { error: updateError } = await supabase.auth.updateUser({
+              data: {
+                wrapped_encryption_key: wrappedKey,
+              },
+            });
+
+            if (updateError) {
+              console.warn(
+                "⚠️ Failed to migrate user to key wrapping:",
+                updateError,
+              );
+            } else {
+              console.log("✅ Successfully migrated user to key wrapping");
+            }
+          }
+        }
 
         setShowSuccess(true);
         onSuccess?.();
@@ -140,12 +186,19 @@ export function EmailPasswordAuth({
     setIsLoading(true);
 
     try {
+      // Generate master key and wrap it with password-derived KEK
+      const masterKey = await generateMasterKey();
+      const salt = new TextEncoder().encode(email); // Use email as salt for signup (will use user ID later)
+      const kek = await deriveKEKFromPassword(password, salt);
+      const wrappedKey = await wrapKey(masterKey, kek);
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             auth_method: "password",
+            wrapped_encryption_key: wrappedKey,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -483,11 +536,52 @@ export function EmailPasswordAuth({
       }
 
       // Derive encryption key from password using the Supabase user ID (consistent with handleSignIn)
-      const saltString = signInData.user!.id;
-      const salt = new TextEncoder().encode(saltString);
-      console.log("Setting encryption key with salt:", saltString);
-      await setEncryptionKeyFromPassword(password, salt);
-      console.log("Encryption key set successfully");
+      const wrappedKey = signInData.user!.user_metadata?.wrapped_encryption_key;
+
+      if (wrappedKey) {
+        // Unwrap master key using password KEK
+        const saltString = signInData.user!.id;
+        const salt = new TextEncoder().encode(saltString);
+        const kek = await deriveKEKFromPassword(password, salt);
+        const masterKey = await unwrapKey(wrappedKey, kek);
+        await setEncryptionKey(masterKey);
+        console.log("✅ Master key unwrapped after linking");
+      } else {
+        // Legacy passkey user linking password - wrap existing key
+        console.log("🔄 Migrating legacy passkey user adding password...");
+
+        // Check if user has existing key from passkey login
+        let masterKey = await getEncryptionKey();
+
+        if (!masterKey) {
+          // No existing key - derive from password (shouldn't happen in linking flow)
+          const saltString = signInData.user!.id;
+          const salt = new TextEncoder().encode(saltString);
+          await setEncryptionKeyFromPassword(password, salt);
+          masterKey = await getEncryptionKey();
+        }
+
+        // Wrap the master key with password KEK and store
+        if (masterKey) {
+          const saltString = signInData.user!.id;
+          const salt = new TextEncoder().encode(saltString);
+          const kek = await deriveKEKFromPassword(password, salt);
+          const wrappedKey = await wrapKey(masterKey, kek);
+
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: {
+              wrapped_encryption_key: wrappedKey,
+            },
+          });
+
+          if (updateError) {
+            console.warn("⚠️ Failed to store wrapped key:", updateError);
+          } else {
+            console.log("✅ Successfully migrated and stored wrapped key");
+          }
+        }
+        console.log("⚠️ Using legacy key derivation after linking");
+      }
 
       console.log("User signed in successfully after linking");
       setShowSuccess(true);
