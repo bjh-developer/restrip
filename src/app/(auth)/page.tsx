@@ -76,7 +76,13 @@ export default function AuthPage() {
     if (user && hasEncryptionKey) {
       const searchParams = new URLSearchParams(window.location.search);
       const returnTo = searchParams.get("returnTo");
-      const destination = returnTo || "/upload";
+      // Validate returnTo is a relative path (starts with /) and doesn't contain protocol
+      let destination = "/upload";
+      if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
+        destination = returnTo;
+      } else if (returnTo) {
+        console.warn("Invalid returnTo parameter, using default:", returnTo);
+      }
       console.log(
         `AuthPage: User fully authenticated, redirecting to ${destination}`,
       );

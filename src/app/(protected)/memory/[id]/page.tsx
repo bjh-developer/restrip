@@ -37,11 +37,13 @@ export default function MemoryPage() {
   const [decryptedCaption, setDecryptedCaption] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Redirect to auth if not authenticated, with memory-specific login page
   useEffect(() => {
     if (!authLoading && (!user || !hasEncryptionKey)) {
       console.log("MemoryPage: Not fully authenticated, redirecting to memory auth");
+      setIsRedirecting(true);
       router.push(`/memory/${params.id}/auth`);
     }
   }, [user, hasEncryptionKey, authLoading, router, params.id]);
@@ -49,7 +51,8 @@ export default function MemoryPage() {
   // Fetch and decrypt snap
   useEffect(() => {
     const fetchAndDecryptSnap = async () => {
-      if (!user || !hasEncryptionKey || !params.id) return;
+      // Early return if auth is loading, user not authenticated, or redirecting
+      if (authLoading || !user || !hasEncryptionKey || !params.id || isRedirecting) return;
 
       try {
         setIsLoading(true);
@@ -122,7 +125,7 @@ export default function MemoryPage() {
     };
 
     fetchAndDecryptSnap();
-  }, [user, hasEncryptionKey, params.id]);
+  }, [user, hasEncryptionKey, params.id, authLoading, isRedirecting]);
 
   // Handle sign out
   const handleSignOut = async () => {
