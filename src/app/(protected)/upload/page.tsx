@@ -687,8 +687,25 @@ export default function UploadPage() {
       const snapData = await createSnapResponse.json();
       console.log("✅ Snap saved successfully!", snapData);
 
-      // Success! Show confirmation or redirect
-      alert("🎉 Your memory has been scheduled for delivery!");
+      // Success! Show confirmation based on delivery method
+      if (deliveryMethod === "telegram" && snapData.snap) {
+        const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
+        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
+        
+        // Show modal with Telegram link
+        const shouldOpenTelegram = window.confirm(
+          "🎉 Memory scheduled!\n\n" +
+          "Click OK to open Telegram and start the bot.\n" +
+          "The bot will send your memory back on the scheduled date.\n\n" +
+          "Telegram username: @" + botUsername
+        );
+        
+        if (shouldOpenTelegram) {
+          window.open(telegramLink, "_blank");
+        }
+      } else {
+        alert("🎉 Your memory has been scheduled for delivery!");
+      }
 
       // Reset form
       setOriginalImage(undefined);

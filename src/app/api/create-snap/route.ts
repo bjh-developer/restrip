@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
       delivery_method: deliveryMethod,
       delivery_address: deliveryAddress,
       period_type: periodType,
-    });
+    }).select();
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       return NextResponse.json(
         { error: "Failed to create snap" },
         { status: 500 },
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Create snap endpoint" },
+      { snap: data[0] },
       { status: 200 },
     );
   } catch (error) {
