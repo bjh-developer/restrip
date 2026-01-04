@@ -698,6 +698,10 @@ export default function UploadPage() {
       console.log("🚀 Uploading encrypted image blob to server...");
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
         body: JSON.stringify({
           encryptedImage,
           userId: user?.id,
@@ -718,6 +722,7 @@ export default function UploadPage() {
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           userId: user?.id,
           storagePath,
