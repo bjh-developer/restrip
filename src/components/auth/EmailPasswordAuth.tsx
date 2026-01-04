@@ -379,6 +379,7 @@ export function EmailPasswordAuth({
   // Authenticate with passkey before allowing account linking
   const authenticateWithPasskey = async (
     createSession: boolean = true,
+    setKeyOnly: boolean = false,
   ): Promise<{ success: boolean; userId?: string }> => {
     try {
       // Get authentication options from server
@@ -454,6 +455,13 @@ export function EmailPasswordAuth({
 
       const verifyData = await verifyRes.json();
 
+      // Set encryption key from PRF (without session) for account linking
+      if (setKeyOnly && prfOutput) {
+        await setEncryptionKeyFromPRF(prfOutput);
+        console.log("✅ Encryption key set from passkey PRF (no session)");
+        return { success: true, userId: verifyData.userId };
+      }
+
       if (verifyData.token && createSession) {
         // Sign in to Supabase using the magic link token
         const { data: sessionData, error: signInError } =
@@ -489,8 +497,8 @@ export function EmailPasswordAuth({
 
     try {
       setError("Authenticating with your passkey...");
-      // Create session so we can access the encryption key for wrapping
-      const result = await authenticateWithPasskey(true);
+      // Don't create session (would trigger redirect), but do set encryption key
+      const result = await authenticateWithPasskey(false, true);
 
       if (result.success && result.userId) {
         setVerifiedUserId(result.userId);
