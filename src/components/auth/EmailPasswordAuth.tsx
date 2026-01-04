@@ -122,6 +122,12 @@ export function EmailPasswordAuth({
           await setEncryptionKey(masterKey);
           setHasEncryptionKey(true); // Update auth context
           console.log("✅ Master key unwrapped from password KEK");
+          console.log("✅ Login successful:", {
+            success: true,
+            userId: data.user.id,
+            email: data.user.email,
+            authMethod: "password",
+          });
         } else {
           // Legacy user without wrapped key - migrate to key wrapping
           console.log("🔄 Migrating legacy user to key wrapping...");
@@ -345,13 +351,20 @@ export function EmailPasswordAuth({
         }
 
         // Set encryption key in memory immediately after signup
-        // This allows users to upload memories even before email verification
         await setEncryptionKey(masterKey);
         setHasEncryptionKey(true);
 
-        // Supabase requires email confirmation by default
-        setNeedsEmailVerification(true);
-        setShowSuccess(true);
+        // Check if session was created (email verification might be disabled)
+        if (data.session) {
+          // Session created - user can proceed immediately
+          console.log("✅ Session created after signup");
+          setShowSuccess(true);
+          onSuccess?.();
+        } else {
+          // Email verification required - show verification message
+          setNeedsEmailVerification(true);
+          setShowSuccess(true);
+        }
       }
     } catch (err) {
       console.error("Sign up error:", err);

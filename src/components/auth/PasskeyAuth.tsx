@@ -499,6 +499,8 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
 
           // Set the master key in session
           await setEncryptionKey(newMasterKey);
+          setHasEncryptionKey(true); // Update auth context immediately
+          console.log("✅ Master key set after registration");
         }
       } else {
         console.warn("⚠️ No token received from registration verification");

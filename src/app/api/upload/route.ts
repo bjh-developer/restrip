@@ -17,7 +17,14 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser();
 
+    console.log("🔐 Upload auth check:", {
+      hasUser: !!sessionUser,
+      userId: sessionUser?.id,
+      error: authError?.message,
+    });
+
     if (authError || !sessionUser) {
+      console.error("❌ Upload authentication failed:", authError);
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
