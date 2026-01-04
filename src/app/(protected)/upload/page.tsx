@@ -59,38 +59,51 @@ function base64ToUint8Array(base64: string): Uint8Array {
 
 // Helper to compress image before encryption
 async function compressImage(base64Image: string): Promise<string> {
-  // Convert base64 to blob
-  const response = await fetch(base64Image);
-  const blob = await response.blob();
+  try {
+    // Convert base64 to blob without using fetch (CSP-friendly)
+    const arr = base64Image.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
 
-  // Only compress if larger than 3MB
-  const sizeInMB = blob.size / 1024 / 1024;
-  if (sizeInMB <= 3) {
-    console.log(`Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
-    return base64Image; // Return original
+    // Only compress if larger than 3MB
+    const sizeInMB = blob.size / 1024 / 1024;
+    if (sizeInMB <= 3) {
+      console.log(`Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
+      return base64Image; // Return original
+    }
+
+    console.log(`Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
+
+    // Convert blob to File (required by imageCompression)
+    const file = new File([blob], "image.jpg", { type: blob.type });
+
+    // Compress image
+    const options = {
+      maxSizeMB: 3, // Target max 3MB (leaves room for encryption overhead)
+      maxWidthOrHeight: 2048, // Higher quality, larger dimension
+      useWebWorker: true,
+      initialQuality: 0.9, // Higher quality (0.8 is default)
+    };
+
+    const compressedBlob = await imageCompression(file, options);
+
+    // Convert back to base64
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(compressedBlob);
+    });
+  } catch (error) {
+    console.error("Compression failed:", error);
+    return base64Image; // Return original on error
   }
-
-  console.log(`Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
-
-  // Convert blob to File (required by imageCompression)
-  const file = new File([blob], "image.jpg", { type: blob.type });
-
-  // Compress image
-  const options = {
-    maxSizeMB: 3, // Target max 3MB (leaves room for encryption overhead)
-    maxWidthOrHeight: 2048, // Higher quality, larger dimension
-    useWebWorker: true,
-    initialQuality: 0.9, // Higher quality (0.8 is default)
-  };
-
-  const compressedBlob = await imageCompression(file, options);
-
-  // Convert back to base64
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.readAsDataURL(compressedBlob);
-  });
 }
 
 type PeriodOption = "surprise" | "custom period" | "custom date";
