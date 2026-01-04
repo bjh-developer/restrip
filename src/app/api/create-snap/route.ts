@@ -42,11 +42,18 @@ export async function POST(request: NextRequest) {
       !imageIv ||
       !scheduledSendTime ||
       !deliveryMethod ||
-      !deliveryAddress ||
       !periodType
     ) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 },
+      );
+    }
+
+    // deliveryAddress is only required for email, not for telegram
+    if (deliveryMethod === "email" && !deliveryAddress) {
+      return NextResponse.json(
+        { error: "Email address is required for email delivery" },
         { status: 400 },
       );
     }
