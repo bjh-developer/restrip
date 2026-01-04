@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import {
   deriveKEKFromPassword,
   wrapKey,
 } from "../../lib/encryption";
+import { createClient } from "../../lib/supabase/client";
 
 interface PasswordLinkingModalProps {
   isOpen: boolean;
@@ -31,6 +32,8 @@ export function PasswordLinkingModal({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  const supabase = useMemo(() => createClient(), []);
 
   const resetForm = () => {
     setPassword("");
@@ -90,6 +93,16 @@ export function PasswordLinkingModal({
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to link password");
+      }
+
+      // Refresh the session to pick up the updated user_metadata
+      // This prevents the session from becoming stale after the admin update
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn("Failed to refresh session after linking:", refreshError);
+        // Don't throw - the link was successful, just session refresh failed
+      } else {
+        console.log("✅ Session refreshed after password linking");
       }
 
       resetForm();
