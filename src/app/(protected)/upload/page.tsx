@@ -688,7 +688,7 @@ export default function UploadPage() {
       console.log("✅ Snap saved successfully!", snapData);
 
       // Success! Show confirmation based on delivery method
-      if (deliveryMethod === "telegram" && snapData.snap) {
+      if (deliveryMethod === "telegram" && snapData.snap?.id) {
         const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
         const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
         
