@@ -71,11 +71,22 @@ export default function AuthPage() {
     useState(false);
   const [isPasskeyRegistration, setIsPasskeyRegistration] = useState(false);
 
-  // Redirect to upload if fully authenticated
+  // Redirect to returnTo URL or default upload if fully authenticated
   useEffect(() => {
     if (user && hasEncryptionKey) {
-      console.log("AuthPage: User fully authenticated, redirecting to /upload");
-      router.push("/upload");
+      const searchParams = new URLSearchParams(window.location.search);
+      const returnTo = searchParams.get("returnTo");
+      // Validate returnTo is a relative path (starts with /) and doesn't contain protocol
+      let destination = "/upload";
+      if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
+        destination = returnTo;
+      } else if (returnTo) {
+        console.warn("Invalid returnTo parameter, using default:", returnTo);
+      }
+      console.log(
+        `AuthPage: User fully authenticated, redirecting to ${destination}`,
+      );
+      router.push(destination);
     }
   }, [user, hasEncryptionKey, router]);
 

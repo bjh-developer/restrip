@@ -43,12 +43,12 @@ export function AuthGate({ children, fallback }: AuthGateProps) {
         setActiveTab("password");
         setShowEmailVerificationMessage(true);
 
-        // Clean up the URL
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
+        // Clean up the hash but preserve search params
+        const searchParams = new URLSearchParams(window.location.search);
+        const newUrl = searchParams.toString()
+          ? `${window.location.pathname}?${searchParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
       }
 
       // Also check if user's auth method is password

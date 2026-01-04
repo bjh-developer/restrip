@@ -205,6 +205,7 @@ graph TB
 - **Animations**: GSAP + ScrollTrigger
 
 #### Backend
+
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth + SimpleWebAuthn
@@ -229,7 +230,7 @@ sequenceDiagram
     participant Server as Next.js API
     participant RunPod as RunPod AI
     participant Supabase as Supabase DB
-    
+
     User->>Client: 1. Select image in dropzone
     Client->>Client: 2. Convert image to base64
     Client->>Server: 3. POST /api/crop-image<br/>(base64 image)
@@ -238,7 +239,7 @@ sequenceDiagram
     RunPod-->>Server: 6. Return cropped image (base64)
     Server-->>Client: 7. Return cropped image
     Client->>Client: 8. Cache cropped image
-    
+
     User->>Client: 9. Fill form & click submit
     Client->>Client: 10. Derive encryption key<br/>(passkey/password)
     Client->>Client: 11. Encrypt image + caption<br/>(AES-256-GCM)
@@ -251,9 +252,10 @@ sequenceDiagram
 ```
 
 **Key Steps:**
+
 - **Steps 1-7**: Image upload and AI auto-crop
 - **Steps 8-11**: Client-side encryption (zero-knowledge)
-- **Steps 12-17**:  Secure storage and scheduling
+- **Steps 12-17**: Secure storage and scheduling
 
 ---
 
@@ -1944,6 +1946,7 @@ npm install
 **Issue**: "Encryption key expired"
 
 **Solution:**
+
 - This is by design (10-minute timeout)
 - User must re-authenticate
 - Consider account linking for easier re-auth

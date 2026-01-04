@@ -92,15 +92,24 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // User just verified email and should create passkey
       setEmail(user.email || "");
       setStep("passkey-choice");
-      // Clean up the URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // Clean up the hash but preserve search params
+      const searchParams = new URLSearchParams(window.location.search);
+      const newUrl = searchParams.toString()
+        ? `${window.location.pathname}?${searchParams.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
     }
   }, [user]);
 
   // Clear hash when registration is complete
   React.useEffect(() => {
     if (step === "success") {
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // Preserve search params when clearing hash
+      const searchParams = new URLSearchParams(window.location.search);
+      const newUrl = searchParams.toString()
+        ? `${window.location.pathname}?${searchParams.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
     }
   }, [step]);
 
