@@ -489,7 +489,8 @@ export function EmailPasswordAuth({
 
     try {
       setError("Authenticating with your passkey...");
-      const result = await authenticateWithPasskey(false); // Don't create session yet
+      // Create session so we can access the encryption key for wrapping
+      const result = await authenticateWithPasskey(true);
 
       if (result.success && result.userId) {
         setVerifiedUserId(result.userId);
