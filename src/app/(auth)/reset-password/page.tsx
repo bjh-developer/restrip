@@ -138,6 +138,28 @@ export default function ResetPasswordPage() {
     };
   }, [redirectTimeoutId]);
 
+  // Load UserJot SDK
+  React.useEffect(() => {
+    const script1 = document.createElement("script");
+    script1.innerHTML = `window.$ujq=window.$ujq||[];window.uj=window.uj||new Proxy({},{get:(_,p)=>(...a)=>window.$ujq.push([p,...a])});document.head.appendChild(Object.assign(document.createElement('script'),{src:'https://cdn.userjot.com/sdk/v2/uj.js',type:'module',async:!0}));`;
+    document.head.appendChild(script1);
+
+    const script2 = document.createElement("script");
+    script2.innerHTML = `
+        window.uj.init('cmjjzikhm01fr15o1n4jg1h93', {
+          widget: true,
+          position: 'right',
+          theme: 'auto'
+        });
+      `;
+    document.head.appendChild(script2);
+
+    return () => {
+      script1.remove();
+      script2.remove();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-warm-beige to-white flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
