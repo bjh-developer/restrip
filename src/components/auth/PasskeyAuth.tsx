@@ -68,7 +68,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
     null,
   );
 
-  const { setEncryptionKeyFromPRF, user } = useAuth();
+  const { setEncryptionKeyFromPRF, setHasEncryptionKey, user } = useAuth();
   const { passkeySupported, isLoading: checkingSupport } = usePasskeySupport();
 
   // Check if user is already authenticated and needs to complete passkey registration
@@ -633,6 +633,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
             const kek = await deriveKEKFromPRF(prfOutput);
             const masterKey = await unwrapKey(wrappedKey, kek);
             await setEncryptionKey(masterKey);
+            setHasEncryptionKey(true); // Update auth context
             console.log("✅ Master key unwrapped from passkey PRF");
           } else {
             // Legacy passkey without wrapped key - migrate to key wrapping
