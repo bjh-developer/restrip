@@ -559,17 +559,17 @@ export function EmailPasswordAuth({
       }
 
       // Unwrap the master key that was wrapped and stored by the server
-      const wrappedKey = signInData.user!.user_metadata?.wrapped_encryption_key;
+      const storedWrappedKey = signInData.user!.user_metadata?.wrapped_encryption_key;
 
-      if (!wrappedKey) {
+      if (!storedWrappedKey) {
         throw new Error("Wrapped key not found after linking. Please try again.");
       }
 
       // Unwrap master key using password KEK
-      const saltString = signInData.user!.id;
-      const salt = new TextEncoder().encode(saltString);
-      const kek = await deriveKEKFromPassword(password, salt);
-      const masterKey = await unwrapKey(wrappedKey, kek);
+      const userIdSalt = signInData.user!.id;
+      const userSalt = new TextEncoder().encode(userIdSalt);
+      const passwordKek = await deriveKEKFromPassword(password, userSalt);
+      const masterKey = await unwrapKey(storedWrappedKey, passwordKek);
       await setEncryptionKey(masterKey);
       setHasEncryptionKey(true); // Update auth context
       console.log("✅ Master key unwrapped after linking");
