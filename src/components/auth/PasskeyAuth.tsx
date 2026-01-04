@@ -433,13 +433,36 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       // For existing password users, we need to authenticate to get PRF and wrap existing key
       if (existingAccountType === "password") {
         console.log("✅ Passkey added to existing password account");
-        // Get existing master key from current session
+
+        // Create Supabase session FIRST so API calls work
+        if (verifyData.token) {
+          const { data: sessionData, error: signInError } =
+            await supabase.auth.verifyOtp({
+              token_hash: verifyData.token,
+              type: "magiclink",
+            });
+
+          if (signInError || !sessionData.session) {
+            console.error("Failed to create session:", signInError);
+            throw new Error(
+              "Failed to create session after passkey registration",
+            );
+          }
+          console.log("✅ Session created for key wrapping");
+        }
+
+        // Now get the master key from current session
         const existingMasterKey = await getEncryptionKey();
 
         if (existingMasterKey) {
           console.log("🔑 Wrapping existing master key for passkey...");
-          // Authenticate to get PRF output
+          // Authenticate to get PRF output and wrap the key (session exists now)
           await authenticateAndWrapKey(credentialId, existingMasterKey);
+        } else {
+          console.warn(
+            "⚠️ No master key in session - user needs to authenticate with passkey",
+          );
+          console.log("💡 Master key will be synced on next password login");
         }
 
         // Authenticate with the new passkey to complete the flow
