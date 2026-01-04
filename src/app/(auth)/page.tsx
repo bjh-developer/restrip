@@ -154,6 +154,15 @@ export default function AuthPage() {
     };
   }, []);
 
+  // Show loading state if authenticated (prevents flash during redirect)
+  if (user && hasEncryptionKey) {
+    return (
+      <div className="min-h-screen bg-warm-beige flex items-center justify-center">
+        <div className="animate-pulse text-gray-500">Redirecting...</div>
+      </div>
+    );
+  }
+
   // Show loading state
   if (authLoading || supportLoading) {
     return (
