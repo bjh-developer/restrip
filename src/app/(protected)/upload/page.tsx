@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
+import imageCompression from "browser-image-compression";
 import { Label } from "../../../../components/ui/label";
 import { Switch } from "../../../../components/ui/switch";
 import { Textarea } from "../../../../components/ui/textarea";
@@ -54,6 +55,42 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+// Helper to compress image before encryption
+async function compressImage(base64Image: string): Promise<string> {
+  // Convert base64 to blob
+  const response = await fetch(base64Image);
+  const blob = await response.blob();
+
+  // Only compress if larger than 3MB
+  const sizeInMB = blob.size / 1024 / 1024;
+  if (sizeInMB <= 3) {
+    console.log(`Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
+    return base64Image; // Return original
+  }
+
+  console.log(`Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
+
+  // Convert blob to File (required by imageCompression)
+  const file = new File([blob], "image.jpg", { type: blob.type });
+
+  // Compress image
+  const options = {
+    maxSizeMB: 3, // Target max 3MB (leaves room for encryption overhead)
+    maxWidthOrHeight: 2048, // Higher quality, larger dimension
+    useWebWorker: true,
+    initialQuality: 0.9, // Higher quality (0.8 is default)
+  };
+
+  const compressedBlob = await imageCompression(file, options);
+
+  // Convert back to base64
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(compressedBlob);
+  });
 }
 
 type PeriodOption = "surprise" | "custom period" | "custom date";
@@ -618,9 +655,14 @@ export default function UploadPage() {
       const imageToUpload =
         autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
+      // Compress image before encryption
+      console.log("🗜️ Compressing image...");
+      const compressedImage = await compressImage(imageToUpload!);
+      console.log("✅ Image compressed successfully");
+
       console.log("🔐 Encrypting image...");
       const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
-        imageToUpload!,
+        compressedImage,
         encryptionKey,
       );
       console.log("✅ Image encrypted successfully");
