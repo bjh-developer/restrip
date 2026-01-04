@@ -15,11 +15,12 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { method, password, userId } = await request.json();
+    const { method, password, userId, wrappedKey } = await request.json();
     console.log("Link account request:", {
       method,
       hasPassword: !!password,
       userId,
+      hasWrappedKey: !!wrappedKey,
     });
 
     if (!method) {
@@ -103,10 +104,21 @@ export async function POST(request: NextRequest) {
       }
 
       console.log("Updating user password for user:", authorizedUserId);
+      
+      // Prepare user_metadata update with wrapped key if provided
+      const userMetadataUpdate: any = {};
+      if (wrappedKey) {
+        userMetadataUpdate.wrapped_encryption_key = wrappedKey;
+        console.log("📦 Storing wrapped encryption key");
+      }
+      
       const result = await supabaseAdmin.auth.admin.updateUserById(
         authorizedUserId!,
         {
           password,
+          ...(Object.keys(userMetadataUpdate).length > 0 && {
+            user_metadata: userMetadataUpdate,
+          }),
         },
       );
       console.log("Password update result:", {

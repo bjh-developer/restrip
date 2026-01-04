@@ -508,6 +508,19 @@ export function EmailPasswordAuth({
         verifiedUserId,
       );
 
+      // Get the existing master key from passkey session (before signing out)
+      const existingMasterKey = await getEncryptionKey();
+      if (!existingMasterKey) {
+        throw new Error("No encryption key found. Please sign in with passkey first.");
+      }
+
+      // Wrap the existing master key with password KEK
+      const saltString = verifiedUserId!;
+      const salt = new TextEncoder().encode(saltString);
+      const kek = await deriveKEKFromPassword(password, salt);
+      const wrappedKey = await wrapKey(existingMasterKey, kek);
+      console.log("🔑 Wrapped existing master key with password KEK");
+
       const response = await fetch("/api/auth/link-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -515,6 +528,7 @@ export function EmailPasswordAuth({
           method: "password",
           password,
           userId: verifiedUserId,
+          wrappedKey, // Pass wrapped key to server
         }),
       });
 
@@ -544,54 +558,21 @@ export function EmailPasswordAuth({
         );
       }
 
-      // Derive encryption key from password using the Supabase user ID (consistent with handleSignIn)
+      // Unwrap the master key that was wrapped and stored by the server
       const wrappedKey = signInData.user!.user_metadata?.wrapped_encryption_key;
 
-      if (wrappedKey) {
-        // Unwrap master key using password KEK
-        const saltString = signInData.user!.id;
-        const salt = new TextEncoder().encode(saltString);
-        const kek = await deriveKEKFromPassword(password, salt);
-        const masterKey = await unwrapKey(wrappedKey, kek);
-        await setEncryptionKey(masterKey);
-        setHasEncryptionKey(true); // Update auth context
-        console.log("✅ Master key unwrapped after linking");
-      } else {
-        // Legacy passkey user linking password - wrap existing key
-        console.log("🔄 Migrating legacy passkey user adding password...");
-
-        // Check if user has existing key from passkey login
-        let masterKey = await getEncryptionKey();
-
-        if (!masterKey) {
-          // No existing key - derive from password (shouldn't happen in linking flow)
-          const saltString = signInData.user!.id;
-          const salt = new TextEncoder().encode(saltString);
-          await setEncryptionKeyFromPassword(password, salt);
-          masterKey = await getEncryptionKey();
-        }
-
-        // Wrap the master key with password KEK and store
-        if (masterKey) {
-          const saltString = signInData.user!.id;
-          const salt = new TextEncoder().encode(saltString);
-          const kek = await deriveKEKFromPassword(password, salt);
-          const wrappedKey = await wrapKey(masterKey, kek);
-
-          const { error: updateError } = await supabase.auth.updateUser({
-            data: {
-              wrapped_encryption_key: wrappedKey,
-            },
-          });
-
-          if (updateError) {
-            console.warn("⚠️ Failed to store wrapped key:", updateError);
-          } else {
-            console.log("✅ Successfully migrated and stored wrapped key");
-          }
-        }
-        console.log("⚠️ Using legacy key derivation after linking");
+      if (!wrappedKey) {
+        throw new Error("Wrapped key not found after linking. Please try again.");
       }
+
+      // Unwrap master key using password KEK
+      const saltString = signInData.user!.id;
+      const salt = new TextEncoder().encode(saltString);
+      const kek = await deriveKEKFromPassword(password, salt);
+      const masterKey = await unwrapKey(wrappedKey, kek);
+      await setEncryptionKey(masterKey);
+      setHasEncryptionKey(true); // Update auth context
+      console.log("✅ Master key unwrapped after linking");
 
       console.log("User signed in successfully after linking");
       setShowSuccess(true);
