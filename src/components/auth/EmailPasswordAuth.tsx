@@ -344,8 +344,12 @@ export function EmailPasswordAuth({
           }
         }
 
+        // Set encryption key in memory immediately after signup
+        // This allows users to upload memories even before email verification
+        await setEncryptionKey(masterKey);
+        setHasEncryptionKey(true);
+
         // Supabase requires email confirmation by default
-        // Don't set encryption key yet - wait for email verification
         setNeedsEmailVerification(true);
         setShowSuccess(true);
       }
