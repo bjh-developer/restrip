@@ -49,9 +49,8 @@ const MEMORY_QUOTES = [
   "There is nothing like an odor to stir memories. — Jeanine Engle",
   "Memory is a crazy woman that hoards colored rags and throws away food. — Austin O'Malley",
   "The beautiful thing about memories is that they are yours; whether they are good, bad, or indifferent. — Unknown",
-  "When someone you love becomes a memory, that memory becomes a treasure. — Unknown"
+  "When someone you love becomes a memory, that memory becomes a treasure. — Unknown",
 ];
-
 
 export default function MemoryAuthPage() {
   const router = useRouter();
@@ -59,15 +58,15 @@ export default function MemoryAuthPage() {
   const { user, isLoading: authLoading, hasEncryptionKey } = useAuth();
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
-  const [randomQuote] = useState(() => 
-    MEMORY_QUOTES[Math.floor(Math.random() * MEMORY_QUOTES.length)]
+  const [randomQuote] = useState(
+    () => MEMORY_QUOTES[Math.floor(Math.random() * MEMORY_QUOTES.length)],
   );
 
   // Redirect to memory if fully authenticated
   useEffect(() => {
     if (user && hasEncryptionKey && params.id) {
       console.log(
-        `MemoryAuthPage: User authenticated, redirecting to memory ${params.id}`
+        `MemoryAuthPage: User authenticated, redirecting to memory ${params.id}`,
       );
       router.push(`/memory/${params.id}`);
     }
@@ -110,9 +109,7 @@ export default function MemoryAuthPage() {
             <h1 className="font-display text-4xl font-bold text-soft-black">
               Welcome Back!
             </h1>
-            <p className="text-gray-600 text-lg">
-              A memory awaits for you...
-            </p>
+            <p className="text-gray-600 text-lg">A memory awaits for you...</p>
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
               <Clock className="w-4 h-4" />
               <span>Sign in to reveal your photo strip</span>
@@ -149,18 +146,16 @@ export default function MemoryAuthPage() {
 
             {/* Auth Forms */}
             <div className="space-y-4">
-              {activeTab === "passkey" && passkeySupported && (
-                <PasskeyAuth />
+              {activeTab === "passkey" && passkeySupported && <PasskeyAuth />}
+              {activeTab === "password" && (
+                <EmailPasswordAuth signinOnly={true} />
               )}
-              {activeTab === "password" && <EmailPasswordAuth signinOnly={true} />}
             </div>
           </div>
 
           {/* Bottom message */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600 italic">
-              "{randomQuote}"
-            </p>
+            <p className="text-sm text-gray-600 italic">"{randomQuote}"</p>
           </div>
         </div>
       </div>

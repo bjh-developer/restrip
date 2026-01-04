@@ -42,7 +42,9 @@ export default function MemoryPage() {
   // Redirect to auth if not authenticated, with memory-specific login page
   useEffect(() => {
     if (!authLoading && (!user || !hasEncryptionKey)) {
-      console.log("MemoryPage: Not fully authenticated, redirecting to memory auth");
+      console.log(
+        "MemoryPage: Not fully authenticated, redirecting to memory auth",
+      );
       setIsRedirecting(true);
       router.push(`/memory/${params.id}/auth`);
     }
@@ -52,7 +54,14 @@ export default function MemoryPage() {
   useEffect(() => {
     const fetchAndDecryptSnap = async () => {
       // Early return if auth is loading, user not authenticated, or redirecting
-      if (authLoading || !user || !hasEncryptionKey || !params.id || isRedirecting) return;
+      if (
+        authLoading ||
+        !user ||
+        !hasEncryptionKey ||
+        !params.id ||
+        isRedirecting
+      )
+        return;
 
       try {
         setIsLoading(true);
@@ -72,7 +81,7 @@ export default function MemoryPage() {
         const encryptionKey = await getEncryptionKey();
         if (!encryptionKey) {
           throw new Error(
-            "Encryption key not available. Please sign in again."
+            "Encryption key not available. Please sign in again.",
           );
         }
 
@@ -89,10 +98,13 @@ export default function MemoryPage() {
         // Convert blob to base64 (chunked to avoid stack overflow)
         const arrayBuffer = await imageData.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
+        let binary = "";
         const chunkSize = 8192;
         for (let i = 0; i < bytes.length; i += chunkSize) {
-          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+          const chunk = bytes.subarray(
+            i,
+            Math.min(i + chunkSize, bytes.length),
+          );
           binary += String.fromCharCode.apply(null, Array.from(chunk));
         }
         const base64 = btoa(binary);
@@ -101,7 +113,7 @@ export default function MemoryPage() {
         const decryptedImg = await decryptImage(
           base64,
           snapData.image_iv,
-          encryptionKey
+          encryptionKey,
         );
         setDecryptedImage(decryptedImg);
 
@@ -109,16 +121,14 @@ export default function MemoryPage() {
         const decryptedCap = await decryptDataAsString(
           snapData.encrypted_caption,
           snapData.caption_iv,
-          encryptionKey
+          encryptionKey,
         );
         setDecryptedCaption(decryptedCap);
 
         console.log("✅ Memory decrypted successfully");
       } catch (err) {
         console.error("Failed to decrypt memory:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load memory"
-        );
+        setError(err instanceof Error ? err.message : "Failed to load memory");
       } finally {
         setIsLoading(false);
       }
@@ -208,7 +218,8 @@ export default function MemoryPage() {
             {!isLoading && !error && decryptedImage && snap && (
               <div className="space-y-6">
                 <h1 className="font-display text-4xl font-bold mb-6 text-center text-soft-black">
-                  On {new Date(snap.created_at).toLocaleDateString("en-US", {
+                  On{" "}
+                  {new Date(snap.created_at).toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "long",
                     day: "numeric",
