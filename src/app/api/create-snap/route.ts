@@ -59,30 +59,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabaseAdmin.from("snaps").insert({
-      user_id: sessionUser.id,
-      storage_path: storagePath,
-      encrypted_caption: encryptedCaption,
-      caption_iv: captionIv,
-      image_iv: imageIv,
-      send_date: sendTime.toISOString().split("T")[0], // YYYY-MM-DD
-      send_time: sendTime.toISOString(), // Full ISO timestamp
-      delivery_method: deliveryMethod,
-      delivery_address: deliveryAddress,
-      period_type: periodType,
-    });
+    const { data, error } = await supabaseAdmin
+      .from("snaps")
+      .insert({
+        user_id: sessionUser.id,
+        storage_path: storagePath,
+        encrypted_caption: encryptedCaption,
+        caption_iv: captionIv,
+        image_iv: imageIv,
+        send_date: sendTime.toISOString().split("T")[0], // YYYY-MM-DD
+        send_time: sendTime.toISOString(), // Full ISO timestamp
+        delivery_method: deliveryMethod,
+        delivery_address: deliveryAddress,
+        period_type: periodType,
+      })
+      .select();
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       return NextResponse.json(
         { error: "Failed to create snap" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json(
-      { message: "Create snap endpoint" },
-      { status: 200 },
-    );
+    return NextResponse.json({ snap: data[0] }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to create snap" },
