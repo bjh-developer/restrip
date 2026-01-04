@@ -581,12 +581,14 @@ export function EmailPasswordAuth({
       )}
 
       {/* Warning about password-based encryption */}
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <p className="text-amber-800 text-sm">
-          ⚠️ <strong>Note:</strong> Using email/password means your encryption
-          key is derived from your password. Keep your password safe.
-        </p>
-      </div>
+      {!signinOnly && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-amber-800 text-sm">
+            ⚠️ <strong>Note:</strong> Using email/password means your encryption
+            key is derived from your password. Keep your password safe.
+          </p>
+        </div>
+      )}
 
       {/* Error display */}
       {error && (
