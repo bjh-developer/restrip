@@ -595,8 +595,28 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
       const verifyData = await verifyRes.json();
       console.log("✅ Login successful:", verifyData);
 
-      // Derive encryption key directly from PRF output
-      // Check if we have a wrapped key stored in the credential
+      // Sign in to Supabase FIRST to create authenticated session
+      if (verifyData.token) {
+        const supabase = createClient();
+        const { data: sessionData, error: signInError } =
+          await supabase.auth.verifyOtp({
+            token_hash: verifyData.token,
+            type: "magiclink",
+          });
+
+        if (signInError || !sessionData.session) {
+          console.error("Failed to verify magic link token:", signInError);
+          throw new Error(
+            "Failed to create session. Please try signing in again.",
+          );
+        }
+
+        console.log("✅ Supabase session created");
+      } else {
+        throw new Error("No authentication token received");
+      }
+
+      // NOW derive/unwrap encryption key (session exists for API calls)
       if (prfOutput) {
         console.log("🔑 Deriving KEK from PRF...");
 
@@ -627,7 +647,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
               const kek = await deriveKEKFromPRF(prfOutput);
               const wrappedKey = await wrapKey(masterKey, kek);
 
-              // Store wrapped key for this credential
+              // Store wrapped key for this credential (session now exists)
               const storeRes = await fetch(
                 "/api/auth/passkey/store-wrapped-key",
                 {
@@ -659,28 +679,6 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
         console.log("⚠️ PRF not available, encryption key not set");
         // PRF should always be available with modern passkeys
         // If not, the user won't be able to encrypt/decrypt data
-      }
-
-      // Sign in to Supabase using the magic link token
-      if (verifyData.token) {
-        const supabase = createClient();
-        const { data: sessionData, error: signInError } =
-          await supabase.auth.verifyOtp({
-            token_hash: verifyData.token,
-            type: "magiclink",
-          });
-
-        if (signInError || !sessionData.session) {
-          console.error("Failed to verify magic link token:", signInError);
-          throw new Error(
-            "Failed to create session. Please try signing in again.",
-          );
-        }
-
-        console.log("✅ Supabase session created");
-      } else {
-        console.warn("⚠️ No token received from login verification");
-        throw new Error("Login verification failed. Please try again.");
       }
 
       setStep("success");
