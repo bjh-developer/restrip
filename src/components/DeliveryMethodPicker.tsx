@@ -103,12 +103,11 @@ export const DeliveryMethodPicker = React.memo(
             </div>
           )}
           {selected === "telegram" && (
-            <Input
-              type="text"
-              placeholder="Enter your Telegram handle (e.g. @username)"
-              value={inputValue}
-              onChange={(e) => handleInputChange(e.target.value)}
-            />
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-600">
+                ✅ You'll be prompted to start our Telegram bot next
+              </p>
+            </div>
           )}
         </div>
       </div>

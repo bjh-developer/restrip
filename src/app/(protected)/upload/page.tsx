@@ -523,19 +523,18 @@ export default function UploadPage() {
         Caption: z.string().min(1),
         sendTime: z.date(),
         deliveryMethod: z.enum(["email", "telegram"]),
-        Delivery_Address: z.string().min(1),
+        Delivery_Address: z.string(),
       })
       .refine(
         (data) => {
           if (data.deliveryMethod === "email") {
             return z.email().safeParse(data.Delivery_Address).success;
-          } else if (data.deliveryMethod === "telegram") {
-            return data.Delivery_Address.startsWith("@");
           }
-          return false;
+          // Telegram doesn't require delivery_address, bot will use chat_id instead
+          return true;
         },
         {
-          message: "Invalid email/telegram username format",
+          message: "Invalid email address",
           path: ["Delivery_Address"],
         },
       );
@@ -571,9 +570,6 @@ export default function UploadPage() {
         if (field === "Delivery_Address") {
           if (deliveryMethod === "email") {
             errors.deliveryAddress = "Please enter a valid email address";
-          } else {
-            errors.deliveryAddress =
-              "Please enter a valid Telegram username (starting with @)";
           }
         }
       });
