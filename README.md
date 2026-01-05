@@ -20,7 +20,8 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 4. 💬 **Caption** — Add a note for your future self
 5. 📅 **Schedule** — Pick a future date (surprise me, custom period, or specific date)
 6. 🔐 **Encrypt** — Your photo and caption are encrypted _on your device_ before upload
-7. 💌 **Receive** — Months later, decrypt and view your memory
+7. 💌 **Receive** — Months later, get notified via email or Telegram
+8. 👀 **Decrypt & View** — Authenticate to decrypt and view your memory
 
 **That's it. That's the magic.**
 
@@ -37,6 +38,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Account Linking** — Add both passkey and password to the same account
 - ✅ **Zero-Knowledge Encryption** — AES-256-GCM encryption on client before upload
 - ✅ **Encryption Key Derivation** — HKDF from passkey PRF (600,000 PBKDF2 iterations for passwords)
+- ✅ **Key Wrapping System** — Cross-compatible encryption between passkey and password auth
 - ✅ **Session Management** — Secure sessions with middleware route protection
 
 **Upload & Processing:**
@@ -46,12 +48,15 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **In-Memory Caching** — Cropped images cached to avoid re-processing
 - ✅ **Image Preview** — Toggle between original and cropped versions
 - ✅ **Client-Side Encryption** — Images encrypted in browser before transmission
+- ✅ **Storage Management** — Encrypted images stored in Supabase Storage
 
 **User Experience:**
 
 - ✅ **Period Picker** — Surprise me / Custom period / Specific date
 - ✅ **Caption Input** — Add notes for your future self
 - ✅ **Delivery Method** — Email or Telegram
+- ✅ **Working Delivery** — Via Email or Telegram, triggered by a Cron job on Supabase, running Supabase's Edge Functions.
+- ✅ **Memory Viewing** — Secure decrypt and view interface for delivered memories
 - ✅ **Form Validation** — Zod schemas with user-friendly error messages
 - ✅ **Scroll Animations** — GSAP ScrollTrigger for smooth reveals
 - ✅ **Responsive Design** — Mobile-first with Tailwind CSS
@@ -66,10 +71,6 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 
 ### 🔄 In Progress
 
-- 🔄 **Backend Upload API** — Complete the encrypted data upload endpoint
-- 🔄 **Supabase Storage Integration** — Store encrypted images and metadata
-- 🔄 **Scheduled Delivery System** — Cron jobs for time-delayed delivery
-- 🔄 **Email Delivery** — Beautiful HTML emails with decryption links
 
 ### 📋 Roadmap
 
@@ -129,6 +130,7 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 - **Use case**: Use passkey on your primary device, password as backup
 - **Process**: Authenticate with one method, then add the other securely
 - **Security**: Each method has its own encryption key derivation path
+- **Key Wrapping**: Master encryption key is wrapped with each auth method's key for cross-compatibility
 
 ### Encryption Architecture
 
@@ -140,29 +142,34 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 │     ├─ Passkey: Get PRF output from authenticator       │
 │     └─ Password: User enters password                   │
 │                                                         │
-│  2. Derive encryption key                               │
-│     ├─ Passkey: HKDF(PRF output) → AES-256 key          │
-│     └─ Password: PBKDF2(pwd, salt, 600k) → AES-256      │
+│  2. Derive Key Encryption Key (KEK)                     │
+│     ├─ Passkey: HKDF(PRF output) → AES-256 KEK          │
+│     └─ Password: PBKDF2(pwd, salt, 600k) → AES-256 KEK  │
 │                                                         │
-│  3. Store key in sessionStorage (30-min timeout)        │
+│  3. Unwrap Master Encryption Key                        │
+│     ├─ Fetch wrapped master key from server             │
+│     └─ Decrypt with KEK to get master key               │
 │                                                         │
-│  4. Encrypt data before upload                          │
+│  4. Store master key in sessionStorage (10-min timeout) │
+│                                                         │
+│  5. Encrypt data before upload                          │
 │     ├─ Image: AES-256-GCM with random IV                │
 │     └─ Caption: AES-256-GCM with random IV              │
 │                                                         │
-│  5. Send encrypted data + IV to server                  │
-│     └─ Encryption key NEVER leaves the browser          │
+│  6. Send encrypted data + IV to server                  │
+│     └─ Master key NEVER leaves the browser              │
 └─────────────────────────────────────────────────────────┘
                             ↓ HTTPS
 ┌─────────────────────────────────────────────────────────┐
 │                    SERVER (Vercel)                      │
 │                                                         │
 │  1. Receive encrypted data + IV (initialization vector) │
-│  2. Store in Supabase (cannot decrypt - no key)         │
+│  2. Store in Supabase (cannot decrypt - no master key)  │
 │  3. At delivery time: Send encrypted package to user    │
 │                                                         │
-│  ❌ Server never has decryption key                     │
+│  ❌ Server never has master key                         │
 │  ❌ Server never sees plaintext photos                  │
+│  ✅ Server stores wrapped master key (useless alone)    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -176,17 +183,18 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 
 ### Security Tradeoffs
 
-⚠️ **Key Storage**: Encryption keys stored in `sessionStorage` for UX (persistence across page refreshes)
+⚠️ **Key Storage**: Master encryption key stored in `sessionStorage` for UX (persistence across page refreshes)
 
 - **Risk**: Vulnerable to XSS attacks (malicious scripts can steal keys)
-- **Mitigation**: 30-minute timeout, CSP headers, Subresource Integrity
+- **Mitigation**: 10-minute timeout, CSP headers, Subresource Integrity
 - **Best Practice**: Never use ReStrip on shared/public computers
 
-⚠️ **Data Loss Risk**: If you lose your passkey/password, your data is **permanently lost**
+⚠️ **Data Loss Risk**: If you lose ALL your authentication methods (both passkey AND password if you've linked them), your data is **permanently lost**
 
 - This is the cost of true privacy
 - We cannot recover your data (by design)
-- Consider account linking for redundancy
+- Account linking provides redundancy: if you have both passkey and password, you can access data with either method
+- The key wrapping system ensures data remains accessible via any registered authentication method
 
 ### Implementation Details
 
@@ -264,21 +272,30 @@ rereel/
 │   │   │   ├── layout.tsx          # Force-dynamic layout
 │   │   │   └── reset-password/     # Password reset flow
 │   │   ├── (protected)/            # Protected route group
-│   │   │   └── upload/
-│   │   │       ├── page.tsx        # Main upload form (4-step flow)
-│   │   │       └── layout.tsx      # Force-dynamic layout
+│   │   │   ├── upload/
+│   │   │   │   ├── page.tsx        # Main upload form (4-step flow)
+│   │   │   │   └── layout.tsx      # Force-dynamic layout
+│   │   │   └── memory/
+│   │   │       └── [id]/
+│   │   │           ├── page.tsx    # View delivered memory
+│   │   │           └── auth/
+│   │   │               └── page.tsx # Re-auth for decryption
 │   │   ├── (misc)/                 # Miscellaneous pages
 │   │   │   ├── contact/            # Contact page
 │   │   │   └── privacy-policy/     # Privacy policy
 │   │   ├── api/                    # Backend API routes
 │   │   │   ├── auth/               # Authentication endpoints
 │   │   │   │   ├── passkey/        # WebAuthn APIs (register/login)
+│   │   │   │   │   ├── store-wrapped-key/ # Store wrapped encryption key
+│   │   │   │   │   └── wrapped-key/       # Fetch wrapped key
 │   │   │   │   ├── link-account/   # Account linking
 │   │   │   │   ├── check-account-type/
 │   │   │   │   └── check-email/
-│   │   │   ├── create-snap/        # Create new memory (TBD)
+│   │   │   ├── create-snap/        # Create new memory
 │   │   │   ├── crop-image/         # RunPod proxy for AI cropping
-│   │   │   └── upload/             # Upload encrypted data (TBD)
+│   │   │   ├── upload/             # Upload encrypted data
+│   │   │   └── snaps/
+│   │   │       └── [id]/           # Fetch specific snap
 │   │   ├── layout.tsx              # Root layout (AuthProvider)
 │   │   └── favicon.ico
 │   ├── components/
@@ -315,6 +332,8 @@ rereel/
 ├── components/ui/                   # Legacy shadcn UI location
 ├── lib/                            # Legacy lib location
 ├── public/                         # Static assets
+├── supabase/                       # Database migrations
+│   └── migrations/                 # SQL migration files (001-008)
 ├── runpod/                         # AI Image Processing (Python)
 │   ├── handler.py                  # RunPod serverless handler
 │   ├── requirements.txt            # Python dependencies
@@ -371,7 +390,7 @@ rereel/
 - ✅ Content Security Policy headers
 - ✅ Subresource Integrity for external scripts
 - ✅ Row Level Security on Supabase
-- ✅ 30-minute session timeout for encryption keys
+- ✅ 10-minute session timeout for master encryption key
 - ✅ Secure API architecture (keys never exposed to client)
 
 ---
@@ -385,8 +404,8 @@ rereel/
 -- Located in auth.users table
 
 -- Passkey credentials
-CREATE TABLE public.credentials (
-    id TEXT PRIMARY KEY,                    -- Credential ID from WebAuthn
+CREATE TABLE public.passkey_credentials (
+    credential_id TEXT PRIMARY KEY,         -- Credential ID from WebAuthn
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     public_key BYTEA NOT NULL,              -- Public key for verification
     counter BIGINT NOT NULL DEFAULT 0,      -- Signature counter (anti-replay)
@@ -394,16 +413,15 @@ CREATE TABLE public.credentials (
     backup_eligible BOOLEAN DEFAULT FALSE,  -- Can be backed up
     backup_state BOOLEAN DEFAULT FALSE,     -- Is backed up
     salt TEXT NOT NULL,                     -- Salt for PRF key derivation
+    wrapped_encryption_key TEXT,            -- Master key wrapped with PRF-derived KEK
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_used_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT unique_user_credential UNIQUE (user_id, id)
+    CONSTRAINT unique_user_credential UNIQUE (user_id, credential_id)
 );
 
 -- Indexes
-CREATE INDEX idx_credentials_user_id ON public.credentials(user_id);
+CREATE INDEX idx_passkey_credentials_user_id ON public.passkey_credentials(user_id);
 ```
-
-### Planned Schema (v2.0)
 
 ```sql
 -- Encrypted memories/snaps
@@ -412,7 +430,7 @@ CREATE TABLE public.snaps (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
     -- Encrypted data
-    encrypted_image_url TEXT NOT NULL,      -- Supabase Storage URL
+    storage_path TEXT NOT NULL,             -- Supabase Storage path to encrypted image
     image_iv TEXT NOT NULL,                 -- Initialization vector for image
     encrypted_caption TEXT,                 -- Encrypted caption text
     caption_iv TEXT,                        -- Initialization vector for caption
@@ -420,6 +438,7 @@ CREATE TABLE public.snaps (
     -- Metadata (not encrypted)
     delivery_method TEXT NOT NULL,          -- 'email' or 'telegram'
     delivery_address TEXT NOT NULL,         -- Email address or Telegram username
+    telegram_chat_id BIGINT,                -- Telegram chat ID for bot delivery
     scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
     delivered BOOLEAN DEFAULT FALSE,
     delivered_at TIMESTAMP WITH TIME ZONE,
@@ -436,6 +455,7 @@ CREATE TABLE public.snaps (
 CREATE INDEX idx_snaps_user_id ON public.snaps(user_id);
 CREATE INDEX idx_snaps_scheduled_send ON public.snaps(scheduled_send_time, delivered);
 CREATE INDEX idx_snaps_delivery_status ON public.snaps(user_id, delivered);
+CREATE INDEX idx_snaps_telegram_chat_id ON public.snaps(telegram_chat_id);
 
 -- Row Level Security
 ALTER TABLE public.snaps ENABLE ROW LEVEL SECURITY;
@@ -464,6 +484,9 @@ CREATE POLICY "Users can delete own snaps"
 -- Images are stored encrypted, so no additional encryption needed
 CREATE BUCKET IF NOT EXISTS encrypted_images;
 
+-- Storage structure: {user_id}/{snap_id}/image.png
+-- Path stored in snaps.storage_path column
+
 -- RLS policies for storage
 CREATE POLICY "Users can upload own images"
     ON storage.objects FOR INSERT
@@ -481,16 +504,6 @@ CREATE POLICY "Users can delete own images"
 ---
 
 ## 🐛 Known Issues & Troubleshooting
-
-### Known Issues
-
-- [x] ~~ScrollReveal animation broke after image upload~~ (Fixed: cleanup now only kills component's own triggers)
-- [x] ~~Spinner size not adjustable~~ (Fixed: added inline styles)
-- [x] ~~API key exposed to client~~ (Fixed: moved to server-side API route)
-- [x] ~~Duplicate AuthProvider causing context errors~~ (Fixed: refactored to Providers component)
-- [ ] Upload endpoint not implemented (encryption works, but data isn't sent to server yet)
-- [ ] Email delivery system not implemented yet
-- [ ] Scheduled delivery cron jobs not set up
 
 ### Common Setup Issues
 
@@ -543,8 +556,8 @@ CREATE POLICY "Users can delete own images"
 
 - ✅ Complete zero-knowledge encryption architecture
 - ✅ Implement passkey and password authentication
-- 🔄 Finish upload and storage integration
-- 🔄 Launch email delivery system
+- ✅ Finish upload and storage integration
+- ✅ Launch email delivery system
 - 🎯 Get first 100 beta users
 - 🎯 Validate core concept and user satisfaction
 
