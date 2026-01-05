@@ -1122,26 +1122,25 @@ const masterKey = await crypto.subtle.generateKey(
 
 // Step 2: Wrap master key with KEK derived from auth method
 const kek = await deriveKekFromAuthMethod(); // From passkey PRF or password PBKDF2
-const iv = crypto.getRandomValues(new Uint8Array(12));
 const wrappedKey = await crypto.subtle.wrapKey(
   "raw",
   masterKey,
   kek,
-  { name: "AES-GCM", iv }
+  "AES-KW" // AES Key Wrap algorithm (RFC 3394) - no IV required
 );
 
-// Step 3: Store wrapped key AND IV in database
-await storeWrappedKey(wrappedKey, iv); // In passkey_credentials or user_metadata
+// Step 3: Store wrapped key in database
+await storeWrappedKey(wrappedKey); // In passkey_credentials or user_metadata
 
 // Later: Unwrap master key during authentication
 const kek = await deriveKekFromAuthMethod();
-const { wrappedKey: wrappedKeyFromDb, iv: storedIv } = await fetchWrappedKey();
+const wrappedKeyFromDb = await fetchWrappedKey();
 const masterKey = await crypto.subtle.unwrapKey(
   "raw",
   wrappedKeyFromDb,
   kek,
-  { name: "AES-GCM", iv: storedIv },
-  { name: "AES-GCM", length: 256 },
+  "AES-KW", // Same algorithm used for wrapping
+  { name: "AES-GCM", length: 256 }, // Unwrapped key will be AES-GCM for data encryption
   true,
   ["encrypt", "decrypt"]
 );
