@@ -392,7 +392,7 @@ rereel/
 - ✅ Content Security Policy headers
 - ✅ Subresource Integrity for external scripts
 - ✅ Row Level Security on Supabase
-- ✅ 30-minute session timeout for encryption keys
+- ✅ 10-minute session timeout for master encryption key
 - ✅ Secure API architecture (keys never exposed to client)
 
 ---
