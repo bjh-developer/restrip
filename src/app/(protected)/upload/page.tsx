@@ -759,7 +759,8 @@ export default function UploadPage() {
         );
 
         if (shouldOpenTelegram) {
-          window.open(telegramLink, "_blank");
+          // Use location.href instead of window.open for better iOS Safari compatibility
+          window.location.href = telegramLink;
         }
       } else {
         alert("🎉 Your memory has been scheduled for delivery!");
