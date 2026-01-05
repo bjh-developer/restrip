@@ -318,8 +318,15 @@ Route groups use parentheses `()` to organize files without affecting URLs.
 ```
 app/
   (auth)/
+    reset-password/
+      page.tsx        → URL: /reset-password
     page.tsx          → URL: /
   (protected)/
+    memory/
+      [id]/
+        auth/
+          page.tsx    → URL: /memory/[id]/auth
+      page.tsx        → URL: /memory
     upload/
       page.tsx        → URL: /upload
   (misc)/
