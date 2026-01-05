@@ -1209,7 +1209,7 @@ Run the migrations in order in your Supabase SQL Editor:
 - Stores encrypted photo strip memories
 - `storage_path` field references the encrypted image in Supabase Storage (consolidates previous dual URL fields)
 - `image_iv` and `caption_iv` store initialization vectors for decryption
-- `telegram_chat_id` field stores Telegram chat ID for bot delivery (optional)
+- `telegram_chat_id` field ready for Telegram bot integration (schema prepared, bot implementation in progress)
 - Tracks delivery schedule and status
 
 **webauthn_challenges table:**
@@ -1948,9 +1948,10 @@ npm install
 
 **Solutions:**
 
-- Re-authenticate using the same method used to create the memory
-- If using passkey, use the same device/credential
-- If encryption key is truly lost, memory cannot be recovered (by design)
+- Re-authenticate using ANY of your registered authentication methods (passkey or password)
+- With key wrapping, you can access data via either method if you've linked accounts
+- If you lose ALL authentication methods, data cannot be recovered (by design)
+- Account linking provides redundancy for data access
 
 **Issue**: Memory page shows "Not found" or 404
 

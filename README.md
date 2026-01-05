@@ -72,7 +72,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 
 - 🔄 **Scheduled Delivery System** — Cron jobs for time-delayed delivery
 - 🔄 **Email Delivery** — Beautiful HTML emails with decryption links
-- 🔄 **Telegram Bot Integration** — Direct message delivery via Telegram
+- 🔄 **Telegram Bot Integration** — Database schema ready, bot implementation in progress
 
 ### 📋 Roadmap
 
@@ -191,11 +191,12 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 - **Mitigation**: 10-minute timeout, CSP headers, Subresource Integrity
 - **Best Practice**: Never use ReStrip on shared/public computers
 
-⚠️ **Data Loss Risk**: If you lose your passkey/password, your data is **permanently lost**
+⚠️ **Data Loss Risk**: If you lose ALL your authentication methods (both passkey AND password if you've linked them), your data is **permanently lost**
 
 - This is the cost of true privacy
 - We cannot recover your data (by design)
-- Consider account linking for redundancy
+- Account linking provides redundancy: if you have both passkey and password, you can access data with either method
+- The key wrapping system ensures data remains accessible via any registered authentication method
 
 ### Implementation Details
 
