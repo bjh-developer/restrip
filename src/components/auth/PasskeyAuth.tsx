@@ -876,7 +876,7 @@ export function PasskeyAuth({ onSuccess, onError }: PasskeyAuthProps) {
               <div className="mb-4">
                 <span className="text-4xl">📧</span>
               </div>
-              <p className="text-gray-700 font-medium">Check your email</p>
+              <p className="text-gray-700 font-medium">Check your email (may be in spam)</p>
               <p className="text-sm text-gray-500 mt-2">
                 We've sent you a verification link. Click it to verify your
                 account.
