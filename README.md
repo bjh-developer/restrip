@@ -423,8 +423,6 @@ CREATE TABLE public.passkey_credentials (
 CREATE INDEX idx_passkey_credentials_user_id ON public.passkey_credentials(user_id);
 ```
 
-### Planned Schema (v2.0)
-
 ```sql
 -- Encrypted memories/snaps
 CREATE TABLE public.snaps (
