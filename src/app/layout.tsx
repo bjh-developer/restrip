@@ -35,6 +35,10 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <meta
+          name="google-site-verification"
+          content="nO-YAzyQoB0NZ75BCn7gL3M8SK8u-hPG52ShKXrfshY"
+        />
       </head>
       <body
         className={`${playfairDisplay.variable} ${inter.variable} antialiased`}
