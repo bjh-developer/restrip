@@ -274,6 +274,7 @@ export default function UploadPage() {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
+  const [resetKey, setResetKey] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<{
     image?: string;
@@ -770,7 +771,7 @@ export default function UploadPage() {
       setOriginalImage(undefined);
       setCroppedImage(undefined);
       setCaption("");
-      setDeliveryAddress("");
+      setResetKey(prev => prev + 1);
       handlePeriodSelect("surprise");
     } catch (error) {
       console.error("Processing failed:", error);
@@ -995,6 +996,7 @@ export default function UploadPage() {
             </div>
             <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
               <UploadImage
+                key={resetKey}
                 displayImage={
                   autoCropEnabled && croppedImage ? croppedImage : undefined
                 }
