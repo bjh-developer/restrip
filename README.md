@@ -505,17 +505,6 @@ CREATE POLICY "Users can delete own images"
 
 ## 🐛 Known Issues & Troubleshooting
 
-### Known Issues
-
-- [x] ~~ScrollReveal animation broke after image upload~~ (Fixed: cleanup now only kills component's own triggers)
-- [x] ~~Spinner size not adjustable~~ (Fixed: added inline styles)
-- [x] ~~API key exposed to client~~ (Fixed: moved to server-side API route)
-- [x] ~~Duplicate AuthProvider causing context errors~~ (Fixed: refactored to Providers component)
-- [x] ~~Upload endpoint not implemented~~ (Fixed: encryption works and data is uploaded to server)
-- [ ] Email delivery system not implemented yet
-- [ ] Scheduled delivery cron jobs not set up
-- [ ] Telegram bot integration in progress
-
 ### Common Setup Issues
 
 **Issue**: `useAuth must be used within an AuthProvider`
