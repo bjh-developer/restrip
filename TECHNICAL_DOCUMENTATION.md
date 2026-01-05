@@ -2,7 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
-  <p><em>Last updated: 2 Jan 2026</em></p>
+  <p><em>Last updated: 5 Jan 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -257,6 +257,54 @@ sequenceDiagram
 - **Steps 8-11**: Client-side encryption (zero-knowledge)
 - **Steps 12-17**: Secure storage and scheduling
 
+### Memory Viewing Flow
+
+**User views a delivered memory:**
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Client as Client Browser
+    participant Server as Next.js API
+    participant Supabase as Supabase DB/Storage
+
+    User->>Client: 1. Click link in delivery email
+    Client->>Client: 2. Check if authenticated
+    
+    alt Not authenticated or key expired
+        Client->>User: 3. Redirect to /memory/[id]/auth
+        User->>Client: 4. Authenticate (passkey/password)
+        Client->>Client: 5. Derive KEK from auth method
+        Client->>Server: 6. Fetch wrapped master key
+        Server->>Supabase: 7. Query passkey_credentials or user_metadata
+        Supabase-->>Server: 8. Return wrapped key
+        Server-->>Client: 9. Return wrapped key
+        Client->>Client: 10. Unwrap master key with KEK
+        Client->>Client: 11. Store master key in sessionStorage
+    end
+
+    Client->>Server: 12. GET /api/snaps/[id]
+    Server->>Supabase: 13. Query snaps table
+    Supabase-->>Server: 14. Return snap metadata
+    Server-->>Client: 15. Return encrypted metadata
+
+    Client->>Server: 16. Download encrypted image
+    Server->>Supabase: 17. storage.download(storage_path)
+    Supabase-->>Server: 18. Return encrypted image blob
+    Server-->>Client: 19. Return encrypted image
+
+    Client->>Client: 20. Decrypt image with master key + IV
+    Client->>Client: 21. Decrypt caption with master key + IV
+    Client-->>User: 22. Display decrypted memory
+```
+
+**Key Steps:**
+
+- **Steps 1-11**: Authentication and key unwrapping (if needed)
+- **Steps 12-15**: Fetch encrypted snap metadata
+- **Steps 16-19**: Download encrypted image from storage
+- **Steps 20-22**: Client-side decryption and display
+
 ---
 
 ## 4. Frontend Deep Dive
@@ -351,6 +399,57 @@ const SnapSchema = z
     return data.Delivery_Address.startsWith("@");
   });
 ```
+
+**3. Memory Viewing Pages** (`src/app/(protected)/memory/[id]/page.tsx`)
+
+Secure page for viewing delivered memories with client-side decryption.
+
+**Features:**
+
+- Fetch encrypted snap metadata from server
+- Download encrypted image from Supabase Storage
+- Decrypt image and caption using master encryption key
+- Display decrypted memory with metadata
+- Handle authentication requirement for decryption
+
+**Key Logic:**
+
+```typescript
+// Fetch snap metadata
+const { data: snapData } = await supabase
+  .from("snaps")
+  .select("*")
+  .eq("id", snapId)
+  .single();
+
+// Download encrypted image
+const { data: imageBlob } = await supabase.storage
+  .from("encrypted-images")
+  .download(snapData.storage_path);
+
+// Decrypt image
+const encryptionKey = await getEncryptionKey();
+const decryptedImageBlob = await decryptImage(
+  imageBlob,
+  snapData.image_iv,
+  encryptionKey
+);
+
+// Decrypt caption
+const decryptedCaption = await decryptDataAsString(
+  snapData.encrypted_caption,
+  snapData.caption_iv,
+  encryptionKey
+);
+```
+
+**4. Re-authentication Page** (`src/app/(protected)/memory/[id]/auth/page.tsx`)
+
+Handles re-authentication when encryption key expires or is missing.
+
+- Redirects to memory page after successful authentication
+- Ensures encryption key is derived and available
+- Seamless UX for accessing delivered memories
 
 ### Key Components
 
@@ -966,6 +1065,99 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
 }
 ```
 
+### Key Wrapping System
+
+**Problem**: Users who register with passkey and later add password (or vice versa) need to access their encrypted data with both authentication methods. Each method derives a different encryption key.
+
+**Solution**: Key wrapping enables cross-compatible authentication by storing a master encryption key that is wrapped (encrypted) with each authentication method's derived key.
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 First Authentication                    │
+│                                                         │
+│  1. User registers with passkey (or password)           │
+│  2. Derive Key Encryption Key (KEK) from auth method    │
+│  3. Generate random Master Encryption Key (MEK)         │
+│  4. Wrap MEK with KEK → Wrapped MEK                     │
+│  5. Store Wrapped MEK in database                       │
+│     - Passkey: passkey_credentials.wrapped_encryption_key│
+│     - Password: auth.users.user_metadata.wrapped_encryption_key│
+│  6. Use MEK for encrypting user data                    │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│              Adding Second Auth Method                  │
+│                                                         │
+│  1. User adds password (or passkey) to account          │
+│  2. Authenticate with existing method → unwrap MEK      │
+│  3. Derive new KEK from new auth method                 │
+│  4. Wrap MEK with new KEK → Second Wrapped MEK          │
+│  5. Store second Wrapped MEK in database                │
+│  6. Now both methods can unwrap the same MEK            │
+└─────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────┐
+│                Future Authentication                    │
+│                                                         │
+│  1. User logs in with either method                     │
+│  2. Derive KEK from chosen auth method                  │
+│  3. Fetch corresponding Wrapped MEK from database       │
+│  4. Unwrap MEK using KEK                                │
+│  5. Use MEK to decrypt user data                        │
+│  ✅ Same MEK works for all user's encrypted data        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```typescript
+// Step 1: Generate Master Encryption Key (first registration)
+const masterKey = await crypto.subtle.generateKey(
+  { name: "AES-GCM", length: 256 },
+  true, // extractable
+  ["encrypt", "decrypt"]
+);
+
+// Step 2: Wrap master key with KEK derived from auth method
+const kek = await deriveKekFromAuthMethod(); // From passkey PRF or password PBKDF2
+const wrappedKey = await crypto.subtle.wrapKey(
+  "raw",
+  masterKey,
+  kek,
+  { name: "AES-GCM", iv: crypto.getRandomValues(new Uint8Array(12)) }
+);
+
+// Step 3: Store wrapped key in database
+await storeWrappedKey(wrappedKey); // In passkey_credentials or user_metadata
+
+// Later: Unwrap master key during authentication
+const kek = await deriveKekFromAuthMethod();
+const wrappedKeyFromDb = await fetchWrappedKey();
+const masterKey = await crypto.subtle.unwrapKey(
+  "raw",
+  wrappedKeyFromDb,
+  kek,
+  { name: "AES-GCM", iv: storedIv },
+  { name: "AES-GCM", length: 256 },
+  true,
+  ["encrypt", "decrypt"]
+);
+```
+
+**Benefits:**
+
+- ✅ Seamless cross-auth compatibility
+- ✅ Single master key for all user data
+- ✅ No data re-encryption needed when adding auth methods
+- ✅ Zero-knowledge architecture maintained (server never sees unwrapped MEK)
+
+**API Endpoints:**
+
+- `POST /api/auth/passkey/store-wrapped-key` - Store wrapped key after passkey registration
+- `GET /api/auth/passkey/wrapped-key?credentialId=...` - Fetch wrapped key during login
+
 ---
 
 ## 8. Database & Storage
@@ -1008,12 +1200,16 @@ Run the migrations in order in your Supabase SQL Editor:
 
 - Stores WebAuthn public keys for passkey authentication
 - Each credential has a unique salt for PRF-based encryption key derivation
+- `wrapped_encryption_key` column stores the master encryption key wrapped with the passkey's PRF-derived KEK
+- Enables cross-compatible authentication with password method
 - Tracks device information and usage
 
 **snaps table:**
 
 - Stores encrypted photo strip memories
-- References encrypted images in Supabase Storage
+- `storage_path` field references the encrypted image in Supabase Storage (consolidates previous dual URL fields)
+- `image_iv` and `caption_iv` store initialization vectors for decryption
+- `telegram_chat_id` field stores Telegram chat ID for bot delivery (optional)
 - Tracks delivery schedule and status
 
 **webauthn_challenges table:**
@@ -1202,15 +1398,17 @@ torchvision>=0.15.0
 
 ### Authentication Endpoints
 
-| Endpoint                             | Method | Purpose                                  |
-| ------------------------------------ | ------ | ---------------------------------------- |
-| `/api/auth/passkey/register-options` | POST   | Generate WebAuthn registration options   |
-| `/api/auth/passkey/register-verify`  | POST   | Verify WebAuthn registration response    |
-| `/api/auth/passkey/login-options`    | POST   | Generate WebAuthn authentication options |
-| `/api/auth/passkey/login-verify`     | POST   | Verify WebAuthn authentication response  |
-| `/api/auth/check-email`              | POST   | Check if email exists                    |
-| `/api/auth/check-account-type`       | POST   | Get user's authentication methods        |
-| `/api/auth/link-account`             | POST   | Link password to passkey account         |
+| Endpoint                                 | Method | Purpose                                  |
+| ---------------------------------------- | ------ | ---------------------------------------- |
+| `/api/auth/passkey/register-options`     | POST   | Generate WebAuthn registration options   |
+| `/api/auth/passkey/register-verify`      | POST   | Verify WebAuthn registration response    |
+| `/api/auth/passkey/login-options`        | POST   | Generate WebAuthn authentication options |
+| `/api/auth/passkey/login-verify`         | POST   | Verify WebAuthn authentication response  |
+| `/api/auth/passkey/store-wrapped-key`    | POST   | Store wrapped master encryption key      |
+| `/api/auth/passkey/wrapped-key`          | GET    | Fetch wrapped key for credential         |
+| `/api/auth/check-email`                  | POST   | Check if email exists                    |
+| `/api/auth/check-account-type`           | POST   | Get user's authentication methods        |
+| `/api/auth/link-account`                 | POST   | Link password to passkey account         |
 
 ### Image Processing
 
@@ -1218,15 +1416,14 @@ torchvision>=0.15.0
 | ----------------- | ------ | ------------------------------- |
 | `/api/crop-image` | POST   | Proxy to RunPod for AI cropping |
 
-### Memory Management (Planned)
+### Memory Management
 
 | Endpoint           | Method | Purpose                           |
 | ------------------ | ------ | --------------------------------- |
 | `/api/create-snap` | POST   | Create new encrypted memory       |
 | `/api/upload`      | POST   | Upload encrypted image to storage |
-| `/api/snaps`       | GET    | List user's memories              |
-| `/api/snaps/[id]`  | GET    | Get specific memory               |
-| `/api/snaps/[id]`  | DELETE | Delete memory                     |
+| `/api/snaps/[id]`  | GET    | Get specific memory metadata      |
+| `/api/snaps/[id]`  | DELETE | Delete memory (planned)           |
 
 ---
 
@@ -1744,6 +1941,58 @@ npm install
 - Use clearer photo
 - Ensure photo strip is main object
 - Try without auto-crop
+
+#### Memory Viewing Issues
+
+**Issue**: Cannot decrypt memory - "Encryption key expired"
+
+**Solutions:**
+
+- Re-authenticate using the same method used to create the memory
+- If using passkey, use the same device/credential
+- If encryption key is truly lost, memory cannot be recovered (by design)
+
+**Issue**: Memory page shows "Not found" or 404
+
+**Causes:**
+
+- Memory belongs to different user
+- Memory ID is invalid
+- Row Level Security blocking access
+
+**Solutions:**
+
+- Verify you're logged in with the correct account
+- Check memory ID in URL is correct
+- Verify snap exists in database
+
+**Issue**: Image won't decrypt or shows corrupted data
+
+**Causes:**
+
+- Wrong encryption key being used
+- IV (initialization vector) mismatch
+- Corrupted storage data
+
+**Solutions:**
+
+- Ensure you're using the same authentication method
+- Check `image_iv` matches the encrypted image
+- Verify storage path in database matches actual file
+
+**Issue**: "Failed to fetch wrapped key"
+
+**Causes:**
+
+- Credential ID not found in database
+- Network error
+- Database connection issue
+
+**Solutions:**
+
+- Re-authenticate to refresh credential
+- Check network connectivity
+- Verify `passkey_credentials` table has entries
 
 ### Debugging Tips
 
