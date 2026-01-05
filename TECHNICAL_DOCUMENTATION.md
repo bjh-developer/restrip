@@ -111,37 +111,37 @@ NEXT_PUBLIC_ALLOWED_RP_DOMAINS=localhost,127.0.0.1
 
 #### 4. Supabase Setup
 
-**Create Database Tables:**
+**Run Database Migrations:**
 
-Run in Supabase SQL Editor:
+Apply all migrations from `supabase/migrations/` in order in your Supabase SQL Editor:
+
+1. **001_passkey_auth.sql** - Core tables (passkey_credentials, snaps, webauthn_challenges, storage bucket, RLS policies)
+2. **002_add_prf_salt_to_credentials.sql** - Add salt column to passkey_credentials for WebAuthn isolation
+3. **002_delivery_status.sql** - Add delivery status tracking columns
+4. **003_check_user_exists_rpc.sql** - RPC function to check if user exists by email
+5. **004_rpc_get_account_type.sql** - RPC function for efficient account type lookup
+6. **005_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
+7. **006_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
+8. **007_telegram_bot_integration.sql** - Add telegram_chat_id column
+9. **008_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
+
+**Quick Setup:**
+
+Copy the migration files from `supabase/migrations/` into your Supabase project, or run each SQL file content in the SQL Editor sequentially.
+
+**Verification:**
+
+After running migrations, verify with:
 
 ```sql
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Check tables exist
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
 
--- Create credentials table for passkey authentication
-CREATE TABLE public.credentials (
-    id TEXT PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    public_key BYTEA NOT NULL,
-    counter BIGINT NOT NULL DEFAULT 0,
-    transports TEXT[],
-    backup_eligible BOOLEAN DEFAULT FALSE,
-    backup_state BOOLEAN DEFAULT FALSE,
-    salt TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    last_used_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT unique_user_credential UNIQUE (user_id, id)
-);
+-- Check passkey_credentials has all columns
+SELECT column_name FROM information_schema.columns WHERE table_name = 'passkey_credentials';
 
-CREATE INDEX idx_credentials_user_id ON public.credentials(user_id);
-
-ALTER TABLE public.credentials ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies
-CREATE POLICY "Users can view own credentials"
-    ON public.credentials FOR SELECT
-    USING (auth.uid() = user_id);
+-- Verify RLS is enabled on main tables
+SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('passkey_credentials', 'snaps');
 ```
 
 #### 5. Run Development Server
@@ -976,262 +976,31 @@ export async function getEncryptionKey(): Promise<CryptoKey | null> {
 
 ### Complete Database Schema
 
-Run this SQL in your Supabase SQL Editor to set up the complete database:
+**All database migrations are located in `supabase/migrations/` folder.**
 
-```sql
--- =====================================================
--- ReStrip Passkey Authentication Schema
--- Run this in your Supabase SQL Editor
--- =====================================================
+Run the migrations in order in your Supabase SQL Editor:
 
--- 1. Create passkey_credentials table to store public keys
-CREATE TABLE IF NOT EXISTS public.passkey_credentials (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  credential_id TEXT UNIQUE NOT NULL,           -- Base64URL encoded credential ID
-  public_key TEXT NOT NULL,                      -- Base64URL encoded public key
-  counter BIGINT DEFAULT 0,                      -- For replay attack prevention
-  device_type TEXT DEFAULT 'platform',           -- 'platform' or 'cross-platform'
-  backed_up BOOLEAN DEFAULT false,               -- Is credential synced (iCloud Keychain, etc)
-  transports TEXT[],                             -- ['internal', 'hybrid', 'usb', etc]
-  aaguid TEXT,                                   -- Authenticator identifier
-  device_name TEXT,                              -- User-friendly device name
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  last_used_at TIMESTAMPTZ
-);
+**Migration Files (in order):**
 
--- Create indexes for faster lookups
-CREATE INDEX IF NOT EXISTS idx_passkey_user_id ON public.passkey_credentials(user_id);
-CREATE INDEX IF NOT EXISTS idx_passkey_credential_id ON public.passkey_credentials(credential_id);
+1. `001_passkey_auth.sql` - Creates core tables and RLS policies
+2. `002_add_prf_salt_to_credentials.sql` - Adds per-credential salt for WebAuthn isolation
+3. `002_delivery_status.sql` - Adds delivery status tracking
+4. `003_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
+5. `004_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
+6. `005_consolidate_snap_image_urls.sql` - Consolidates image URL columns
+7. `006_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
+8. `007_telegram_bot_integration.sql` - Adds Telegram integration
+9. `008_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
 
--- 2. Create snaps table with user_id for authenticated uploads
-CREATE TABLE IF NOT EXISTS public.snaps (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  delivery_method TEXT NOT NULL DEFAULT 'email',  -- 'email' or 'telegram'
-  delivery_address TEXT NOT NULL,                 -- Email or @telegram_username
-  encrypted_image_url TEXT NOT NULL,              -- URL to encrypted image in storage
-  encrypted_cropped_url TEXT,                     -- URL to encrypted cropped image
-  encrypted_caption TEXT,                         -- AES encrypted caption
-  caption_iv TEXT,                                -- IV for caption decryption
-  period_type TEXT NOT NULL,                      -- 'surprise', 'custom_period', 'custom_date'
-  send_date DATE NOT NULL,
-  send_time TIMESTAMPTZ NOT NULL,
-  delivered BOOLEAN DEFAULT FALSE,
-  delivered_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+**Tables Created:**
 
--- Create indexes for snaps
-CREATE INDEX IF NOT EXISTS idx_snaps_user_id ON public.snaps(user_id);
-CREATE INDEX IF NOT EXISTS idx_snaps_send_date ON public.snaps(send_date, delivered);
-CREATE INDEX IF NOT EXISTS idx_snaps_delivery ON public.snaps(delivery_address);
+- `passkey_credentials` - WebAuthn credential storage with wrapped encryption keys
+- `snaps` - User's encrypted memories with delivery metadata
+- `webauthn_challenges` - Temporary challenge storage for WebAuthn flows
 
--- 3. Create challenge store for WebAuthn (temporary storage)
-CREATE TABLE IF NOT EXISTS public.webauthn_challenges (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT,                                     -- For registration before user exists
-  challenge TEXT NOT NULL,                        -- Base64URL encoded challenge
-  type TEXT NOT NULL,                             -- 'registration' or 'authentication'
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+**Storage Bucket:**
 
-CREATE INDEX IF NOT EXISTS idx_challenge_email ON public.webauthn_challenges(email);
-CREATE INDEX IF NOT EXISTS idx_challenge_user_id ON public.webauthn_challenges(user_id);
-
-
--- 4. Row Level Security (RLS) Policies
-
--- Enable RLS on all tables
-ALTER TABLE public.passkey_credentials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.snaps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.webauthn_challenges ENABLE ROW LEVEL SECURITY;
-
--- Passkey credentials: Users can only see/manage their own credentials
-CREATE POLICY "Users can view own passkey credentials"
-  ON public.passkey_credentials FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own passkey credentials"
-  ON public.passkey_credentials FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own passkey credentials"
-  ON public.passkey_credentials FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own passkey credentials"
-  ON public.passkey_credentials FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Snaps: Users can only see/manage their own snaps
-CREATE POLICY "Users can view own snaps"
-  ON public.snaps FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own snaps"
-  ON public.snaps FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own snaps"
-  ON public.snaps FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own snaps"
-  ON public.snaps FOR DELETE
-  USING (auth.uid() = user_id);
-
--- WebAuthn challenges: Service role only (API routes use service role)
--- No policies needed - handled by service role key
-
--- 5. Create storage bucket for encrypted images
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('encrypted-images', 'encrypted-images', false)
-ON CONFLICT (id) DO NOTHING;
-
--- Storage policy: Users can only access their own files
-CREATE POLICY "Users can upload own encrypted images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'encrypted-images' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can view own encrypted images"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'encrypted-images' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can delete own encrypted images"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'encrypted-images' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
--- 6. Function to clean up expired challenges (run periodically)
-CREATE OR REPLACE FUNCTION cleanup_expired_challenges()
-RETURNS void AS $$
-BEGIN
-  DELETE FROM public.webauthn_challenges WHERE expires_at < NOW();
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 7. Function to update snaps timestamp
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER snaps_updated_at
-  BEFORE UPDATE ON public.snaps
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at();
-
--- =====================================================
--- Add Per-Credential PRF Salt for WebAuthn Isolation
---
--- This migration adds the 'salt' column to store unique,
--- cryptographically random salts for each credential.
---
--- Security: Each credential must have a unique salt to ensure
--- per-credential isolation and prevent salt reuse attacks.
--- =====================================================
-
--- Add salt column to passkey_credentials table
--- salt: Base64-encoded cryptographically random 32-byte value
-ALTER TABLE public.passkey_credentials
-ADD COLUMN IF NOT EXISTS salt TEXT;
-
--- Create index for salt lookups (useful for future optimizations)
-CREATE INDEX IF NOT EXISTS idx_passkey_salt ON public.passkey_credentials(salt);
-
--- Add constraint to ensure salt is non-empty if present
-ALTER TABLE public.passkey_credentials
-ADD CONSTRAINT check_salt_not_empty CHECK (salt IS NULL OR salt != '');
-
--- Auto-generate salts for existing credentials
--- This ensures all credentials (old and new) have salts
-UPDATE public.passkey_credentials
-SET salt = encode(gen_random_bytes(32), 'base64')
-WHERE salt IS NULL;
-
--- Verify migration completed successfully
--- Run this query to confirm all credentials have salts:
--- SELECT COUNT(*) as total, COUNT(salt) as with_salt FROM passkey_credentials;
--- Both counts should be equal, indicating 100% salt coverage
-
--- Create RPC function to check if user exists by email
--- This function queries the auth.users table which is not directly accessible via PostgREST
-CREATE OR REPLACE FUNCTION check_user_exists(user_email TEXT)
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM auth.users WHERE email = LOWER(user_email)
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Revoke all default permissions
-REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM public;
-REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION check_user_exists(TEXT) FROM anon;
-
--- Grant execute permission only to service_role
-GRANT EXECUTE ON FUNCTION check_user_exists(TEXT) TO service_role;
-
--- RPC function for efficient account type lookup
--- This should be created in your Supabase database
-
-CREATE OR REPLACE FUNCTION get_account_type(user_email TEXT)
-RETURNS TABLE(account_type TEXT, has_passkey BOOLEAN)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    user_record RECORD;
-    passkey_count INTEGER;
-BEGIN
-    -- Find user by email
-    SELECT * INTO user_record
-    FROM auth.users
-    WHERE email = LOWER(user_email)
-    LIMIT 1;
-
-    -- If user not found, return none
-    IF user_record.id IS NULL THEN
-        RETURN QUERY SELECT 'none'::TEXT, false;
-        RETURN;
-    END IF;
-
-    -- Get auth method from metadata
-    DECLARE
-        auth_method TEXT := COALESCE(user_record.raw_user_meta_data->>'auth_method', 'password');
-    BEGIN
-        -- Check for passkey credentials
-        SELECT COUNT(*) INTO passkey_count
-        FROM passkey_credentials
-        WHERE user_id = user_record.id
-        LIMIT 1;
-
-        -- Determine if user has passkey
-        DECLARE
-            has_passkey BOOLEAN := (passkey_count > 0) OR (auth_method = 'passkey') OR (auth_method = 'password_and_passkey');
-        BEGIN
-            RETURN QUERY SELECT auth_method, has_passkey;
-        END;
-    END;
-END;
-$$;
-```
+- `encrypted-images` - Private storage for encrypted images and cropped versions
 
 ### Schema Explanation
 

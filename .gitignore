@@ -108,4 +108,6 @@ tensorboard_logs/
 .DS_Store
 .AppleDouble
 .LSOverride
-/supabase
+
+# Supabase
+supabase/.temp
