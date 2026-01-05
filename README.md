@@ -70,9 +70,6 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 
 ### 🔄 In Progress
 
-- 🔄 **Scheduled Delivery System** — Cron jobs for time-delayed delivery
-- 🔄 **Email Delivery** — Beautiful HTML emails with decryption links
-- 🔄 **Telegram Bot Integration** — Database schema ready, bot implementation in progress
 
 ### 📋 Roadmap
 
