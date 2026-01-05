@@ -55,6 +55,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Period Picker** — Surprise me / Custom period / Specific date
 - ✅ **Caption Input** — Add notes for your future self
 - ✅ **Delivery Method** — Email or Telegram
+- ✅ **Working Delivery** — Via Email or Telegram, triggered by a Cron job on Supabase, running Supabase's Edge Functions.
 - ✅ **Memory Viewing** — Secure decrypt and view interface for delivered memories
 - ✅ **Form Validation** — Zod schemas with user-friendly error messages
 - ✅ **Scroll Animations** — GSAP ScrollTrigger for smooth reveals
