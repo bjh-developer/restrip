@@ -1,53 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "../../../lib/supabase/server";
+import {
+  encryptImage,
+  encryptData,
+  getServerEncryptionKey,
+} from "../../../lib/simple-encryption";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || "",
 );
 
-// Upload to Supabase Storage
+// Upload to Supabase Storage with server-side encryption (anonymous - no auth required)
 export async function POST(request: NextRequest) {
   try {
-    // Verify authenticated user
-    const supabase = await createServerClient();
-    const {
-      data: { user: sessionUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { image, caption } = await request.json();
 
-    console.log("🔐 Upload auth check:", {
-      hasUser: !!sessionUser,
-      userId: sessionUser?.id,
-      error: authError?.message,
-    });
-
-    if (authError || !sessionUser) {
-      console.error("❌ Upload authentication failed:", authError);
+    if (!image || !caption) {
       return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const { encryptedImage } = await request.json();
-
-    if (!encryptedImage) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields (image and caption)" },
         { status: 400 },
       );
     }
 
-    // Convert base64 to buffer for upload
-    const base64Data = encryptedImage.replace(/^data:.*?;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
+    // Get server encryption key
+    const encryptionKey = getServerEncryptionKey();
 
-    // Generate unique file path
+    // Encrypt the image server-side
+    console.log("🔐 Encrypting image server-side...");
+    const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
+      image,
+      encryptionKey,
+    );
+    console.log("✅ Image encrypted successfully");
+
+    // Encrypt the caption server-side
+    console.log("🔐 Encrypting caption server-side...");
+    const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(
+      caption,
+      encryptionKey,
+    );
+    console.log("✅ Caption encrypted successfully");
+
+    // Convert encrypted image base64 to buffer for upload
+    const buffer = Buffer.from(encryptedImage, "base64");
+
+    // Generate unique file path using anonymous folder
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(7);
-    const filePath = `${sessionUser.id}/${timestamp}-${randomId}.enc`;
+    const filePath = `anonymous/${timestamp}-${randomId}.enc`;
 
     // Upload encrypted blob to Supabase Storage
     const { data, error } = await supabaseAdmin.storage
@@ -65,10 +66,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Return the storage path (not the full URL, just the path)
+    // Return the storage path and encrypted caption data
     return NextResponse.json(
       {
         storagePath: data.path,
+        encryptedCaption,
+        captionIv,
+        imageIv,
       },
       { status: 200 },
     );

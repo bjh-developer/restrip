@@ -1,43 +1,35 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowUpRightIcon, Brush, CircleAlert, LogOut } from "lucide-react";
+import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
-import { Label } from "../../../../components/ui/label";
-import { Switch } from "../../../../components/ui/switch";
-import { Textarea } from "../../../../components/ui/textarea";
-import { PeriodPicker } from "../../../components/PeriodPicker";
-import { DeliveryMethodPicker } from "../../../components/DeliveryMethodPicker";
-import ScrollReveal from "../../../components/ScrollReveal";
-import ShinyText from "../../../components/ShinyText";
-import { PasswordLinkingModal } from "../../../components/auth/PasswordLinkingModal";
-import { useAuth } from "../../../hooks/useAuth";
-import {
-  encryptImage,
-  encryptData,
-  getEncryptionKey,
-} from "../../../lib/encryption";
+import { Label } from "../../../components/ui/label";
+import { Switch } from "../../../components/ui/switch";
+import { Textarea } from "../../../components/ui/textarea";
+import { PeriodPicker } from "../../components/PeriodPicker";
+import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
+import ScrollReveal from "../../components/ScrollReveal";
+import ShinyText from "../../components/ShinyText";
 import {
   Announcement,
   AnnouncementTag,
   AnnouncementTitle,
-} from "../../../components/ui/shadcn-io/announcement";
+} from "../../components/ui/shadcn-io/announcement";
 import {
   Banner,
   BannerAction,
   BannerClose,
   BannerIcon,
   BannerTitle,
-} from "../../../components/ui/shadcn-io/banner";
+} from "../../components/ui/shadcn-io/banner";
 import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
-} from "../../../components/ui/shadcn-io/dropzone";
-import { Spinner } from "../../../components/ui/shadcn-io/spinner";
+} from "../../components/ui/shadcn-io/dropzone";
+import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
 
 // Register ScrollTrigger plugin
@@ -45,16 +37,6 @@ try {
   gsap.registerPlugin(ScrollTrigger);
 } catch {
   // Plugin already registered
-}
-
-// Helper to convert base64 to Uint8Array
-function base64ToUint8Array(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
 }
 
 // Helper to compress image before encryption
@@ -248,17 +230,6 @@ const AutoCropSwitch = React.memo(
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function UploadPage() {
-  const router = useRouter();
-  const { user, signOut, hasEncryptionKey, isLoading: authLoading } = useAuth();
-
-  // Redirect to auth if not authenticated
-  useEffect(() => {
-    if (!authLoading && (!user || !hasEncryptionKey)) {
-      console.log("UploadPage: Not fully authenticated, redirecting to /");
-      router.push("/");
-    }
-  }, [user, hasEncryptionKey, authLoading, router]);
-
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
@@ -282,112 +253,6 @@ export default function UploadPage() {
     period?: string;
     deliveryAddress?: string;
   }>({});
-  const [hasPasskey, setHasPasskey] = useState<boolean | null>(null);
-  const [showPasskeySetup, setShowPasskeySetup] = useState(false);
-  const [showPasswordSetup, setShowPasswordSetup] = useState(false);
-  const [showPasswordLinking, setShowPasswordLinking] = useState(false);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
-
-  // Function to check passkey status and update banners
-  const checkPasskeyStatus = useCallback(async () => {
-    if (user?.email) {
-      try {
-        const response = await fetch("/api/auth/check-account-type", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: user.email }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setHasPasskey(data.hasPasskey || false);
-          setShowPasskeySetup(
-            data.accountType === "password" && !data.hasPasskey,
-          );
-          setShowPasswordSetup(
-            data.accountType === "passkey" && data.hasPasskey,
-          );
-        }
-      } catch (error) {
-        console.error("Failed to check passkey status:", error);
-        setHasPasskey(null);
-        setShowPasskeySetup(false);
-        setShowPasswordSetup(false);
-      }
-    } else {
-      setHasPasskey(null);
-      setShowPasskeySetup(false);
-      setShowPasswordSetup(false);
-    }
-  }, [user?.email]);
-
-  // Handle adding passkey authentication
-  const handleAddPasskey = useCallback(
-    async (userEmail: string) => {
-      try {
-        setPasskeyError(null);
-        const response = await fetch("/api/auth/passkey/register-options", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: userEmail }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to get registration options");
-        }
-
-        const { options, salt } = await response.json();
-        const saltBytes = salt ? base64ToUint8Array(salt) : new Uint8Array(32);
-
-        const optionsWithSalt = {
-          ...options,
-          extensions: {
-            ...options.extensions,
-            prf: {
-              eval: {
-                first: saltBytes,
-              },
-            },
-          },
-        };
-
-        const { startRegistration } = await import("@simplewebauthn/browser");
-        const registrationResponse = await startRegistration({
-          optionsJSON: optionsWithSalt,
-        });
-
-        const verifyResponse = await fetch(
-          "/api/auth/passkey/register-verify",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: userEmail,
-              response: registrationResponse,
-              salt: salt,
-            }),
-          },
-        );
-
-        if (verifyResponse.ok) {
-          await checkPasskeyStatus();
-          setShowPasskeySetup(false);
-          setPasskeyError(null);
-        } else {
-          const errorData = await verifyResponse.json().catch(() => ({}));
-          const errorMessage = errorData.error || "Passkey registration failed";
-          console.error("Passkey registration failed:", errorMessage);
-          setPasskeyError(`Registration failed: ${errorMessage}`);
-        }
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error occurred";
-        console.error("Failed to add passkey:", error);
-        setPasskeyError(`Failed to add passkey: ${errorMessage}`);
-      }
-    },
-    [checkPasskeyStatus],
-  );
 
   // Refs for scrolling to error sections
   const imageRef = useRef<HTMLDivElement>(null);
@@ -579,7 +444,7 @@ export default function UploadPage() {
       .refine(
         (data) => {
           if (data.deliveryMethod === "email") {
-            return z.email().safeParse(data.Delivery_Address).success;
+            return z.string().email().safeParse(data.Delivery_Address).success;
           }
           // Telegram doesn't require delivery_address, bot will use chat_id instead
           return true;
@@ -659,34 +524,13 @@ export default function UploadPage() {
     try {
       console.log("All inputs are valid. Proceeding with processing...");
 
-      const encryptionKey = await getEncryptionKey();
-      if (!encryptionKey) {
-        throw new Error(
-          "Encryption key not available. Please sign in again to continue.",
-        );
-      }
-
       const imageToUpload =
         autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
-      // Compress image before encryption
+      // Compress image before sending to server
       console.log("🗜️ Compressing image...");
       const compressedImage = await compressImage(imageToUpload!);
       console.log("✅ Image compressed successfully");
-
-      console.log("🔐 Encrypting image...");
-      const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
-        compressedImage,
-        encryptionKey,
-      );
-      console.log("✅ Image encrypted successfully");
-
-      console.log("🔐 Encrypting caption...");
-      const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(
-        caption,
-        encryptionKey,
-      );
-      console.log("✅ Caption encrypted successfully");
 
       console.log("Processing with period:", selectedPeriod);
       console.log(
@@ -694,18 +538,17 @@ export default function UploadPage() {
         scheduledSendTime?.toISOString(),
         `(${scheduledSendTime?.toLocaleString()})`,
       );
-      console.log("📦 Encrypted payload ready for upload");
 
-      console.log("🚀 Uploading encrypted image blob to server...");
+      // Send image and caption to server for encryption and storage
+      console.log("🚀 Uploading image to server for encryption...");
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify({
-          encryptedImage,
-          userId: user?.id,
+          image: compressedImage,
+          caption: caption,
         }),
       });
 
@@ -713,9 +556,9 @@ export default function UploadPage() {
         throw new Error("Failed to upload image");
       }
 
-      const { storagePath } = await uploadResponse.json();
+      const { storagePath, encryptedCaption, captionIv, imageIv } = await uploadResponse.json();
       console.log(
-        "✅ Image uploaded successfully to storage path:",
+        "✅ Image uploaded and encrypted successfully, storage path:",
         storagePath,
       );
 
@@ -723,9 +566,7 @@ export default function UploadPage() {
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
-          userId: user?.id,
           storagePath,
           encryptedCaption,
           captionIv,
@@ -749,6 +590,7 @@ export default function UploadPage() {
         const botUsername =
           process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
         const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
+        console.log("Telegram link:", telegramLink);
 
         // Show modal with Telegram link
         const shouldOpenTelegram = window.confirm(
@@ -771,7 +613,8 @@ export default function UploadPage() {
       setOriginalImage(undefined);
       setCroppedImage(undefined);
       setCaption("");
-      setResetKey(prev => prev + 1);
+      setDeliveryAddress("");
+      setResetKey((prev) => prev + 1);
       handlePeriodSelect("surprise");
     } catch (error) {
       console.error("Processing failed:", error);
@@ -783,12 +626,6 @@ export default function UploadPage() {
     }
   };
 
-  // Handle sign out with redirect
-  const handleSignOut = async () => {
-    await signOut();
-    router.push("/");
-  };
-
   useEffect(() => {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
@@ -796,13 +633,12 @@ export default function UploadPage() {
   useEffect(() => {
     setValidationErrors([]);
     setFieldErrors({});
-    checkPasskeyStatus();
 
     const timeoutId = setTimeout(() => {
       ScrollTrigger.refresh();
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [user, hasEncryptionKey, checkPasskeyStatus]);
+  }, []);
 
   // Load UserJot SDK
   useEffect(() => {
@@ -820,24 +656,6 @@ export default function UploadPage() {
     `;
     document.head.appendChild(script2);
   }, []);
-
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-warm-beige flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Loading...</div>
-      </div>
-    );
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!user || !hasEncryptionKey) {
-    return (
-      <div className="min-h-screen bg-warm-beige flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Redirecting...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-warm-beige">
@@ -860,130 +678,6 @@ export default function UploadPage() {
           </p>
           <AnnouncementPill />
         </div>
-
-        {/* User info bar */}
-        <div className="max-w-2xl mx-auto mb-4">
-          <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 shadow-sm">
-            <span className="text-sm text-gray-600">
-              Signed in as <span className="font-medium">{user.email}</span>
-            </span>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition"
-            >
-              <LogOut className="size-4" />
-              Sign out
-            </button>
-          </div>
-        </div>
-
-        {/* Password setup banner */}
-        {showPasswordSetup && (
-          <div className="max-w-2xl mx-auto mb-4">
-            <div className="border rounded-lg p-4 bg-green-50 border-green-200">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium mb-1 text-green-800">
-                    Add Password Authentication
-                  </h3>
-                  <p className="text-sm mb-3 text-green-700">
-                    Add a password to your account for additional login options.
-                    This provides a backup authentication method.
-                  </p>
-                  <button
-                    onClick={() => setShowPasswordLinking(true)}
-                    className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition"
-                  >
-                    Add Password
-                  </button>
-                </div>
-                <button
-                  onClick={() => setShowPasswordSetup(false)}
-                  className="ml-4 text-green-400 hover:text-green-600"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Passkey setup banner */}
-        {showPasskeySetup && (
-          <div className="max-w-2xl mx-auto mb-4">
-            <div
-              className={`border rounded-lg p-4 ${
-                passkeyError
-                  ? "bg-red-50 border-red-200"
-                  : "bg-blue-50 border-blue-200"
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3
-                    className={`text-sm font-medium mb-1 ${
-                      passkeyError ? "text-red-800" : "text-blue-800"
-                    }`}
-                  >
-                    {passkeyError
-                      ? "Passkey Setup Failed"
-                      : "Add Passkey Authentication"}
-                  </h3>
-                  <p
-                    className={`text-sm mb-3 ${
-                      passkeyError ? "text-red-700" : "text-blue-700"
-                    }`}
-                  >
-                    {passkeyError ||
-                      "Secure your account with passkey authentication. Passkeys are more secure than passwords and easier to use."}
-                  </p>
-                  {!passkeyError && (
-                    <button
-                      onClick={() =>
-                        user?.email && handleAddPasskey(user.email)
-                      }
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
-                    >
-                      Add Passkey
-                    </button>
-                  )}
-                  {passkeyError && (
-                    <div className="flex gap-2 mt-3">
-                      <button
-                        onClick={() => setPasskeyError(null)}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition"
-                      >
-                        Try Again
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowPasskeySetup(false);
-                          setPasskeyError(null);
-                        }}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-600 transition"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    setShowPasskeySetup(false);
-                    setPasskeyError(null);
-                  }}
-                  className={`ml-4 ${
-                    passkeyError
-                      ? "text-red-400 hover:text-red-600"
-                      : "text-blue-400 hover:text-blue-600"
-                  }`}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Upload Card */}
         <div className="max-w-2xl mx-auto">
@@ -1069,7 +763,10 @@ export default function UploadPage() {
               </h3>
             </div>
             <div className="mt-6 flex gap-4 justify-center" ref={deliveryRef}>
-              <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
+              <DeliveryMethodPicker
+                onSelect={handleDeliveryMethodSelect}
+                error={!!fieldErrors.deliveryAddress}
+              />
             </div>
             {fieldErrors.deliveryAddress && (
               <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
@@ -1093,7 +790,7 @@ export default function UploadPage() {
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing || !hasEncryptionKey}
+              disabled={isProcessing}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing
@@ -1137,21 +834,6 @@ export default function UploadPage() {
           </div>
         </div>
       </div>
-
-      {/* Password Linking Modal */}
-      {showPasswordLinking && user?.id && user?.email && (
-        <PasswordLinkingModal
-          isOpen={showPasswordLinking}
-          onClose={() => setShowPasswordLinking(false)}
-          onSuccess={() => {
-            setShowPasswordLinking(false);
-            setShowPasswordSetup(false);
-            checkPasskeyStatus();
-          }}
-          userId={user.id}
-          email={user.email}
-        />
-      )}
 
       {/* Footer Section */}
       <footer className="bg-soft-black text-warm-beige py-8">
