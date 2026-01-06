@@ -32,22 +32,15 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  // Protected routes - redirect to home if not authenticated
-  if (request.nextUrl.pathname.startsWith("/upload")) {
-    if (!session) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+  // No authentication required - upload is now public
+  // Root page (/) redirects to /upload
+  if (request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/upload", request.url));
   }
-
-  // Note: Root page (/) handles its own auth logic and redirects based on encryption key status
 
   return response;
 }
 
 export const config = {
-  matcher: ["/", "/upload/:path*"],
+  matcher: ["/"],
 };

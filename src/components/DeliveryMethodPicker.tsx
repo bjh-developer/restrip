@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Choicebox,
@@ -9,21 +9,18 @@ import {
   ChoiceboxItemIndicator,
   ChoiceboxItemTitle,
 } from "../components/ui/shadcn-io/choicebox";
-import { useAuth } from "@/src/hooks/useAuth";
 
 type DeliveryMethod = "email" | "telegram";
 
 interface DeliveryMethodPickerProps {
   onSelect: (method: DeliveryMethod, value?: string) => void;
+  error?: boolean;
 }
 
 export const DeliveryMethodPicker = React.memo(
-  ({ onSelect }: DeliveryMethodPickerProps) => {
+  ({ onSelect, error }: DeliveryMethodPickerProps) => {
     const [selected, setSelected] = useState<DeliveryMethod>("email");
-    const [inputValue, setInputValue] = useState<string>("");
-    const [hasInitialized, setHasInitialized] = useState(false);
-
-    const { user } = useAuth();
+    const [emailInput, setEmailInput] = useState<string>("");
 
     const methods: Array<{
       id: DeliveryMethod;
@@ -46,30 +43,21 @@ export const DeliveryMethodPicker = React.memo(
       (method: DeliveryMethod) => {
         setSelected(method);
         if (method === "email") {
-          onSelect(method, user?.email || "");
+          onSelect(method, emailInput);
         } else {
-          setInputValue("");
           onSelect(method, "");
         }
       },
-      [onSelect, user?.email],
+      [onSelect, emailInput],
     );
 
-    const handleInputChange = useCallback(
+    const handleEmailChange = useCallback(
       (value: string) => {
-        setInputValue(value);
-        onSelect(selected, value);
+        setEmailInput(value);
+        onSelect("email", value);
       },
-      [onSelect, selected],
+      [onSelect],
     );
-
-    // Initialize email only once when user is available
-    useEffect(() => {
-      if (!hasInitialized && selected === "email" && user?.email) {
-        setHasInitialized(true);
-        onSelect("email", user.email);
-      }
-    }, [user?.email, selected, onSelect, hasInitialized]);
 
     return (
       <div className="space-y-4 w-full">
@@ -97,9 +85,17 @@ export const DeliveryMethodPicker = React.memo(
         {/* Input Field */}
         <div className="mt-4">
           {selected === "email" && (
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-sm text-gray-600">Sending surprise to:</p>
-              <p className="font-medium text-gray-900">{user?.email}</p>
+            <div className="space-y-2">
+              <Input
+                type="email"
+                placeholder="Enter your email address"
+                value={emailInput}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                className={error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""}
+              />
+              <p className="text-sm text-gray-500">
+                We'll send your memory to this email address
+              </p>
             </div>
           )}
           {selected === "telegram" && (

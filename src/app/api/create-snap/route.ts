@@ -1,29 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "../../../lib/supabase/server";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || "",
 );
 
-// Save snap metadata to database
+// Save snap metadata to database (anonymous - no auth required)
 export async function POST(request: NextRequest) {
   try {
-    // Verify authenticated user
-    const supabase = await createServerClient();
-    const {
-      data: { user: sessionUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !sessionUser) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
     const {
       storagePath,
       encryptedCaption,
@@ -69,7 +54,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from("snaps")
       .insert({
-        user_id: sessionUser.id,
+        user_id: null, // Anonymous upload - null is allowed by schema
         storage_path: storagePath,
         encrypted_caption: encryptedCaption,
         caption_iv: captionIv,

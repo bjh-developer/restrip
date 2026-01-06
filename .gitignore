@@ -111,3 +111,6 @@ tensorboard_logs/
 
 # Supabase
 supabase/.temp
+
+# local backup
+backup-auth-version/
