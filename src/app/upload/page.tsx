@@ -183,7 +183,8 @@ const AnnouncementPill = () => (
   <Announcement className="bg-sky-100 text-sky-700" themed>
     <AnnouncementTag>Info</AnnouncementTag>
     <AnnouncementTitle>
-      Website under construction, functionalities limited
+      Beta testing in progress, all memories<br />
+      will be sent within 5 minutes
       <ArrowUpRightIcon className="shrink-0 opacity-70" size={16} />
     </AnnouncementTitle>
   </Announcement>
