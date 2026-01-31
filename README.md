@@ -621,28 +621,200 @@ Inspired by photobooth culture and the magic of surprise. Built with love for no
 
 ---
 
+## 🚀 Getting Started for New Team Members
+
+Welcome to the ReStrip team! This section will guide you through setting up your local development environment from scratch.
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+| Tool | Minimum Version | Download |
+|------|-----------------|----------|
+| **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
+| **npm** | v9.0.0+ | Comes with Node.js |
+| **Git** | Latest | [git-scm.com](https://git-scm.com/) |
+| **Docker** (optional) | Latest | [docker.com](https://www.docker.com/) - for RunPod local testing |
+
+Verify your installations:
+
+```bash
+node --version   # Should be v18+
+npm --version    # Should be v9+
+git --version    # Any recent version
+```
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/bjh-developer/restrip.git
+cd restrip
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+This will install all required packages including Next.js, React, Supabase clients, and UI libraries.
+
+### Step 3: Set Up External Services
+
+You'll need accounts for the following services:
+
+#### A. Supabase (Required)
+
+1. Create a free account at [supabase.com](https://supabase.com/)
+2. Create a new project
+3. Navigate to **Settings > API** to find your project URL and keys
+4. **Run database migrations** (see Step 4)
+
+#### B. RunPod (Optional - for AI auto-crop feature)
+
+1. Create an account at [runpod.io](https://www.runpod.io/)
+2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
+3. Get your API key and endpoint ID from the RunPod dashboard
+
+### Step 4: Configure Environment Variables
+
+Copy the example environment file and fill in your values:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Then edit `.env.local` with your configuration. See `.env.local.example` for all available options and descriptions.
+
+### Step 5: Set Up Supabase Database
+
+Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
+
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
+| 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
+| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
+| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
+| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
+| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
+| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
+| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
+| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
+
+**Verification queries:**
+
+```sql
+-- Check tables exist
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+
+-- Verify passkey_credentials structure
+SELECT column_name FROM information_schema.columns WHERE table_name = 'passkey_credentials';
+
+-- Confirm RLS is enabled
+SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('passkey_credentials', 'snaps');
+```
+
+### Step 6: Start the Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the ReStrip upload page!
+
+> **Note:** Currently, no authentication is required. Users can directly access the upload flow without signing in. Authentication features will be added in a future update.
+
+### Step 7: Test Your Setup
+
+1. **Test upload flow**: Navigate to `/upload` and try uploading an image
+2. **Test AI cropping** (if RunPod configured): Upload an image with auto-crop enabled
+3. **Test form validation**: Try submitting with missing fields to see validation errors
+
+### Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server (hot reload) |
+| `npm run build` | Create production build |
+| `npm run start` | Run production server |
+| `npm run lint` | Run ESLint code linting |
+
+### Troubleshooting Setup Issues
+
+| Issue | Solution |
+|-------|----------|
+| `Module not found` errors | Delete `node_modules` and run `npm install` |
+| Supabase connection fails | Verify env variables are set correctly |
+| Passkey registration fails | Ensure `NEXT_PUBLIC_ALLOWED_RP_DOMAINS` includes `localhost` |
+| Build/prerender errors | Add `export const dynamic = "force-dynamic"` to affected layouts |
+
+For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 17.
+
+---
+
 ## 🤝 Contributing
 
 ReStrip is currently in active development. Contributions are welcome!
 
-**How to Contribute:**
+### Development Workflow
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. **Fork the repository** and clone your fork locally
+2. **Create a feature branch** from `main`:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. **Make your changes** following our code standards
+4. **Test thoroughly** - ensure builds pass and features work
+5. **Commit with meaningful messages**:
+   ```bash
+   git commit -m "feat: add new awesome feature"
+   ```
+6. **Push and create a Pull Request**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
-**Areas for Contribution:**
+### Commit Message Convention
 
-- Bug fixes and testing
-- Documentation improvements
-- UI/UX enhancements
-- Performance optimizations
-- Security audits
-- Accessibility improvements
+We follow conventional commits:
 
-Please read `TECHNICAL_DOCUMENTATION.md` before contributing to understand the architecture.
+| Type | Description |
+|------|-------------|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation changes |
+| `style:` | Formatting, no code change |
+| `refactor:` | Code restructuring |
+| `test:` | Adding/fixing tests |
+| `chore:` | Build, dependencies, tooling |
+
+### Code Standards
+
+- **TypeScript**: All code must be type-safe
+- **ESLint**: Run `npm run lint` before committing
+- **Formatting**: Use Prettier (config in `.prettierrc`)
+- **Components**: Follow existing patterns in `src/components/`
+- **API Routes**: Place in `src/app/api/` with proper error handling
+
+### Areas for Contribution
+
+| Area | Description |
+|------|-------------|
+| 🐛 **Bug fixes** | Check GitHub Issues for reported bugs |
+| 📖 **Documentation** | Improve docs, add examples |
+| 🎨 **UI/UX** | Enhance user interface and experience |
+| ⚡ **Performance** | Optimize rendering, reduce bundle size |
+| 🔒 **Security** | Security audits, vulnerability fixes |
+| ♿ **Accessibility** | Improve ARIA support, keyboard navigation |
+| 🧪 **Testing** | Add unit/integration tests |
+
+### Before Contributing
+
+1. **Read `TECHNICAL_DOCUMENTATION.md`** - Understand the architecture
+2. **Check existing issues** - Avoid duplicate work
+3. **Discuss major changes** - Open an issue first for big features
+4. **Keep PRs focused** - One feature/fix per PR
 
 ---
 

@@ -2,7 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
-  <p><em>Last updated: 5 Jan 2026</em></p>
+  <p><em>Last updated: 31 Jan 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -20,13 +20,14 @@ This document provides comprehensive technical documentation for the ReStrip pro
 7. [Encryption System](#7-encryption-system)
 8. [Database & Storage](#8-database--storage)
 9. [AI Image Processing Pipeline](#9-ai-image-processing-pipeline)
-10. [API Routes Reference](#10-api-routes-reference)
-11. [Component Library](#11-component-library)
-12. [State Management](#12-state-management)
-13. [Styling & Design System](#13-styling--design-system)
-14. [Development Workflow](#14-development-workflow)
-15. [Security Best Practices](#15-security-best-practices)
-16. [Troubleshooting Guide](#16-troubleshooting-guide)
+10. [Supabase Edge Functions (Delivery System)](#10-supabase-edge-functions-delivery-system)
+11. [API Routes Reference](#11-api-routes-reference)
+12. [Component Library](#12-component-library)
+13. [State Management](#13-state-management)
+14. [Styling & Design System](#14-styling--design-system)
+15. [Development Workflow](#15-development-workflow)
+16. [Security Best Practices](#16-security-best-practices)
+17. [Troubleshooting Guide](#17-troubleshooting-guide)
 
 ---
 
@@ -89,25 +90,25 @@ npm install
 
 #### 3. Environment Variables Setup
 
-Create `.env.local` file:
+Copy the example environment file and configure it:
 
-```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://<supabase id>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase anon key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase service role key>
-
-# RunPod Configuration (Server-side only)
-RUNPOD_API_KEY=<runpod api key>
-RUNPOD_ENDPOINT_ID=<runpod endpoint id>
-
-# Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-# Comma-separated list of allowed origins (supports wildcard patterns like *.vercel.app)
-NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
-# Comma-separated list of allowed RP domains (for WebAuthn RP ID validation)
-NEXT_PUBLIC_ALLOWED_RP_DOMAINS=localhost,127.0.0.1
+```bash
+cp .env.local.example .env.local
 ```
+
+Edit `.env.local` with your configuration values. The example file contains all available options with descriptions.
+
+**Key environment variables:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
+| `RUNPOD_API_KEY` | Optional | RunPod API key for AI cropping |
+| `RUNPOD_ENDPOINT_ID` | Optional | RunPod endpoint ID |
+| `NEXT_PUBLIC_APP_URL` | Yes | Your application URL |
+| `ENCRYPTION_SECRET` | Optional | Server-side encryption key for delivery |
 
 #### 4. Supabase Setup
 
@@ -117,13 +118,13 @@ Apply all migrations from `supabase/migrations/` in order in your Supabase SQL E
 
 1. **001_passkey_auth.sql** - Core tables (passkey_credentials, snaps, webauthn_challenges, storage bucket, RLS policies)
 2. **002_add_prf_salt_to_credentials.sql** - Add salt column to passkey_credentials for WebAuthn isolation
-3. **002_delivery_status.sql** - Add delivery status tracking columns
-4. **003_check_user_exists_rpc.sql** - RPC function to check if user exists by email
-5. **004_rpc_get_account_type.sql** - RPC function for efficient account type lookup
-6. **005_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
-7. **006_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
-8. **007_telegram_bot_integration.sql** - Add telegram_chat_id column
-9. **008_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
+3. **003_delivery_status.sql** - Add delivery status tracking columns
+4. **004_check_user_exists_rpc.sql** - RPC function to check if user exists by email
+5. **005_rpc_get_account_type.sql** - RPC function for efficient account type lookup
+6. **006_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
+7. **007_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
+8. **008_telegram_bot_integration.sql** - Add telegram_chat_id column
+9. **009_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
 
 **Quick Setup:**
 
@@ -159,6 +160,41 @@ npm run build  # Create production build
 npm run start  # Start production server
 npm run lint   # Run ESLint
 ```
+
+### Quick Reference for New Developers
+
+Here's a quick mental map of how everything connects:
+
+**User Journey:**
+```
+Sign Up → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt → Store → [Time Passes] → Deliver → Decrypt & View
+```
+
+**Key Files to Understand First:**
+
+Current version without authentication
+| File | Purpose | Priority |
+|------|---------|----------|
+| `src/app/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
+| `middleware.ts` | Route protection | ⭐⭐ |
+| `runpod/handler.py` | AI image cropping | ⭐ |
+
+Version with authentication
+| File | Purpose | Priority |
+|------|---------|----------|
+| `src/app/(protected)/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
+| `src/hooks/useAuth.tsx` | Authentication state management | ⭐⭐⭐ |
+| `src/lib/encryption.ts` | All encryption/decryption logic | ⭐⭐⭐ |
+| `src/app/api/auth/passkey/*` | WebAuthn server endpoints | ⭐⭐ |
+| `middleware.ts` | Route protection | ⭐⭐ |
+| `runpod/handler.py` | AI image cropping | ⭐ |
+
+**Data Flow Summary:**
+
+1. **Upload**: Image → Client-side encryption → Supabase Storage
+2. **Store**: Encrypted metadata → Supabase Database (snaps table)
+3. **Deliver**: Cron job → Edge Function → Decrypt → Email/Telegram
+4. **View**: Fetch encrypted data → Client-side decryption → Display
 
 ---
 
@@ -315,6 +351,20 @@ sequenceDiagram
 
 Route groups use parentheses `()` to organize files without affecting URLs.
 
+Current version without authentication
+```
+app/
+  upload/
+    page.tsx        → URL: /upload
+  (misc)/
+    contact/
+      page.tsx        → URL: /contact
+    privacy-policy/
+      page.tsx        → URL: /privacy-policy
+  page.tsx        → URL: / (but auto redirects to /upload)
+```
+
+Version with authentication
 ```
 app/
   (auth)/
@@ -783,6 +833,8 @@ export const config = {
 
 ## 6. Authentication System
 
+> **⚠️ Current Status:** Authentication is not currently required. Users can access the upload flow directly without signing in. Authentication features (passkey and email/password) are implemented but disabled for the current release. This section documents the authentication architecture for future reference.
+
 ### Overview
 
 ReStrip supports two authentication methods:
@@ -1183,13 +1235,13 @@ Run the migrations in order in your Supabase SQL Editor:
 
 1. `001_passkey_auth.sql` - Creates core tables and RLS policies
 2. `002_add_prf_salt_to_credentials.sql` - Adds per-credential salt for WebAuthn isolation
-3. `002_delivery_status.sql` - Adds delivery status tracking
-4. `003_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
-5. `004_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
-6. `005_consolidate_snap_image_urls.sql` - Consolidates image URL columns
-7. `006_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
-8. `007_telegram_bot_integration.sql` - Adds Telegram integration
-9. `008_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
+3. `003_delivery_status.sql` - Adds delivery status tracking
+4. `004_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
+5. `005_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
+6. `006_consolidate_snap_image_urls.sql` - Consolidates image URL columns
+7. `007_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
+8. `008_telegram_bot_integration.sql` - Adds Telegram integration
+9. `009_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
 
 **Tables Created:**
 
@@ -1357,6 +1409,136 @@ def straighten_transparent_crop(iso_crop):
     return straightened
 ```
 
+### Running RunPod Locally (Without Deployment)
+
+For development and testing, you can run the RunPod handler locally without deploying to RunPod's cloud infrastructure.
+
+#### Prerequisites
+
+- **Python 3.10+**
+- **pip** (Python package manager)
+- **Model weights** at `runpod/runs/segment/train/weights/best.pt`
+
+> **Note:** The YOLO model weights file is not included in the repository. Contact the team lead to obtain the trained model weights.
+
+#### Step 1: Set Up Python Environment
+
+```bash
+# Navigate to runpod directory
+cd runpod
+
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**For CPU-only systems** (no NVIDIA GPU), install PyTorch CPU version instead:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+```
+
+#### Step 2: Create Test Input
+
+Place a test image (e.g., a photo containing a photo strip) in `runpod/test_files/`:
+
+```bash
+# Create test directory if needed
+mkdir -p test_files
+
+# Copy your test image
+cp /path/to/your/photostrip_image.jpg test_files/IMG_1287.JPG
+```
+
+Generate the test input JSON:
+
+```bash
+python create_test_input.py
+```
+
+This creates `test_input.json` with your base64-encoded image.
+
+#### Step 3: Run the Handler Locally
+
+```bash
+python test_handler.py
+```
+
+**Expected output:**
+
+```
+🚀 Testing handler...
+
+📊 Results:
+  Success: True
+  Dimensions: {'width': 1536, 'height': 3366}
+  Base64 length: 2847293 characters
+
+✅ Output saved to test_output.json
+✅ Image saved to test_output.png
+```
+
+The cropped photo strip will be saved as `test_output.png`.
+
+#### Step 4: Integrate with Local Next.js App
+
+To use your local RunPod handler with the Next.js application, you have two options:
+
+**Option A: Mock the RunPod API (Recommended for Development)**
+
+Create a local API endpoint that mimics RunPod. Add to your `.env.local`:
+
+```env
+# Leave RunPod env vars empty to disable cloud processing
+RUNPOD_API_KEY=
+RUNPOD_ENDPOINT_ID=
+```
+
+Then modify the crop-image API route to call a local Python server or skip AI cropping during development.
+
+**Option B: Run a Local Flask Server**
+
+Create a simple Flask wrapper for the handler:
+
+```python
+# runpod/local_server.py
+from flask import Flask, request, jsonify
+from handler import handler
+
+app = Flask(__name__)
+
+@app.route('/runsync', methods=['POST'])
+def process():
+    data = request.json
+    result = handler(data)
+    return jsonify({'output': result})
+
+if __name__ == '__main__':
+    app.run(port=8000, debug=True)
+```
+
+Run the server:
+
+```bash
+pip install flask
+python local_server.py
+```
+
+**Note:** The local Flask server approach requires modifying the `/api/crop-image/route.ts` to detect and handle local development mode. This is an advanced configuration that may not be necessary for most development workflows. For simpler testing, use the direct Python test approach described above.
+
+#### Troubleshooting Local RunPod
+
+| Issue | Solution |
+|-------|----------|
+| `ModuleNotFoundError: No module named 'ultralytics'` | Run `pip install ultralytics` |
+| `FileNotFoundError: runs/segment/train/weights/best.pt` | Obtain model weights from team lead |
+| CUDA out of memory | Use CPU version of PyTorch or reduce image size |
+| Slow inference on CPU | Expected - GPU recommended for production |
+
 ### Docker Configuration
 
 **File**: `Dockerfile`
@@ -1401,7 +1583,164 @@ torchvision>=0.15.0
 
 ---
 
-## 10. API Routes Reference
+## 10. Supabase Edge Functions (Delivery System)
+
+ReStrip uses Supabase Edge Functions to handle scheduled memory delivery. These serverless functions run on Deno and are triggered by a cron job.
+
+### Edge Functions Overview
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `restrip-memories` | `supabase/functions/restrip-memories/` | Main delivery function - sends due memories via email or Telegram |
+| `telegram-bot` | `supabase/functions/telegram-bot/` | Webhook handler for Telegram bot interactions |
+
+### Memory Delivery Function (`restrip-memories`)
+
+**File:** `supabase/functions/restrip-memories/index.ts`
+
+This function:
+1. Queries the database for memories that are due for delivery
+2. Downloads encrypted images from Supabase Storage
+3. Decrypts images using the server-side encryption key
+4. Sends memories via the user's chosen delivery method (email or Telegram)
+5. Updates delivery status in the database
+
+**Deployment:**
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref your-project-ref
+
+# Deploy the function
+supabase functions deploy restrip-memories
+```
+
+**Required Secrets (set in Supabase Dashboard > Edge Functions > Secrets):**
+
+| Secret | Description |
+|--------|-------------|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (admin access) |
+| `ENCRYPTION_SECRET` | Server-side decryption key (base64-encoded AES-256 key) |
+| `GMAIL_USER` | Gmail address for sending emails |
+| `GMAIL_APP_PASSWORD` | Gmail app password (not your regular password) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather |
+
+**Setting Up Gmail for Email Delivery:**
+
+1. Go to [Google Account Security](https://myaccount.google.com/security)
+2. Enable 2-Factor Authentication (required)
+3. Go to **App passwords** and generate a new app password
+4. Use this app password for `GMAIL_APP_PASSWORD`
+
+**Cron Job Setup:**
+
+In your Supabase project, create a cron job to trigger the function periodically:
+
+```sql
+-- Run every 5 minutes
+SELECT cron.schedule(
+  'send-due-memories',
+  '*/5 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/restrip-memories',
+    headers := '{"Authorization": "Bearer your-service-role-key"}'::jsonb
+  );
+  $$
+);
+```
+
+### Telegram Bot Function (`telegram-bot`)
+
+**File:** `supabase/functions/telegram-bot/index.ts`
+
+This function handles Telegram bot webhooks for:
+- `/start snap_<id>` - Links a user's Telegram chat to their memory for delivery
+
+**Deployment:**
+
+```bash
+supabase functions deploy telegram-bot
+```
+
+**Required Secrets:**
+
+| Secret | Description |
+|--------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key |
+
+**Setting Up the Telegram Bot:**
+
+1. **Create the bot:**
+   - Message [@BotFather](https://t.me/botfather) on Telegram
+   - Send `/newbot` and follow the prompts
+   - Save the bot token
+
+2. **Set up the webhook:**
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "url": "https://your-project-ref.supabase.co/functions/v1/telegram-bot",
+       "secret_token": "your-webhook-secret"
+     }'
+   ```
+
+3. **Test the webhook:**
+   ```bash
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+   ```
+
+### Server-Side Encryption Key
+
+For the delivery system to work, you need a server-side encryption key that can decrypt user memories. This is the `ENCRYPTION_SECRET` environment variable.
+
+**⚠️ Security Note:** This breaks the "zero-knowledge" property for delivery. The server needs to decrypt images to send them. If you require true zero-knowledge, consider alternative delivery methods where the client decrypts.
+
+**Generating the Key:**
+
+```javascript
+// Run this in a Node.js environment
+const crypto = require('crypto');
+const key = crypto.randomBytes(32); // 256 bits
+const keyBase64 = key.toString('base64');
+console.log('ENCRYPTION_SECRET:', keyBase64);
+```
+
+### Testing Edge Functions Locally
+
+```bash
+# Start local Supabase
+supabase start
+
+# Serve functions locally
+supabase functions serve
+
+# Test the function
+curl -X POST http://localhost:54321/functions/v1/restrip-memories \
+  -H "Authorization: Bearer your-anon-key" \
+  -H "Content-Type: application/json"
+```
+
+### Monitoring and Debugging
+
+- **Logs**: View in Supabase Dashboard > Edge Functions > Logs
+- **Errors**: Check the `snaps.error_message` column for failed deliveries
+- **Retry**: Failed deliveries are retried automatically (tracked in `snaps.retry_count`)
+
+---
+
+## 11. API Routes Reference
 
 ### Authentication Endpoints
 
@@ -1434,7 +1773,7 @@ torchvision>=0.15.0
 
 ---
 
-## 11. Component Library
+## 12. Component Library
 
 ### Base UI Components
 
@@ -1484,7 +1823,7 @@ From `src/components/auth/`:
 
 ---
 
-## 12. State Management
+## 13. State Management
 
 ### Global State (React Context)
 
@@ -1566,7 +1905,7 @@ sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
 
 ---
 
-## 13. Styling & Design System
+## 14. Styling & Design System
 
 ### Tailwind CSS
 
@@ -1683,7 +2022,7 @@ animation: {
 
 ---
 
-## 14. Development Workflow
+## 15. Development Workflow
 
 ### Development Setup
 
@@ -1761,7 +2100,7 @@ chore: update dependencies
 
 ---
 
-## 15. Security Best Practices
+## 16. Security Best Practices
 
 ### For Developers
 
@@ -1856,7 +2195,7 @@ async headers() {
 
 ---
 
-## 16. Troubleshooting Guide
+## 17. Troubleshooting Guide
 
 ### Common Issues
 
