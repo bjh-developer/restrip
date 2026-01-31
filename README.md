@@ -784,7 +784,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 | Passkey registration fails | Ensure `NEXT_PUBLIC_ALLOWED_RP_DOMAINS` includes `localhost` |
 | Build/prerender errors | Add `export const dynamic = "force-dynamic"` to affected layouts |
 
-For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 16.
+For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 17.
 
 ---
 
