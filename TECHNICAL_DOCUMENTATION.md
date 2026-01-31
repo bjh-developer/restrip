@@ -2,7 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
-  <p><em>Last updated: 5 Jan 2026</em></p>
+  <p><em>Last updated: 31 Jan 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -20,13 +20,14 @@ This document provides comprehensive technical documentation for the ReStrip pro
 7. [Encryption System](#7-encryption-system)
 8. [Database & Storage](#8-database--storage)
 9. [AI Image Processing Pipeline](#9-ai-image-processing-pipeline)
-10. [API Routes Reference](#10-api-routes-reference)
-11. [Component Library](#11-component-library)
-12. [State Management](#12-state-management)
-13. [Styling & Design System](#13-styling--design-system)
-14. [Development Workflow](#14-development-workflow)
-15. [Security Best Practices](#15-security-best-practices)
-16. [Troubleshooting Guide](#16-troubleshooting-guide)
+10. [Supabase Edge Functions (Delivery System)](#10-supabase-edge-functions-delivery-system)
+11. [API Routes Reference](#11-api-routes-reference)
+12. [Component Library](#12-component-library)
+13. [State Management](#13-state-management)
+14. [Styling & Design System](#14-styling--design-system)
+15. [Development Workflow](#15-development-workflow)
+16. [Security Best Practices](#16-security-best-practices)
+17. [Troubleshooting Guide](#17-troubleshooting-guide)
 
 ---
 
@@ -159,6 +160,33 @@ npm run build  # Create production build
 npm run start  # Start production server
 npm run lint   # Run ESLint
 ```
+
+### Quick Reference for New Developers
+
+Here's a quick mental map of how everything connects:
+
+**User Journey:**
+```
+Sign In → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt → Store → [Time Passes] → Deliver → Decrypt & View
+```
+
+**Key Files to Understand First:**
+
+| File | Purpose | Priority |
+|------|---------|----------|
+| `src/app/(protected)/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
+| `src/hooks/useAuth.tsx` | Authentication state management | ⭐⭐⭐ |
+| `src/lib/encryption.ts` | All encryption/decryption logic | ⭐⭐⭐ |
+| `src/app/api/auth/passkey/*` | WebAuthn server endpoints | ⭐⭐ |
+| `middleware.ts` | Route protection | ⭐⭐ |
+| `runpod/handler.py` | AI image cropping | ⭐ |
+
+**Data Flow Summary:**
+
+1. **Upload**: Image → Client-side encryption → Supabase Storage
+2. **Store**: Encrypted metadata → Supabase Database (snaps table)
+3. **Deliver**: Cron job → Edge Function → Decrypt → Email/Telegram
+4. **View**: Fetch encrypted data → Client-side decryption → Display
 
 ---
 
@@ -1401,7 +1429,164 @@ torchvision>=0.15.0
 
 ---
 
-## 10. API Routes Reference
+## 10. Supabase Edge Functions (Delivery System)
+
+ReStrip uses Supabase Edge Functions to handle scheduled memory delivery. These serverless functions run on Deno and are triggered by a cron job.
+
+### Edge Functions Overview
+
+| Function | Location | Purpose |
+|----------|----------|---------|
+| `restrip-memories` | `supabase/functions/restrip-memories/` | Main delivery function - sends due memories via email or Telegram |
+| `telegram-bot` | `supabase/functions/telegram-bot/` | Webhook handler for Telegram bot interactions |
+
+### Memory Delivery Function (`restrip-memories`)
+
+**File:** `supabase/functions/restrip-memories/index.ts`
+
+This function:
+1. Queries the database for memories that are due for delivery
+2. Downloads encrypted images from Supabase Storage
+3. Decrypts images using the server-side encryption key
+4. Sends memories via the user's chosen delivery method (email or Telegram)
+5. Updates delivery status in the database
+
+**Deployment:**
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref your-project-ref
+
+# Deploy the function
+supabase functions deploy restrip-memories
+```
+
+**Required Secrets (set in Supabase Dashboard > Edge Functions > Secrets):**
+
+| Secret | Description |
+|--------|-------------|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (admin access) |
+| `ENCRYPTION_SECRET` | Server-side decryption key (base64-encoded AES-256 key) |
+| `GMAIL_USER` | Gmail address for sending emails |
+| `GMAIL_APP_PASSWORD` | Gmail app password (not your regular password) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather |
+
+**Setting Up Gmail for Email Delivery:**
+
+1. Go to [Google Account Security](https://myaccount.google.com/security)
+2. Enable 2-Factor Authentication (required)
+3. Go to **App passwords** and generate a new app password
+4. Use this app password for `GMAIL_APP_PASSWORD`
+
+**Cron Job Setup:**
+
+In your Supabase project, create a cron job to trigger the function periodically:
+
+```sql
+-- Run every 5 minutes
+SELECT cron.schedule(
+  'send-due-memories',
+  '*/5 * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/restrip-memories',
+    headers := '{"Authorization": "Bearer your-service-role-key"}'::jsonb
+  );
+  $$
+);
+```
+
+### Telegram Bot Function (`telegram-bot`)
+
+**File:** `supabase/functions/telegram-bot/index.ts`
+
+This function handles Telegram bot webhooks for:
+- `/start snap_<id>` - Links a user's Telegram chat to their memory for delivery
+
+**Deployment:**
+
+```bash
+supabase functions deploy telegram-bot
+```
+
+**Required Secrets:**
+
+| Secret | Description |
+|--------|-------------|
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key |
+
+**Setting Up the Telegram Bot:**
+
+1. **Create the bot:**
+   - Message [@BotFather](https://t.me/botfather) on Telegram
+   - Send `/newbot` and follow the prompts
+   - Save the bot token
+
+2. **Set up the webhook:**
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "url": "https://your-project-ref.supabase.co/functions/v1/telegram-bot",
+       "secret_token": "your-webhook-secret"
+     }'
+   ```
+
+3. **Test the webhook:**
+   ```bash
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+   ```
+
+### Server-Side Encryption Key
+
+For the delivery system to work, you need a server-side encryption key that can decrypt user memories. This is the `ENCRYPTION_SECRET` environment variable.
+
+**⚠️ Security Note:** This breaks the "zero-knowledge" property for delivery. The server needs to decrypt images to send them. If you require true zero-knowledge, consider alternative delivery methods where the client decrypts.
+
+**Generating the Key:**
+
+```javascript
+// Run this in a Node.js environment
+const crypto = require('crypto');
+const key = crypto.randomBytes(32); // 256 bits
+const keyBase64 = key.toString('base64');
+console.log('ENCRYPTION_SECRET:', keyBase64);
+```
+
+### Testing Edge Functions Locally
+
+```bash
+# Start local Supabase
+supabase start
+
+# Serve functions locally
+supabase functions serve
+
+# Test the function
+curl -X POST http://localhost:54321/functions/v1/restrip-memories \
+  -H "Authorization: Bearer your-anon-key" \
+  -H "Content-Type: application/json"
+```
+
+### Monitoring and Debugging
+
+- **Logs**: View in Supabase Dashboard > Edge Functions > Logs
+- **Errors**: Check the `snaps.error_message` column for failed deliveries
+- **Retry**: Failed deliveries are retried automatically (tracked in `snaps.retry_count`)
+
+---
+
+## 11. API Routes Reference
 
 ### Authentication Endpoints
 
@@ -1434,7 +1619,7 @@ torchvision>=0.15.0
 
 ---
 
-## 11. Component Library
+## 12. Component Library
 
 ### Base UI Components
 
@@ -1484,7 +1669,7 @@ From `src/components/auth/`:
 
 ---
 
-## 12. State Management
+## 13. State Management
 
 ### Global State (React Context)
 
@@ -1566,7 +1751,7 @@ sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
 
 ---
 
-## 13. Styling & Design System
+## 14. Styling & Design System
 
 ### Tailwind CSS
 
@@ -1683,7 +1868,7 @@ animation: {
 
 ---
 
-## 14. Development Workflow
+## 15. Development Workflow
 
 ### Development Setup
 
@@ -1761,7 +1946,7 @@ chore: update dependencies
 
 ---
 
-## 15. Security Best Practices
+## 16. Security Best Practices
 
 ### For Developers
 
@@ -1856,7 +2041,7 @@ async headers() {
 
 ---
 
-## 16. Troubleshooting Guide
+## 17. Troubleshooting Guide
 
 ### Common Issues
 
