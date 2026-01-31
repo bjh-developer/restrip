@@ -1506,15 +1506,7 @@ pip install flask
 python local_server.py
 ```
 
-Update your `.env.local` to point to local server:
-
-```env
-# Point to local server for development
-RUNPOD_API_KEY=local-dev
-RUNPOD_ENDPOINT_ID=http://localhost:8000
-```
-
-**Note:** You'll need to modify `/api/crop-image/route.ts` to handle local endpoints differently.
+**Note:** The local Flask server approach requires modifying the `/api/crop-image/route.ts` to detect and handle local development mode. This is an advanced configuration that may not be necessary for most development workflows. For simpler testing, use the direct Python test approach described above.
 
 #### Troubleshooting Local RunPod
 
