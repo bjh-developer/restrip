@@ -167,11 +167,19 @@ Here's a quick mental map of how everything connects:
 
 **User Journey:**
 ```
-Sign In → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt → Store → [Time Passes] → Deliver → Decrypt & View
+Sign Up → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt → Store → [Time Passes] → Deliver → Decrypt & View
 ```
 
 **Key Files to Understand First:**
 
+Current version without authentication
+| File | Purpose | Priority |
+|------|---------|----------|
+| `src/app/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
+| `middleware.ts` | Route protection | ⭐⭐ |
+| `runpod/handler.py` | AI image cropping | ⭐ |
+
+Version with authentication
 | File | Purpose | Priority |
 |------|---------|----------|
 | `src/app/(protected)/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
@@ -343,6 +351,20 @@ sequenceDiagram
 
 Route groups use parentheses `()` to organize files without affecting URLs.
 
+Current version without authentication
+```
+app/
+  upload/
+    page.tsx        → URL: /upload
+  (misc)/
+    contact/
+      page.tsx        → URL: /contact
+    privacy-policy/
+      page.tsx        → URL: /privacy-policy
+  page.tsx        → URL: / (but auto redirects to /upload)
+```
+
+Version with authentication
 ```
 app/
   (auth)/
