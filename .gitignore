@@ -114,3 +114,4 @@ supabase/.temp
 
 # local backup
 backup-auth-version/
+/.github
