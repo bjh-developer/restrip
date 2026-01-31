@@ -90,25 +90,25 @@ npm install
 
 #### 3. Environment Variables Setup
 
-Create `.env.local` file:
+Copy the example environment file and configure it:
 
-```env
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://<supabase id>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase anon key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase service role key>
-
-# RunPod Configuration (Server-side only)
-RUNPOD_API_KEY=<runpod api key>
-RUNPOD_ENDPOINT_ID=<runpod endpoint id>
-
-# Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-# Comma-separated list of allowed origins (supports wildcard patterns like *.vercel.app)
-NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
-# Comma-separated list of allowed RP domains (for WebAuthn RP ID validation)
-NEXT_PUBLIC_ALLOWED_RP_DOMAINS=localhost,127.0.0.1
+```bash
+cp .env.local.example .env.local
 ```
+
+Edit `.env.local` with your configuration values. The example file contains all available options with descriptions.
+
+**Key environment variables:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
+| `RUNPOD_API_KEY` | Optional | RunPod API key for AI cropping |
+| `RUNPOD_ENDPOINT_ID` | Optional | RunPod endpoint ID |
+| `NEXT_PUBLIC_APP_URL` | Yes | Your application URL |
+| `ENCRYPTION_SECRET` | Optional | Server-side encryption key for delivery |
 
 #### 4. Supabase Setup
 
@@ -118,13 +118,13 @@ Apply all migrations from `supabase/migrations/` in order in your Supabase SQL E
 
 1. **001_passkey_auth.sql** - Core tables (passkey_credentials, snaps, webauthn_challenges, storage bucket, RLS policies)
 2. **002_add_prf_salt_to_credentials.sql** - Add salt column to passkey_credentials for WebAuthn isolation
-3. **002_delivery_status.sql** - Add delivery status tracking columns
-4. **003_check_user_exists_rpc.sql** - RPC function to check if user exists by email
-5. **004_rpc_get_account_type.sql** - RPC function for efficient account type lookup
-6. **005_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
-7. **006_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
-8. **007_telegram_bot_integration.sql** - Add telegram_chat_id column
-9. **008_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
+3. **003_delivery_status.sql** - Add delivery status tracking columns
+4. **004_check_user_exists_rpc.sql** - RPC function to check if user exists by email
+5. **005_rpc_get_account_type.sql** - RPC function for efficient account type lookup
+6. **006_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
+7. **007_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
+8. **008_telegram_bot_integration.sql** - Add telegram_chat_id column
+9. **009_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
 
 **Quick Setup:**
 
@@ -811,6 +811,8 @@ export const config = {
 
 ## 6. Authentication System
 
+> **⚠️ Current Status:** Authentication is not currently required. Users can access the upload flow directly without signing in. Authentication features (passkey and email/password) are implemented but disabled for the current release. This section documents the authentication architecture for future reference.
+
 ### Overview
 
 ReStrip supports two authentication methods:
@@ -1211,13 +1213,13 @@ Run the migrations in order in your Supabase SQL Editor:
 
 1. `001_passkey_auth.sql` - Creates core tables and RLS policies
 2. `002_add_prf_salt_to_credentials.sql` - Adds per-credential salt for WebAuthn isolation
-3. `002_delivery_status.sql` - Adds delivery status tracking
-4. `003_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
-5. `004_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
-6. `005_consolidate_snap_image_urls.sql` - Consolidates image URL columns
-7. `006_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
-8. `007_telegram_bot_integration.sql` - Adds Telegram integration
-9. `008_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
+3. `003_delivery_status.sql` - Adds delivery status tracking
+4. `004_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
+5. `005_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
+6. `006_consolidate_snap_image_urls.sql` - Consolidates image URL columns
+7. `007_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
+8. `008_telegram_bot_integration.sql` - Adds Telegram integration
+9. `009_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
 
 **Tables Created:**
 
@@ -1384,6 +1386,144 @@ def straighten_transparent_crop(iso_crop):
 
     return straightened
 ```
+
+### Running RunPod Locally (Without Deployment)
+
+For development and testing, you can run the RunPod handler locally without deploying to RunPod's cloud infrastructure.
+
+#### Prerequisites
+
+- **Python 3.10+**
+- **pip** (Python package manager)
+- **Model weights** at `runpod/runs/segment/train/weights/best.pt`
+
+> **Note:** The YOLO model weights file is not included in the repository. Contact the team lead to obtain the trained model weights.
+
+#### Step 1: Set Up Python Environment
+
+```bash
+# Navigate to runpod directory
+cd runpod
+
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**For CPU-only systems** (no NVIDIA GPU), install PyTorch CPU version instead:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+```
+
+#### Step 2: Create Test Input
+
+Place a test image (e.g., a photo containing a photo strip) in `runpod/test_files/`:
+
+```bash
+# Create test directory if needed
+mkdir -p test_files
+
+# Copy your test image
+cp /path/to/your/photostrip_image.jpg test_files/IMG_1287.JPG
+```
+
+Generate the test input JSON:
+
+```bash
+python create_test_input.py
+```
+
+This creates `test_input.json` with your base64-encoded image.
+
+#### Step 3: Run the Handler Locally
+
+```bash
+python test_handler.py
+```
+
+**Expected output:**
+
+```
+🚀 Testing handler...
+
+📊 Results:
+  Success: True
+  Dimensions: {'width': 1536, 'height': 3366}
+  Base64 length: 2847293 characters
+
+✅ Output saved to test_output.json
+✅ Image saved to test_output.png
+```
+
+The cropped photo strip will be saved as `test_output.png`.
+
+#### Step 4: Integrate with Local Next.js App
+
+To use your local RunPod handler with the Next.js application, you have two options:
+
+**Option A: Mock the RunPod API (Recommended for Development)**
+
+Create a local API endpoint that mimics RunPod. Add to your `.env.local`:
+
+```env
+# Leave RunPod env vars empty to disable cloud processing
+RUNPOD_API_KEY=
+RUNPOD_ENDPOINT_ID=
+```
+
+Then modify the crop-image API route to call a local Python server or skip AI cropping during development.
+
+**Option B: Run a Local Flask Server**
+
+Create a simple Flask wrapper for the handler:
+
+```python
+# runpod/local_server.py
+from flask import Flask, request, jsonify
+from handler import handler
+
+app = Flask(__name__)
+
+@app.route('/runsync', methods=['POST'])
+def process():
+    data = request.json
+    result = handler(data)
+    return jsonify({'output': result})
+
+if __name__ == '__main__':
+    app.run(port=8000, debug=True)
+```
+
+Run the server:
+
+```bash
+pip install flask
+python local_server.py
+```
+
+Update your `.env.local` to point to local server:
+
+```env
+# Point to local server for development
+RUNPOD_API_KEY=local-dev
+RUNPOD_ENDPOINT_ID=http://localhost:8000
+```
+
+**Note:** You'll need to modify `/api/crop-image/route.ts` to handle local endpoints differently.
+
+#### Troubleshooting Local RunPod
+
+| Issue | Solution |
+|-------|----------|
+| `ModuleNotFoundError: No module named 'ultralytics'` | Run `pip install ultralytics` |
+| `FileNotFoundError: runs/segment/train/weights/best.pt` | Obtain model weights from team lead |
+| CUDA out of memory | Use CPU version of PyTorch or reduce image size |
+| Slow inference on CPU | Expected - GPU recommended for production |
 
 ### Docker Configuration
 

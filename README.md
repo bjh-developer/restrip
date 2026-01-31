@@ -678,37 +678,13 @@ You'll need accounts for the following services:
 
 ### Step 4: Configure Environment Variables
 
-Create a `.env.local` file in the project root:
+Copy the example environment file and fill in your values:
 
-```env
-# ==========================================
-# SUPABASE CONFIGURATION (Required)
-# ==========================================
-# Found in Supabase Dashboard > Settings > API
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-
-# ==========================================
-# RUNPOD CONFIGURATION (Optional - for AI cropping)
-# ==========================================
-# Get from RunPod Dashboard after deploying the handler
-RUNPOD_API_KEY=your-runpod-api-key
-RUNPOD_ENDPOINT_ID=your-runpod-endpoint-id
-
-# ==========================================
-# APPLICATION CONFIGURATION
-# ==========================================
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-
-# Comma-separated list of allowed origins for CORS
-# Use *.vercel.app for Vercel preview deployments
-NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
-
-# Comma-separated list of allowed RP domains for WebAuthn
-# Use 'localhost' for local development
-NEXT_PUBLIC_ALLOWED_RP_DOMAINS=localhost,127.0.0.1
+```bash
+cp .env.local.example .env.local
 ```
+
+Then edit `.env.local` with your configuration. See `.env.local.example` for all available options and descriptions.
 
 ### Step 5: Set Up Supabase Database
 
@@ -718,13 +694,13 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 |-------|------|---------|
 | 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
 | 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
-| 3 | `supabase/migrations/002_delivery_status.sql` | Delivery tracking columns |
-| 4 | `supabase/migrations/003_check_user_exists_rpc.sql` | User existence check RPC |
-| 5 | `supabase/migrations/004_rpc_get_account_type.sql` | Account type lookup RPC |
-| 6 | `supabase/migrations/005_consolidate_snap_image_urls.sql` | Consolidate image columns |
-| 7 | `supabase/migrations/006_add_image_iv_to_snaps.sql` | Add image IV for decryption |
-| 8 | `supabase/migrations/007_telegram_bot_integration.sql` | Telegram bot support |
-| 9 | `supabase/migrations/008_add_key_wrapping.sql` | Cross-auth key wrapping |
+| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
+| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
+| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
+| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
+| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
+| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
+| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
 
 **Verification queries:**
 
@@ -739,32 +715,21 @@ SELECT column_name FROM information_schema.columns WHERE table_name = 'passkey_c
 SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('passkey_credentials', 'snaps');
 ```
 
-### Step 6: Configure Supabase Authentication
-
-In your Supabase Dashboard:
-
-1. **Settings > Authentication > URL Configuration:**
-   - Site URL: `http://localhost:3000`
-   - Redirect URLs: Add `http://localhost:3000/**`
-
-2. **Settings > Authentication > Email:**
-   - Enable email confirmations (recommended)
-   - Customize email templates if desired
-
-### Step 7: Start the Development Server
+### Step 6: Start the Development Server
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the ReStrip landing page!
+Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the ReStrip upload page!
 
-### Step 8: Test Your Setup
+> **Note:** Currently, no authentication is required. Users can directly access the upload flow without signing in. Authentication features will be added in a future update.
 
-1. **Test authentication**: Try creating an account with email/password
-2. **Test passkey** (on supported browsers): Try registering a passkey
-3. **Test upload flow**: Navigate to `/upload` after signing in
-4. **Test AI cropping** (if RunPod configured): Upload an image with auto-crop enabled
+### Step 7: Test Your Setup
+
+1. **Test upload flow**: Navigate to `/upload` and try uploading an image
+2. **Test AI cropping** (if RunPod configured): Upload an image with auto-crop enabled
+3. **Test form validation**: Try submitting with missing fields to see validation errors
 
 ### Available Scripts
 
