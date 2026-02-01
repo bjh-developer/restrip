@@ -1,4 +1,16 @@
-import React, { useState } from "react";
+/**
+ * Period Picker Component
+ *
+ * Allows users to select when their memory should be delivered.
+ * Supports three delivery timing options:
+ * - Surprise: Random date within 1-6 months
+ * - Custom Period: Random date within a user-defined range
+ * - Custom Date: Specific date chosen by user
+ *
+ * @module components/PeriodPicker
+ */
+
+import React, { useState, useCallback } from "react";
 import {
   Popover,
   PopoverContent,
@@ -18,107 +30,213 @@ import {
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-type PeriodOption = "surprise" | "custom period" | "custom date";
+/**
+ * Available period selection options.
+ * Exported for use in parent components.
+ */
+export type PeriodOption = "surprise" | "custom period" | "custom date";
 
+/** Props for the PeriodPicker component */
 interface PeriodPickerProps {
+  /**
+   * Callback fired when user selects a delivery period.
+   * @param period - The selected period type
+   * @param customDate - The calculated delivery date (for surprise, this is random)
+   */
   onSelect: (period: PeriodOption, customDate?: Date) => void;
 }
 
+/** Configuration for a period option */
+interface PeriodConfig {
+  id: PeriodOption;
+  label: string;
+  description: string;
+}
+
+/** State for custom period date range */
+interface CustomPeriodState {
+  from: Date;
+  to?: Date;
+}
+
+/**
+ * Minimum days required for a custom period range.
+ * Ranges less than this will be rejected.
+ */
+const MIN_PERIOD_DAYS = 2;
+
+/**
+ * Milliseconds in one day (used for date calculations).
+ */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Maximum months for surprise delivery (6 months).
+ */
+const SURPRISE_MAX_MONTHS = 6;
+
+/**
+ * Period options configuration.
+ * Defines the available choices in the picker.
+ */
+const PERIOD_OPTIONS: readonly PeriodConfig[] = [
+  {
+    id: "surprise",
+    label: "Surprise me! 🎲",
+    description: "sends email in 1-6 months on a random day",
+  },
+  {
+    id: "custom period",
+    label: "Custom Period",
+    description: "sends email in a custom period on a random day",
+  },
+  {
+    id: "custom date",
+    label: "Custom Date",
+    description: "sends email on a specific day",
+  },
+] as const;
+
+/**
+ * Generates a random date within a given range.
+ *
+ * @param startDate - Start of the range
+ * @param endDate - End of the range
+ * @returns Random date within the range
+ */
+function getRandomDateInRange(startDate: Date, endDate: Date): Date {
+  const startTime = startDate.getTime();
+  const endTime = endDate.getTime();
+  const randomTime = startTime + Math.random() * (endTime - startTime);
+  return new Date(randomTime);
+}
+
+/**
+ * Generates a surprise date (random within 1-6 months from now).
+ *
+ * @returns Random date 1-6 months in the future
+ */
+function generateSurpriseDate(): Date {
+  const now = new Date();
+  const maxMs = SURPRISE_MAX_MONTHS * 30 * MS_PER_DAY;
+  return new Date(now.getTime() + Math.random() * maxMs);
+}
+
+/**
+ * Calculates the number of days between two dates.
+ *
+ * @param startDate - Start date
+ * @param endDate - End date
+ * @returns Number of days between dates
+ */
+function getDaysDifference(startDate: Date, endDate: Date): number {
+  return Math.ceil((endDate.getTime() - startDate.getTime()) / MS_PER_DAY);
+}
+
+/**
+ * Period picker component for selecting memory delivery timing.
+ *
+ * Provides three options for users to choose when they want to receive
+ * their memory: surprise (random), custom period (random within range),
+ * or custom date (specific).
+ *
+ * @example
+ * ```tsx
+ * <PeriodPicker
+ *   onSelect={(period, date) => {
+ *     console.log(`Selected: ${period}, Date: ${date}`);
+ *   }}
+ * />
+ * ```
+ */
 export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
   const [selected, setSelected] = useState<PeriodOption>("surprise");
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [showCustomPeriod, setShowCustomPeriod] = useState(false);
   const [customDate, setCustomDate] = useState<string>("");
-  const [customPeriod, setCustomPeriod] = useState<
-    { from: Date; to?: Date } | undefined
-  >();
+  const [customPeriod, setCustomPeriod] = useState<CustomPeriodState | undefined>();
   const [randomDate, setRandomDate] = useState<Date | undefined>();
 
   const today = new Date();
 
-  const periods: Array<{
-    id: PeriodOption;
-    label: string;
-    description: string;
-  }> = [
-    {
-      id: "surprise",
-      label: "Surprise me! 🎲",
-      description: "sends email in 1-6 months on a random day",
-    },
-    {
-      id: "custom period",
-      label: "Custom Period",
-      description: "sends email in a custom period on a random day",
-    },
-    {
-      id: "custom date",
-      label: "Custom Date",
-      description: "sends email on a specific day",
-    },
-  ];
+  /**
+   * Handles period option selection.
+   * Updates UI state and triggers callback with appropriate date.
+   */
+  const handlePeriodSelect = useCallback(
+    (period: PeriodOption) => {
+      setSelected(period);
+      setShowCustomPeriod(period === "custom period");
+      setShowCustomDate(period === "custom date");
 
-  const handlePeriodSelect = (period: PeriodOption) => {
-    setSelected(period);
-    setShowCustomPeriod(period === "custom period");
-    setShowCustomDate(period === "custom date");
-
-    if (period === "surprise") {
-      const surpriseDate = new Date(
-        today.getTime() + Math.random() * (6 * 30 * 24 * 60 * 60 * 1000), // Random date within 1-6 months
-      );
-      onSelect(period, surpriseDate);
-    } else {
-      // For custom period and custom date, notify parent but without a date
-      // This will clear the scheduledSendTime and require user to pick a date
-      onSelect(period);
-    }
-  };
-
-  const handleCustomDateChange = (date: Date | undefined) => {
-    if (!date) return;
-    setCustomDate(date.toISOString());
-    onSelect("custom date", date);
-  };
-
-  const handleCustomPeriodChange = (range: DateRange | undefined) => {
-    if (range?.from) {
-      if (range.to) {
-        const differenceInDays = Math.ceil(
-          (range.to.getTime() - range.from.getTime()) / (1000 * 60 * 60 * 24),
-        );
-
-        if (differenceInDays < 2) {
-          // If the period is less than 2 days, reset the 'to' date
-          setCustomPeriod({ from: range.from, to: undefined });
-          return;
-        }
-
-        setCustomPeriod({ from: range.from, to: range.to });
-        const random = new Date(
-          range.from.getTime() +
-            Math.random() * (range.to.getTime() - range.from.getTime()),
-        );
-        setRandomDate(random);
-        onSelect("custom period", random);
+      if (period === "surprise") {
+        const surpriseDate = generateSurpriseDate();
+        onSelect(period, surpriseDate);
       } else {
-        // Only 'from' date is set
-        setCustomPeriod({ from: range.from, to: undefined });
+        // Clear scheduled time when switching to manual selection
+        onSelect(period);
       }
-    } else {
-      setCustomPeriod(undefined);
-    }
-  };
+    },
+    [onSelect],
+  );
+
+  /**
+   * Handles custom date selection from calendar.
+   */
+  const handleCustomDateChange = useCallback(
+    (date: Date | undefined) => {
+      if (!date) return;
+
+      setCustomDate(date.toISOString());
+      onSelect("custom date", date);
+    },
+    [onSelect],
+  );
+
+  /**
+   * Handles custom period range selection from calendar.
+   * Validates that the range is at least MIN_PERIOD_DAYS long.
+   */
+  const handleCustomPeriodChange = useCallback(
+    (range: DateRange | undefined) => {
+      if (!range?.from) {
+        setCustomPeriod(undefined);
+        return;
+      }
+
+      if (!range.to) {
+        // Only start date selected, waiting for end date
+        setCustomPeriod({ from: range.from, to: undefined });
+        return;
+      }
+
+      // Both dates selected - validate range
+      const daysDiff = getDaysDifference(range.from, range.to);
+
+      if (daysDiff < MIN_PERIOD_DAYS) {
+        // Range too short, reset end date
+        setCustomPeriod({ from: range.from, to: undefined });
+        return;
+      }
+
+      // Valid range - set state and calculate random date
+      setCustomPeriod({ from: range.from, to: range.to });
+      const randomDeliveryDate = getRandomDateInRange(range.from, range.to);
+      setRandomDate(randomDeliveryDate);
+      onSelect("custom period", randomDeliveryDate);
+    },
+    [onSelect],
+  );
 
   return (
     <div className="space-y-4 w-full">
-      {/* Button Group */}
+      {/* Period Selection Options */}
       <Choicebox
         defaultValue="surprise"
         value={selected}
         onValueChange={(value) => handlePeriodSelect(value as PeriodOption)}
       >
-        {periods.map((period) => (
+        {PERIOD_OPTIONS.map((period) => (
           <ChoiceboxItem key={period.id} value={period.id}>
             <ChoiceboxItemHeader>
               <ChoiceboxItemTitle>{period.label}</ChoiceboxItemTitle>
@@ -133,7 +251,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
         ))}
       </Choicebox>
 
-      {/* Custom Period Picker */}
+      {/* Custom Period Picker (date range) */}
       {showCustomPeriod && (
         <div className="mt-4 p-4 bg-pastel-blue bg-opacity-20 rounded-lg">
           <label className="block font-body font-semibold text-soft-black mb-2">
@@ -170,7 +288,7 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
         </div>
       )}
 
-      {/* Custom Date Picker */}
+      {/* Custom Date Picker (single date) */}
       {showCustomDate && (
         <div className="mt-4 p-4 bg-pastel-blue bg-opacity-20 rounded-lg">
           <label className="block font-body font-semibold text-soft-black mb-2">
@@ -204,4 +322,5 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
     </div>
   );
 });
+
 PeriodPicker.displayName = "PeriodPicker";

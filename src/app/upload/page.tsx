@@ -1,3 +1,20 @@
+/**
+ * Upload Page Component
+ *
+ * Main page for uploading photo strip memories. Provides a form interface
+ * for users to upload images, add captions, select delivery timing, and
+ * choose notification method.
+ *
+ * Features:
+ * - Image upload with drag-and-drop support
+ * - Optional auto-crop using YOLO model (via RunPod)
+ * - Multiple delivery timing options (surprise, custom period, custom date)
+ * - Email or Telegram delivery
+ * - Client-side validation with helpful error messages
+ *
+ * @module app/upload/page
+ */
+
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -5,11 +22,14 @@ import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
-import { Label } from "../../../components/ui/label";
-import { Switch } from "../../../components/ui/switch";
-import { Textarea } from "../../../components/ui/textarea";
-import { PeriodPicker } from "../../components/PeriodPicker";
-import { DeliveryMethodPicker } from "../../components/DeliveryMethodPicker";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { PeriodPicker, type PeriodOption } from "../../components/PeriodPicker";
+import {
+  DeliveryMethodPicker,
+  type DeliveryMethod,
+} from "../../components/DeliveryMethodPicker";
 import ScrollReveal from "../../components/ScrollReveal";
 import ShinyText from "../../components/ShinyText";
 import {
@@ -32,50 +52,146 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
 
-// Register ScrollTrigger plugin
+// =============================================================================
+// Constants
+// =============================================================================
+
+/** Maximum file size before compression is applied (in MB) */
+const COMPRESSION_THRESHOLD_MB = 3;
+
+/** Target maximum file size after compression (in MB) */
+const COMPRESSION_TARGET_MB = 3;
+
+/** Maximum image dimension after compression */
+const MAX_IMAGE_DIMENSION = 2048;
+
+/** Initial quality for image compression (0-1) */
+const COMPRESSION_QUALITY = 0.9;
+
+/** Default delivery time (6 PM local time) */
+const DEFAULT_DELIVERY_HOUR = 18;
+
+/** Minimum days for surprise delivery */
+const SURPRISE_MIN_DAYS = 30;
+
+/** Maximum days for surprise delivery */
+const SURPRISE_MAX_DAYS = 180;
+
+/** Milliseconds in one day */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Milliseconds in one hour */
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+/** UserJot widget configuration ID */
+const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
+
+// =============================================================================
+// GSAP Plugin Registration
+// =============================================================================
+
 try {
   gsap.registerPlugin(ScrollTrigger);
 } catch {
-  // Plugin already registered
+  // Plugin already registered - safe to ignore
 }
 
-// Helper to compress image before encryption
+// =============================================================================
+// Types
+// =============================================================================
+
+/** Field-specific validation error messages */
+interface FieldErrors {
+  image?: string;
+  caption?: string;
+  period?: string;
+  deliveryAddress?: string;
+}
+
+/** Props for the UploadImage component */
+interface UploadImageProps {
+  /** Pre-processed image to display (e.g., cropped version) */
+  displayImage?: string;
+  /** Callback when user uploads an image */
+  onImageUpload?: (base64Image: string) => void;
+  /** Whether image is being processed */
+  isLoading?: boolean;
+  /** Whether to show error styling */
+  error?: boolean;
+}
+
+/** Props for the AutoCropSwitch component */
+interface AutoCropSwitchProps {
+  /** Whether auto-crop is enabled */
+  autoCropEnabled: boolean;
+  /** Callback when toggle changes */
+  onToggle: (checked: boolean) => void;
+  /** Whether crop is in progress */
+  isProcessing: boolean;
+  /** Whether an image has been uploaded */
+  imageUploaded?: boolean;
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Converts a base64 data URL to a Blob without using fetch.
+ * This approach is CSP-friendly and works in strict environments.
+ *
+ * @param base64 - Base64-encoded data URL
+ * @returns Blob object
+ */
+function base64ToBlob(base64: string): Blob {
+  const parts = base64.split(",");
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mime = mimeMatch?.[1] ?? "image/jpeg";
+  const binaryString = atob(parts[1]);
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  return new Blob([bytes], { type: mime });
+}
+
+/**
+ * Compresses an image to reduce file size before encryption and upload.
+ *
+ * Only compresses if the image exceeds the threshold size. Uses Web Workers
+ * for better performance and maintains reasonable quality.
+ *
+ * @param base64Image - Base64-encoded image data URL
+ * @returns Promise resolving to compressed (or original) base64 image
+ */
 async function compressImage(base64Image: string): Promise<string> {
   try {
-    // Convert base64 to blob without using fetch (CSP-friendly)
-    const arr = base64Image.split(",");
-    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    const blob = new Blob([u8arr], { type: mime });
-
-    // Only compress if larger than 3MB
+    const blob = base64ToBlob(base64Image);
     const sizeInMB = blob.size / 1024 / 1024;
-    if (sizeInMB <= 3) {
-      console.log(`Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
-      return base64Image; // Return original
+
+    // Skip compression for small images
+    if (sizeInMB <= COMPRESSION_THRESHOLD_MB) {
+      console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
+      return base64Image;
     }
 
-    console.log(`Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
+    console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
 
-    // Convert blob to File (required by imageCompression)
+    // Convert to File object (required by imageCompression library)
     const file = new File([blob], "image.jpg", { type: blob.type });
 
-    // Compress image
     const options = {
-      maxSizeMB: 3, // Target max 3MB (leaves room for encryption overhead)
-      maxWidthOrHeight: 2048, // Higher quality, larger dimension
+      maxSizeMB: COMPRESSION_TARGET_MB,
+      maxWidthOrHeight: MAX_IMAGE_DIMENSION,
       useWebWorker: true,
-      initialQuality: 0.9, // Higher quality (0.8 is default)
+      initialQuality: COMPRESSION_QUALITY,
     };
 
     const compressedBlob = await imageCompression(file, options);
 
-    // Convert back to base64
+    // Convert compressed blob back to base64
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
@@ -83,45 +199,120 @@ async function compressImage(base64Image: string): Promise<string> {
       reader.readAsDataURL(compressedBlob);
     });
   } catch (error) {
-    console.error("Compression failed:", error);
-    return base64Image; // Return original on error
+    console.error("⚠️ Compression failed, using original:", error);
+    return base64Image;
   }
 }
 
-type PeriodOption = "surprise" | "custom period" | "custom date";
-type DeliveryMethod = "email" | "telegram";
+/**
+ * Calculates the scheduled send time based on a selected date.
+ *
+ * Rules:
+ * - If today and after 6 PM: schedule for 1 hour from now (or 11:59 PM)
+ * - If today and before 6 PM: schedule for 6 PM today
+ * - If future date: schedule for 6 PM on that date
+ *
+ * @param selectedDate - The date selected by the user
+ * @returns Calculated send time
+ */
+function calculateSendTime(selectedDate: Date): Date {
+  const now = new Date();
+  const isToday =
+    selectedDate.getFullYear() === now.getFullYear() &&
+    selectedDate.getMonth() === now.getMonth() &&
+    selectedDate.getDate() === now.getDate();
 
+  if (!isToday) {
+    // Future date: schedule for 6 PM
+    const sendTime = new Date(selectedDate);
+    sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
+    return sendTime;
+  }
+
+  // Today: check current time
+  const currentHour = now.getHours();
+
+  if (currentHour >= DEFAULT_DELIVERY_HOUR) {
+    // After 6 PM: try 1 hour from now
+    const oneHourFromNow = new Date(now.getTime() + MS_PER_HOUR);
+    const isStillToday =
+      oneHourFromNow.getDate() === now.getDate() &&
+      oneHourFromNow.getMonth() === now.getMonth() &&
+      oneHourFromNow.getFullYear() === now.getFullYear();
+
+    if (isStillToday) {
+      return oneHourFromNow;
+    }
+
+    // Would be tomorrow, use 11:59 PM today
+    const endOfDay = new Date(now);
+    endOfDay.setHours(23, 59, 0, 0);
+    return endOfDay;
+  }
+
+  // Before 6 PM: schedule for 6 PM today
+  const sixPmToday = new Date(selectedDate);
+  sixPmToday.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
+  return sixPmToday;
+}
+
+/**
+ * Generates a random surprise date within the configured range.
+ *
+ * @returns Random date between SURPRISE_MIN_DAYS and SURPRISE_MAX_DAYS from now
+ */
+function generateSurpriseDate(): Date {
+  const now = new Date();
+  const randomDays =
+    Math.floor(Math.random() * (SURPRISE_MAX_DAYS - SURPRISE_MIN_DAYS + 1)) +
+    SURPRISE_MIN_DAYS;
+
+  const sendTime = new Date(now.getTime() + randomDays * MS_PER_DAY);
+  sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
+
+  return sendTime;
+}
+
+// =============================================================================
+// Sub-Components
+// =============================================================================
+
+/**
+ * Image upload component with drag-and-drop support.
+ *
+ * Displays a dropzone for image upload and shows a preview of the
+ * uploaded image. Supports loading state overlay.
+ */
 const UploadImage = React.memo(
-  ({
-    displayImage,
-    onImageUpload,
-    isLoading,
-    error,
-  }: {
-    displayImage?: string;
-    onImageUpload?: (base64Image: string) => void;
-    isLoading?: boolean;
-    error?: boolean;
-  }) => {
+  ({ displayImage, onImageUpload, isLoading, error }: UploadImageProps) => {
     const [files, setFiles] = useState<File[] | undefined>();
     const [filePreview, setFilePreview] = useState<string | undefined>();
+
+    /**
+     * Handles file drop/selection.
+     * Reads the file as base64 and notifies parent.
+     */
     const handleDrop = useCallback(
-      (files: File[]) => {
-        console.log(files);
-        setFiles(files);
-        if (files.length > 0) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (typeof e.target?.result === "string") {
-              setFilePreview(e.target?.result);
-              onImageUpload?.(e.target?.result);
-            }
-          };
-          reader.readAsDataURL(files[0]);
-        }
+      (droppedFiles: File[]) => {
+        setFiles(droppedFiles);
+
+        if (droppedFiles.length === 0) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result;
+          if (typeof result === "string") {
+            setFilePreview(result);
+            onImageUpload?.(result);
+          }
+        };
+        reader.readAsDataURL(droppedFiles[0]);
       },
       [onImageUpload],
     );
+
+    const previewSrc = displayImage ?? filePreview;
+
     return (
       <Dropzone
         accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
@@ -135,12 +326,12 @@ const UploadImage = React.memo(
       >
         <DropzoneEmptyState />
         <DropzoneContent>
-          {(displayImage || filePreview) && (
+          {previewSrc && (
             <div className="w-full flex items-center justify-center py-4 relative">
               <img
-                alt="Preview"
+                alt="Preview of uploaded image"
                 className="max-w-full max-h-96 object-contain rounded-md"
-                src={displayImage || filePreview}
+                src={previewSrc}
               />
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-soft-black/50 rounded-md z-10">
@@ -161,7 +352,10 @@ const UploadImage = React.memo(
 );
 UploadImage.displayName = "UploadImage";
 
-const AnnouncementBanner = () => (
+/**
+ * Announcement banner for upcoming features.
+ */
+const AnnouncementBanner = React.memo(() => (
   <Banner>
     <BannerIcon icon={CircleAlert} />
     <BannerTitle>
@@ -177,91 +371,132 @@ const AnnouncementBanner = () => (
     </BannerAction>
     <BannerClose />
   </Banner>
-);
+));
+AnnouncementBanner.displayName = "AnnouncementBanner";
 
-const AnnouncementPill = () => (
+/**
+ * Beta testing announcement pill.
+ */
+const AnnouncementPill = React.memo(() => (
   <Announcement className="bg-sky-100 text-sky-700" themed>
     <AnnouncementTag>Info</AnnouncementTag>
     <AnnouncementTitle>
-      Beta testing in progress, all memories<br />
+      Beta testing in progress, all memories
+      <br />
       will be sent within 5 minutes
       <ArrowUpRightIcon className="shrink-0 opacity-70" size={16} />
     </AnnouncementTitle>
   </Announcement>
-);
+));
+AnnouncementPill.displayName = "AnnouncementPill";
 
+/**
+ * Toggle switch for enabling/disabling auto-crop feature.
+ *
+ * Auto-crop uses a YOLO model to detect and extract photo strips
+ * from images, applying perspective correction.
+ */
 const AutoCropSwitch = React.memo(
   ({
     autoCropEnabled,
     onToggle,
     isProcessing,
     imageUploaded,
-  }: {
-    autoCropEnabled: boolean;
-    onToggle: (checked: boolean) => void;
-    isProcessing: boolean;
-    imageUploaded?: boolean;
-  }) => (
-    <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
-        <Brush className="size-5 text-soft-black" />
-      </div>
-      <div className="flex flex-1 flex-col gap-1">
-        <div className="flex items-center justify-between gap-4">
-          <Label className="font-medium" htmlFor="feature-toggle">
-            Enable auto-crop{" "}
-            {(isProcessing && "(Processing...)") ||
-              (!imageUploaded && "(Upload image first)")}
-          </Label>
-          <Switch
-            id="feature-toggle"
-            checked={autoCropEnabled}
-            onCheckedChange={onToggle}
-            disabled={isProcessing || imageUploaded === false}
-          />
+  }: AutoCropSwitchProps) => {
+    // Determine status text to show
+    let statusText = "";
+    if (isProcessing) {
+      statusText = "(Processing...)";
+    } else if (!imageUploaded) {
+      statusText = "(Upload image first)";
+    }
+
+    return (
+      <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
+          <Brush className="size-5 text-soft-black" />
         </div>
-        <p className="text-muted-foreground text-sm text-left">
-          Auto crops out photo strip just like it had been scanned. (Recommended
-          for physical copy)
-        </p>
+        <div className="flex flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between gap-4">
+            <Label className="font-medium" htmlFor="feature-toggle">
+              Enable auto-crop {statusText}
+            </Label>
+            <Switch
+              id="feature-toggle"
+              checked={autoCropEnabled}
+              onCheckedChange={onToggle}
+              disabled={isProcessing || imageUploaded === false}
+            />
+          </div>
+          <p className="text-muted-foreground text-sm text-left">
+            Auto crops out photo strip just like it had been scanned.
+            (Recommended for physical copy)
+          </p>
+        </div>
       </div>
-    </div>
-  ),
+    );
+  },
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
+// =============================================================================
+// Main Component
+// =============================================================================
+
+/**
+ * Main upload page component.
+ *
+ * Orchestrates the entire upload flow including image capture, caption entry,
+ * delivery timing selection, and final submission. Handles form validation
+ * and error display.
+ */
 export default function UploadPage() {
+  // -------------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------------
+
+  // Period selection state
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
-  const [scheduledSendTime, setScheduledSendTime] = useState<
-    Date | undefined
-  >();
+  const [scheduledSendTime, setScheduledSendTime] = useState<Date | undefined>();
+
+  // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
-  const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
+
+  // Image state
+  const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [originalImage, setOriginalImage] = useState<string | undefined>();
   const [croppedImage, setCroppedImage] = useState<string | undefined>();
+
+  // Delivery state
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+
+  // Form state
   const [caption, setCaption] = useState<string>("");
   const [resetKey, setResetKey] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [fieldErrors, setFieldErrors] = useState<{
-    image?: string;
-    caption?: string;
-    period?: string;
-    deliveryAddress?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
-  // Refs for scrolling to error sections
+  // -------------------------------------------------------------------------
+  // Refs for scroll-to-error functionality
+  // -------------------------------------------------------------------------
   const imageRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const periodRef = useRef<HTMLDivElement>(null);
   const deliveryRef = useRef<HTMLDivElement>(null);
 
-  // Handle image upload
+  // -------------------------------------------------------------------------
+  // Event Handlers
+  // -------------------------------------------------------------------------
+
+  /**
+   * Handles image upload from dropzone.
+   * Resets crop state and clears validation errors.
+   */
   const handleImageUpload = useCallback((base64Image: string) => {
     setOriginalImage(base64Image);
     setCroppedImage(undefined);
@@ -270,82 +505,81 @@ export default function UploadPage() {
     setFieldErrors((prev) => ({ ...prev, image: undefined }));
   }, []);
 
-  // Refresh ScrollTrigger when image is uploaded
-  useEffect(() => {
-    if (originalImage) {
-      const timeoutId = setTimeout(() => {
-        ScrollTrigger.refresh();
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [originalImage]);
-
-  // Upload image to API route for processing
+  /**
+   * Sends image to RunPod for auto-cropping.
+   *
+   * @param base64Image - Image to process
+   * @returns Cropped image as base64 data URL
+   * @throws Error if processing fails
+   */
   const processImageWithRunPod = async (
     base64Image: string,
   ): Promise<string> => {
-    try {
-      const response = await fetch("/api/crop-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64Image }),
-      });
+    const response = await fetch("/api/crop-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: base64Image }),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`,
-        );
-      }
-
-      const data = await response.json();
-      console.log("Crop API response:", data);
-
-      if (data.photostrip) {
-        return `data:image/png;base64,${data.photostrip}`;
-      } else {
-        throw new Error("No photostrip in response");
-      }
-    } catch (error) {
-      console.error("Image processing error:", error);
-      throw error;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error ?? `HTTP error! status: ${response.status}`,
+      );
     }
+
+    const data = await response.json();
+    console.log("📥 Crop API response:", data);
+
+    if (!data.photostrip) {
+      throw new Error("No photostrip detected in image");
+    }
+
+    return `data:image/png;base64,${data.photostrip}`;
   };
 
-  // Handle autocrop toggle
+  /**
+   * Handles auto-crop toggle.
+   * When enabled, processes image through RunPod YOLO model.
+   * Caches result to avoid re-processing.
+   */
   const handleAutoCropToggle = useCallback(
     async (checked: boolean) => {
       setAutoCropEnabled(checked);
 
-      if (checked && originalImage) {
-        if (croppedImage) {
-          console.log("Using cached cropped image from memory");
-          return;
-        }
+      if (!checked || !originalImage) return;
 
-        setIsCropping(true);
-        try {
-          const croppedResult = await processImageWithRunPod(originalImage);
-          setCroppedImage(croppedResult);
-          console.log("Image cropped successfully");
+      // Use cached result if available
+      if (croppedImage) {
+        console.log("📦 Using cached cropped image from memory");
+        return;
+      }
 
-          setTimeout(() => {
-            ScrollTrigger.refresh();
-          }, 100);
-        } catch (error) {
-          console.error("Failed to crop image:", error);
-          const errorMessage =
-            error instanceof Error ? error.message : "Unknown error occurred";
-          alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
-          setAutoCropEnabled(false);
-        } finally {
-          setIsCropping(false);
-        }
+      setIsCropping(true);
+      try {
+        const croppedResult = await processImageWithRunPod(originalImage);
+        setCroppedImage(croppedResult);
+        console.log("✅ Image cropped successfully");
+
+        // Refresh scroll triggers after image changes
+        setTimeout(() => ScrollTrigger.refresh(), 100);
+      } catch (error) {
+        console.error("❌ Failed to crop image:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
+        setAutoCropEnabled(false);
+      } finally {
+        setIsCropping(false);
       }
     },
     [originalImage, croppedImage],
   );
 
+  /**
+   * Handles period selection from PeriodPicker.
+   * Calculates appropriate send time based on selection.
+   */
   const handlePeriodSelect = useCallback(
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
@@ -353,40 +587,8 @@ export default function UploadPage() {
       let sendTime: Date | undefined;
 
       if (date) {
-        const now = new Date();
-        const selectedDate = new Date(date);
-        const isToday =
-          selectedDate.getFullYear() === now.getFullYear() &&
-          selectedDate.getMonth() === now.getMonth() &&
-          selectedDate.getDate() === now.getDate();
-
-        if (isToday) {
-          const currentHour = now.getHours();
-          if (currentHour >= 18) {
-            const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-            const isStillToday =
-              oneHourFromNow.getDate() === now.getDate() &&
-              oneHourFromNow.getMonth() === now.getMonth() &&
-              oneHourFromNow.getFullYear() === now.getFullYear();
-
-            if (isStillToday) {
-              sendTime = oneHourFromNow;
-            } else {
-              const endOfDay = new Date(now);
-              endOfDay.setHours(23, 59, 0, 0);
-              sendTime = endOfDay;
-            }
-          } else {
-            const sixPmToday = new Date(selectedDate);
-            sixPmToday.setHours(18, 0, 0, 0);
-            sendTime = sixPmToday;
-          }
-        } else {
-          sendTime = new Date(selectedDate);
-          sendTime.setHours(18, 0, 0, 0);
-        }
-
-        setScheduledSendTime(sendTime);
+        // User selected a specific date - calculate send time
+        sendTime = calculateSendTime(date);
 
         if (period === "custom date") {
           setCustomDate(sendTime);
@@ -394,18 +596,17 @@ export default function UploadPage() {
           setCustomPeriod(sendTime.toISOString());
         }
 
+        setScheduledSendTime(sendTime);
         setValidationErrors([]);
         setFieldErrors((prev) => ({ ...prev, period: undefined }));
       } else if (period === "surprise") {
-        const now = new Date();
-        const randomDays = Math.floor(Math.random() * (180 - 30 + 1)) + 30;
-        sendTime = new Date(now.getTime() + randomDays * 24 * 60 * 60 * 1000);
-        sendTime.setHours(18, 0, 0, 0);
-
+        // Generate random surprise date
+        sendTime = generateSurpriseDate();
         setScheduledSendTime(sendTime);
         setValidationErrors([]);
         setFieldErrors((prev) => ({ ...prev, period: undefined }));
       } else {
+        // Clear scheduled time when period type requires manual date selection
         setScheduledSendTime(undefined);
         setCustomDate(undefined);
         setCustomPeriod(undefined);
@@ -420,133 +621,159 @@ export default function UploadPage() {
     [],
   );
 
+  /**
+   * Handles delivery method selection.
+   * Updates method and clears validation errors.
+   */
   const handleDeliveryMethodSelect = useCallback(
     (method: DeliveryMethod, value?: string) => {
       setDeliveryMethod(method);
-      setDeliveryAddress(value || "");
+      setDeliveryAddress(value ?? "");
       setValidationErrors([]);
       setFieldErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
     },
     [],
   );
 
-  const handleStartProcessing = async () => {
+  // -------------------------------------------------------------------------
+  // Form Submission
+  // -------------------------------------------------------------------------
+
+  /**
+   * Zod schema for form validation.
+   * Validates all required fields before submission.
+   */
+  const SnapSchema = z
+    .object({
+      Image: z.string().min(1, "Image is required"),
+      Caption: z.string().min(1, "Caption is required"),
+      sendTime: z.date(),
+      deliveryMethod: z.enum(["email", "telegram"]),
+      Delivery_Address: z.string(),
+    })
+    .refine(
+      (data) => {
+        // Email requires valid email address; Telegram uses chat_id instead
+        if (data.deliveryMethod === "email") {
+          return z.string().email().safeParse(data.Delivery_Address).success;
+        }
+        return true;
+      },
+      {
+        message: "Invalid email address",
+        path: ["Delivery_Address"],
+      },
+    );
+
+  /**
+   * Maps validation errors to user-friendly field error messages.
+   */
+  const mapValidationErrors = (
+    issues: z.ZodIssue[],
+    period: PeriodOption,
+  ): FieldErrors => {
+    const errors: FieldErrors = {};
+
+    issues.forEach((issue) => {
+      const field = issue.path[0];
+
+      switch (field) {
+        case "Image":
+          errors.image = "Please upload a photo before continuing";
+          break;
+        case "Caption":
+          errors.caption = "Please add a caption for your photo";
+          break;
+        case "sendTime":
+          if (period === "custom period") {
+            errors.period = "Please select a time period for delivery";
+          } else if (period === "custom date") {
+            errors.period = "Please select a specific date for delivery";
+          } else {
+            errors.period = "Please select when to deliver your memory";
+          }
+          break;
+        case "Delivery_Address":
+          errors.deliveryAddress = "Please enter a valid email address";
+          break;
+      }
+    });
+
+    return errors;
+  };
+
+  /**
+   * Scrolls to the first field with an error.
+   */
+  const scrollToFirstError = (errors: FieldErrors): void => {
+    setTimeout(() => {
+      if (errors.image && imageRef.current) {
+        imageRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errors.caption && captionRef.current) {
+        captionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errors.period && periodRef.current) {
+        periodRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (errors.deliveryAddress && deliveryRef.current) {
+        deliveryRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+  };
+
+  /**
+   * Handles form submission.
+   *
+   * Process flow:
+   * 1. Validate all form fields
+   * 2. Compress image if needed
+   * 3. Upload to server for encryption
+   * 4. Save snap metadata to database
+   * 5. Show success confirmation / open Telegram
+   */
+  const handleStartProcessing = async (): Promise<void> => {
     setValidationErrors([]);
     setFieldErrors({});
 
-    const SnapSchema = z
-      .object({
-        Image: z.string().min(1, "Image is required"),
-        Caption: z.string().min(1),
-        sendTime: z.date(),
-        deliveryMethod: z.enum(["email", "telegram"]),
-        Delivery_Address: z.string(),
-      })
-      .refine(
-        (data) => {
-          if (data.deliveryMethod === "email") {
-            return z.string().email().safeParse(data.Delivery_Address).success;
-          }
-          // Telegram doesn't require delivery_address, bot will use chat_id instead
-          return true;
-        },
-        {
-          message: "Invalid email address",
-          path: ["Delivery_Address"],
-        },
-      );
-
+    // Validate form data
     const validationResult = SnapSchema.safeParse({
-      Image: originalImage || "",
+      Image: originalImage ?? "",
       Caption: caption,
-      sendTime: scheduledSendTime!,
+      sendTime: scheduledSendTime,
       deliveryMethod: deliveryMethod,
       Delivery_Address: deliveryAddress,
     });
 
     if (!validationResult.success) {
-      const errors: typeof fieldErrors = {};
-
-      validationResult.error?.issues?.forEach((e) => {
-        const field = e.path[0];
-        if (field === "Image") {
-          errors.image = "Please upload a photo before continuing";
-        }
-        if (field === "Caption") {
-          errors.caption = "Please add a caption for your photo";
-        }
-        if (field === "sendTime") {
-          if (selectedPeriod === "custom period") {
-            errors.period = "Please select a time period for delivery";
-          } else if (selectedPeriod === "custom date") {
-            errors.period = "Please select a specific date for delivery";
-          } else {
-            errors.period = "Please select when to deliver your memory";
-          }
-        }
-        if (field === "Delivery_Address") {
-          if (deliveryMethod === "email") {
-            errors.deliveryAddress = "Please enter a valid email address";
-          }
-        }
-      });
-
+      const errors = mapValidationErrors(
+        validationResult.error.issues,
+        selectedPeriod,
+      );
       setFieldErrors(errors);
-
-      setTimeout(() => {
-        if (errors.image && imageRef.current) {
-          imageRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        } else if (errors.caption && captionRef.current) {
-          captionRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        } else if (errors.period && periodRef.current) {
-          periodRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        } else if (errors.deliveryAddress && deliveryRef.current) {
-          deliveryRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-      }, 100);
-
+      scrollToFirstError(errors);
       return;
     }
 
     setValidationErrors([]);
     setIsProcessing(true);
-    try {
-      console.log("All inputs are valid. Proceeding with processing...");
 
+    try {
+      console.log("✅ All inputs valid. Starting processing...");
+
+      // Select image source (cropped if auto-crop enabled, otherwise original)
       const imageToUpload =
         autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
-      // Compress image before sending to server
+      // Step 1: Compress image
       console.log("🗜️ Compressing image...");
       const compressedImage = await compressImage(imageToUpload!);
-      console.log("✅ Image compressed successfully");
+      console.log("✅ Image compressed");
 
-      console.log("Processing with period:", selectedPeriod);
-      console.log(
-        "Scheduled send time:",
-        scheduledSendTime?.toISOString(),
-        `(${scheduledSendTime?.toLocaleString()})`,
-      );
+      console.log(`📅 Scheduled for: ${scheduledSendTime?.toLocaleString()}`);
 
-      // Send image and caption to server for encryption and storage
-      console.log("🚀 Uploading image to server for encryption...");
+      // Step 2: Upload and encrypt
+      console.log("🔐 Uploading to server for encryption...");
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image: compressedImage,
           caption: caption,
@@ -554,16 +781,20 @@ export default function UploadPage() {
       });
 
       if (!uploadResponse.ok) {
-        throw new Error("Failed to upload image");
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error ?? "Failed to upload image");
       }
 
-      const { storagePath, encryptedCaption, captionIv, imageIv } = await uploadResponse.json();
-      console.log(
-        "✅ Image uploaded and encrypted successfully, storage path:",
+      const {
         storagePath,
-      );
+        encryptedCaption,
+        captionIv,
+        imageIv,
+      } = await uploadResponse.json();
+      console.log("✅ Encrypted and stored at:", storagePath);
 
-      console.log("🚀 Saving snap metadata to database...");
+      // Step 3: Save metadata to database
+      console.log("💾 Saving snap metadata...");
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -580,45 +811,38 @@ export default function UploadPage() {
       });
 
       if (!createSnapResponse.ok) {
-        throw new Error("Failed to save snap metadata");
+        const errorData = await createSnapResponse.json();
+        throw new Error(errorData.error ?? "Failed to save snap metadata");
       }
 
       const snapData = await createSnapResponse.json();
-      console.log("✅ Snap saved successfully!", snapData);
+      console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
-      // Success! Show confirmation based on delivery method
+      // Step 4: Show success confirmation
       if (deliveryMethod === "telegram" && snapData.snap?.id) {
         const botUsername =
-          process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "RestripBot";
+          process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
         const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
-        console.log("Telegram link:", telegramLink);
 
-        // Show modal with Telegram link
         const shouldOpenTelegram = window.confirm(
           "🎉 Memory scheduled!\n\n" +
             "Click OK to open Telegram and start the bot.\n" +
             "The bot will send your memory back on the scheduled date.\n\n" +
-            "Telegram username: @" +
-            botUsername,
+            `Telegram username: @${botUsername}`,
         );
 
         if (shouldOpenTelegram) {
-          // Use location.href instead of window.open for better iOS Safari compatibility
+          // Use location.href for better iOS Safari compatibility
           window.location.href = telegramLink;
         }
       } else {
         alert("🎉 Your memory has been scheduled for delivery!");
       }
 
-      // Reset form
-      setOriginalImage(undefined);
-      setCroppedImage(undefined);
-      setCaption("");
-      setDeliveryAddress("");
-      setResetKey((prev) => prev + 1);
-      handlePeriodSelect("surprise");
+      // Step 5: Reset form for next upload
+      resetForm();
     } catch (error) {
-      console.error("Processing failed:", error);
+      console.error("❌ Processing failed:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Processing failed";
       setValidationErrors([errorMessage]);
@@ -627,36 +851,86 @@ export default function UploadPage() {
     }
   };
 
+  /**
+   * Resets the form to initial state after successful submission.
+   */
+  const resetForm = useCallback((): void => {
+    setOriginalImage(undefined);
+    setCroppedImage(undefined);
+    setCaption("");
+    setDeliveryAddress("");
+    setResetKey((prev) => prev + 1);
+    handlePeriodSelect("surprise");
+  }, [handlePeriodSelect]);
+
+  // -------------------------------------------------------------------------
+  // Effects
+  // -------------------------------------------------------------------------
+
+  /**
+   * Refresh ScrollTrigger when image changes.
+   */
+  useEffect(() => {
+    if (originalImage) {
+      const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [originalImage]);
+
+  /**
+   * Initialize with surprise period on mount.
+   */
   useEffect(() => {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
+  /**
+   * Reset errors and refresh ScrollTrigger on mount.
+   */
   useEffect(() => {
     setValidationErrors([]);
     setFieldErrors({});
 
-    const timeoutId = setTimeout(() => {
-      ScrollTrigger.refresh();
-    }, 500);
+    const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // Load UserJot SDK
+  /**
+   * Load UserJot feedback widget SDK.
+   */
   useEffect(() => {
-    const script1 = document.createElement("script");
-    script1.innerHTML = `window.$ujq=window.$ujq||[];window.uj=window.uj||new Proxy({},{get:(_,p)=>(...a)=>window.$ujq.push([p,...a])});document.head.appendChild(Object.assign(document.createElement('script'),{src:'https://cdn.userjot.com/sdk/v2/uj.js',type:'module',async:!0}));`;
-    document.head.appendChild(script1);
+    // Load UserJot SDK loader
+    const loaderScript = document.createElement("script");
+    loaderScript.innerHTML = `
+      window.$ujq = window.$ujq || [];
+      window.uj = window.uj || new Proxy({}, {
+        get: (_, p) => (...a) => window.$ujq.push([p, ...a])
+      });
+      document.head.appendChild(
+        Object.assign(document.createElement('script'), {
+          src: 'https://cdn.userjot.com/sdk/v2/uj.js',
+          type: 'module',
+          async: true
+        })
+      );
+    `;
+    document.head.appendChild(loaderScript);
 
-    const script2 = document.createElement("script");
-    script2.innerHTML = `
-      window.uj.init('cmjjzikhm01fr15o1n4jg1h93', {
+    // Initialize UserJot widget
+    const initScript = document.createElement("script");
+    initScript.innerHTML = `
+      window.uj.init('${USERJOT_CONFIG_ID}', {
         widget: true,
         position: 'right',
         theme: 'auto'
       });
     `;
-    document.head.appendChild(script2);
+    document.head.appendChild(initScript);
   }, []);
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-warm-beige">

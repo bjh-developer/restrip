@@ -1,3 +1,13 @@
+/**
+ * Delivery Method Picker Component
+ *
+ * Allows users to select how they want to receive their memory:
+ * - Email: User enters their email address
+ * - Telegram: User will be prompted to start the bot later
+ *
+ * @module components/DeliveryMethodPicker
+ */
+
 import React, { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,47 +20,97 @@ import {
   ChoiceboxItemTitle,
 } from "../components/ui/shadcn-io/choicebox";
 
-type DeliveryMethod = "email" | "telegram";
+/**
+ * Supported delivery methods.
+ * Exported for use in parent components.
+ */
+export type DeliveryMethod = "email" | "telegram";
 
+/** Props for the DeliveryMethodPicker component */
 interface DeliveryMethodPickerProps {
+  /**
+   * Callback fired when delivery method or address changes.
+   * @param method - Selected delivery method
+   * @param value - Email address (for email method) or empty string (for telegram)
+   */
   onSelect: (method: DeliveryMethod, value?: string) => void;
+
+  /**
+   * Whether to show error styling on the email input.
+   * Used for form validation feedback.
+   */
   error?: boolean;
 }
 
+/** Configuration for a delivery method option */
+interface DeliveryMethodConfig {
+  id: DeliveryMethod;
+  label: string;
+  description: string;
+}
+
+/**
+ * Delivery method options configuration.
+ * Defines the available choices in the picker.
+ */
+const DELIVERY_METHODS: readonly DeliveryMethodConfig[] = [
+  {
+    id: "email",
+    label: "Email 📧",
+    description: "Receive your memory via email",
+  },
+  {
+    id: "telegram",
+    label: "Telegram 💬",
+    description: "Receive your memory via Telegram",
+  },
+] as const;
+
+/**
+ * Delivery method picker component for selecting notification channel.
+ *
+ * Provides two options for users to choose how they want to receive
+ * their scheduled memory: via email or Telegram bot.
+ *
+ * @example
+ * ```tsx
+ * <DeliveryMethodPicker
+ *   onSelect={(method, email) => {
+ *     setDeliveryMethod(method);
+ *     setEmail(email);
+ *   }}
+ *   error={hasValidationError}
+ * />
+ * ```
+ */
 export const DeliveryMethodPicker = React.memo(
   ({ onSelect, error }: DeliveryMethodPickerProps) => {
     const [selected, setSelected] = useState<DeliveryMethod>("email");
     const [emailInput, setEmailInput] = useState<string>("");
 
-    const methods: Array<{
-      id: DeliveryMethod;
-      label: string;
-      description: string;
-    }> = [
-      {
-        id: "email",
-        label: "Email 📧",
-        description: "Receive your memory via email",
-      },
-      {
-        id: "telegram",
-        label: "Telegram 💬",
-        description: "Receive your memory via Telegram",
-      },
-    ];
-
+    /**
+     * Handles delivery method selection change.
+     * Notifies parent with appropriate value based on method.
+     */
     const handleMethodSelect = useCallback(
       (method: DeliveryMethod) => {
         setSelected(method);
+
         if (method === "email") {
+          // For email, pass the current email input value
           onSelect(method, emailInput);
         } else {
+          // For telegram, no address needed (bot will use chat_id)
           onSelect(method, "");
         }
       },
       [onSelect, emailInput],
     );
 
+    /**
+     * Handles email input changes.
+     * Updates local state and notifies parent.
+     */
     const handleEmailChange = useCallback(
       (value: string) => {
         setEmailInput(value);
@@ -61,13 +121,13 @@ export const DeliveryMethodPicker = React.memo(
 
     return (
       <div className="space-y-4 w-full">
-        {/* Method Selection */}
+        {/* Method Selection Options */}
         <Choicebox
           defaultValue="email"
           value={selected}
           onValueChange={(value) => handleMethodSelect(value as DeliveryMethod)}
         >
-          {methods.map((method) => (
+          {DELIVERY_METHODS.map((method) => (
             <ChoiceboxItem key={method.id} value={method.id}>
               <ChoiceboxItemHeader>
                 <ChoiceboxItemTitle>{method.label}</ChoiceboxItemTitle>
@@ -82,8 +142,9 @@ export const DeliveryMethodPicker = React.memo(
           ))}
         </Choicebox>
 
-        {/* Input Field */}
+        {/* Conditional Input Fields */}
         <div className="mt-4">
+          {/* Email Input */}
           {selected === "email" && (
             <div className="space-y-2">
               <Input
@@ -91,13 +152,21 @@ export const DeliveryMethodPicker = React.memo(
                 placeholder="Enter your email address"
                 value={emailInput}
                 onChange={(e) => handleEmailChange(e.target.value)}
-                className={error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""}
+                className={
+                  error
+                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+                    : ""
+                }
+                aria-invalid={error}
+                aria-describedby="email-helper-text"
               />
-              <p className="text-sm text-gray-500">
+              <p id="email-helper-text" className="text-sm text-gray-500">
                 We'll send your memory to this email address
               </p>
             </div>
           )}
+
+          {/* Telegram Info Box */}
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-600">
@@ -110,4 +179,5 @@ export const DeliveryMethodPicker = React.memo(
     );
   },
 );
+
 DeliveryMethodPicker.displayName = "DeliveryMethodPicker";
