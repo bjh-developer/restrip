@@ -13,17 +13,7 @@ This guide walks you through deploying the ReReel photostrip detection handler t
 
 ### 1. Build the Docker Image
 
-**Option A: Using the deployment script (Recommended)**
-
-```bash
-# Edit deploy.sh to set your Docker Hub username
-nano deploy.sh
-
-# Run the script
-./deploy.sh
-```
-
-**Option B: Manual build**
+**Manual build**
 
 ```bash
 # Build the image
