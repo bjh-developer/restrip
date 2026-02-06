@@ -686,6 +686,8 @@ cp .env.local.example .env.local
 
 Then edit `.env.local` with your configuration. See `.env.local.example` for all available options and descriptions.
 
+***For ENCRYPTION_SECRET, generate your own secret using the following terminal command ```openssl rand -base64 32```***
+
 ### Step 5: Set Up Supabase Database
 
 Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
@@ -714,6 +716,52 @@ SELECT column_name FROM information_schema.columns WHERE table_name = 'passkey_c
 -- Confirm RLS is enabled
 SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('passkey_credentials', 'snaps');
 ```
+
+**Setting up Supabase Edge Functions for email/telegram functionality:**
+
+1. In your Supabase project, go to Edge Functions > Deploy a new function > Via Editor
+2. Replace the code inside with the code in supabase/functions/restrip-memories/index.ts (included in repo)
+3. Rename the function name to "restrip-memories".
+4. Click "deploy function"
+5. Repeat steps 1-4 but with supabase/functions/telegram-bot/index.ts (included in repo)
+- **TAKE NOTE: for telegram-bot function, make sure to toggle OFF "Verify JWT with legacy secret" after you've deployed the function.**
+6. Create a new gmail account for restrip testing purposes.
+7. Go to https://myaccount.google.com/u/1/apppasswords to create a Google App Password (I suggest you name the Google App Password as restrip)
+8. In your Supabase project, go to Authentication > Email (under notifications) > SMTP Settings
+9. Toggle on Enable Custom SMTP
+10. Sender email address: (your created gmail address)
+11. Sender name: ReStrip
+12. Host: smtp.gmail.com
+13. Port number: 465
+14. Minimum interval per user: 5 seconds
+15. Username: (your created gmail address)
+16. Password: (your Google App Password)
+17. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
+18. Get your bot token ("Use this token to access the HTTP API") and username
+19. Enter the following terminal command to connect telegram bot with supabase edge function: ```curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<FUNCTION_URL>/<BOT_TOKEN>"``` whereby <BOT_TOKEN> is the telegram bot token and <FUNCTION_URL> is the supabase edge function's endpoint url (retrieved by Functions > "your function name" > Details)
+20. To confirm its connected, enter the following command: ```curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"```, you should get an output of "```{"ok":true,"result":{"url":"https://cervbsflzlvngmbuzmhq.supabase.co/functions/v1/telegram-bot/<BOT_TOKEN>","has_custom_certificate":false,"pending_update_count":0,"max_connections":40,"ip_address":"172.64.149.246"}}```"
+21. In your Supabase project, go to Edge Functions > Secrets
+22. Add the following secrets:
+- "GMAIL_USER" -> (your created gmail address)
+- "GMAIL_APP_PASSWORD" -> (your Google App Password)
+- "BASE_URL" -> (your localhost address)
+- "TELEGRAM_BOT_TOKEN" -> (your created telegram bot token)
+- "TELEGRAM_WEBHOOK_SECRET" -> (generate your own webhook secret with the following terminal command ```openssl rand -hex 32```)
+- "ENCRYPTION_SECRET" -> (use the same ENCRYPTION_SECRET that you've generated previously for the .env.local)
+23. In your Supabase project, go to Integrations > Cron > Install Cron (following the relevant instructions shown on screen to install Cron and its dependencies)
+24. In Cron, clicked Jobs and create job.
+25. Name: restrip_memories
+26. Schedule: */5 * * * *
+27. Type: Supabase Edge Functions
+28. Method: POST
+29. Edge Function: restrip-memories
+30. Timeout: 1000ms
+31. HTTP Headers:
+- Authorization: Bearer <SUPABASE_ANON_KEY>
+- Content-Type: application/json
+32. HTTP Request Body: {"name":"Functions"}
+33. Click save cron job.
+
 
 ### Step 6: Start the Development Server
 
