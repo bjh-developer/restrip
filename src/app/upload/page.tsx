@@ -1289,7 +1289,7 @@ export default function UploadPage() {
           </DialogHeader>
 
           <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4">
-            {originalImage && (
+            {(croppedImage || originalImage) && (
               <ReactCrop
                 crop={crop}
                 onChange={(c) => setCrop(c)}
@@ -1297,7 +1297,7 @@ export default function UploadPage() {
               >
                 <img
                   ref={imgRef}
-                  src={originalImage}
+                  src={croppedImage || originalImage}
                   alt="Crop me"
                   onLoad={onImageLoad}
                   style={{
