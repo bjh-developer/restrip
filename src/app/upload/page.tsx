@@ -11,6 +11,7 @@
  * - Multiple delivery timing options (surprise, custom period, custom date)
  * - Email or Telegram delivery
  * - Client-side validation with helpful error messages
+ * - Manual cropping
  *
  * @module app/upload/page
  */
@@ -18,13 +19,36 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
+import {
+  ArrowUpRightIcon,
+  Brush,
+  CircleAlert,
+  Crop as CropIcon,
+  RotateCcw,
+} from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
+import ReactCrop, {
+  type Crop,
+  type PixelCrop,
+  centerCrop,
+  makeAspectCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
+
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import { PeriodPicker, type PeriodOption } from "../../components/PeriodPicker";
 import {
   DeliveryMethodPicker,
@@ -202,6 +226,67 @@ async function compressImage(base64Image: string): Promise<string> {
     console.error("⚠️ Compression failed, using original:", error);
     return base64Image;
   }
+}
+
+/**
+ * Draws the cropped portion of the original image onto a canvas
+ */
+async function canvasPreview(
+  image: HTMLImageElement,
+  crop: PixelCrop,
+  scale = 1,
+  rotate = 0,
+) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("No 2d context");
+  }
+
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  const pixelRatio = window.devicePixelRatio;
+
+  canvas.width = Math.floor(crop.width * scaleX * pixelRatio);
+  canvas.height = Math.floor(crop.height * scaleY * pixelRatio);
+
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.imageSmoothingQuality = "high";
+
+  const cropX = crop.x * scaleX;
+  const cropY = crop.y * scaleY;
+
+  const centerX = image.naturalWidth / 2;
+  const centerY = image.naturalHeight / 2;
+
+  ctx.save();
+
+  // Move the crop origin to the canvas origin (0,0)
+  ctx.translate(-cropX, -cropY);
+  // Move the origin to the center of the original position
+  ctx.translate(centerX, centerY);
+  // Rotate around the origin
+  ctx.rotate(rotate);
+  // Scale the image
+  ctx.scale(scale, scale);
+  // Move the center of the image to the origin (0,0)
+  ctx.translate(-centerX, -centerY);
+  ctx.drawImage(
+    image,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+  );
+
+  ctx.restore();
+
+  return canvas.toDataURL("image/jpeg", 0.95);
 }
 
 /**
@@ -460,7 +545,9 @@ export default function UploadPage() {
     useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
-  const [scheduledSendTime, setScheduledSendTime] = useState<Date | undefined>();
+  const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -470,6 +557,12 @@ export default function UploadPage() {
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [originalImage, setOriginalImage] = useState<string | undefined>();
   const [croppedImage, setCroppedImage] = useState<string | undefined>();
+
+  // Manual Crop State
+  const [isManualCropping, setIsManualCropping] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // Delivery state
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
@@ -503,6 +596,9 @@ export default function UploadPage() {
     setAutoCropEnabled(false);
     setValidationErrors([]);
     setFieldErrors((prev) => ({ ...prev, image: undefined }));
+    // Reset manual crop state
+    setCrop(undefined);
+    setCompletedCrop(undefined);
   }, []);
 
   /**
@@ -575,6 +671,69 @@ export default function UploadPage() {
     },
     [originalImage, croppedImage],
   );
+
+  /**
+   * Handles saving the manual crop from the modal
+   */
+  const handleSaveManualCrop = useCallback(async () => {
+    // Check if we have a valid image ref and a valid crop object
+    if (
+      completedCrop &&
+      imgRef.current &&
+      completedCrop.width > 0 &&
+      completedCrop.height > 0
+    ) {
+      try {
+        const croppedBase64 = await canvasPreview(
+          imgRef.current,
+          completedCrop,
+        );
+        setCroppedImage(croppedBase64);
+        setIsManualCropping(false);
+        // Ensure auto-crop is disabled to avoid confusion
+        setAutoCropEnabled(false);
+        console.log("✅ Manual crop saved");
+      } catch (e) {
+        console.error("Failed to crop", e);
+        alert("Something went wrong while cropping. Please try again.");
+      }
+    } else {
+      // If user clicked apply without moving the crop box, or dimensions are 0
+      // We can just close the modal if they didn't really crop, or alert them.
+      setIsManualCropping(false);
+    }
+  }, [completedCrop]);
+
+  /**
+   * Handles resetting to the original image
+   */
+  const handleResetCrop = useCallback(() => {
+    setCroppedImage(undefined);
+    setAutoCropEnabled(false);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  }, []);
+
+  /**
+   * Initializes default crop when image loads in modal
+   */
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    const crop = centerCrop(
+      makeAspectCrop(
+        {
+          unit: "%",
+          width: 80,
+        },
+        width / height,
+        width,
+        height,
+      ),
+      width,
+      height,
+    );
+    setCrop(crop);
+  }
 
   /**
    * Handles period selection from PeriodPicker.
@@ -708,13 +867,25 @@ export default function UploadPage() {
   const scrollToFirstError = (errors: FieldErrors): void => {
     setTimeout(() => {
       if (errors.image && imageRef.current) {
-        imageRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        imageRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.caption && captionRef.current) {
-        captionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        captionRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.period && periodRef.current) {
-        periodRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        periodRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.deliveryAddress && deliveryRef.current) {
-        deliveryRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        deliveryRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }, 100);
   };
@@ -758,9 +929,10 @@ export default function UploadPage() {
     try {
       console.log("✅ All inputs valid. Starting processing...");
 
-      // Select image source (cropped if auto-crop enabled, otherwise original)
-      const imageToUpload =
-        autoCropEnabled && croppedImage ? croppedImage : originalImage;
+      // Select image source.
+      // If a manual crop or auto crop resulted in croppedImage, use that.
+      // Otherwise use original.
+      const imageToUpload = croppedImage ? croppedImage : originalImage;
 
       // Step 1: Compress image
       console.log("🗜️ Compressing image...");
@@ -785,12 +957,8 @@ export default function UploadPage() {
         throw new Error(errorData.error ?? "Failed to upload image");
       }
 
-      const {
-        storagePath,
-        encryptedCaption,
-        captionIv,
-        imageIv,
-      } = await uploadResponse.json();
+      const { storagePath, encryptedCaption, captionIv, imageIv } =
+        await uploadResponse.json();
       console.log("✅ Encrypted and stored at:", storagePath);
 
       // Step 3: Save metadata to database
@@ -966,14 +1134,45 @@ export default function UploadPage() {
             <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
               <UploadImage
                 key={resetKey}
-                displayImage={
-                  autoCropEnabled && croppedImage ? croppedImage : undefined
-                }
+                displayImage={croppedImage ? croppedImage : undefined}
                 onImageUpload={handleImageUpload}
                 isLoading={isCropping}
                 error={!!fieldErrors.image}
               />
             </div>
+
+            {originalImage && (
+              <div className="flex gap-3 justify-center mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsManualCropping(true);
+                  }}
+                  className="gap-2"
+                >
+                  <CropIcon size={16} />
+                  Manual Crop
+                </Button>
+
+                {croppedImage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleResetCrop();
+                    }}
+                    className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <RotateCcw size={16} />
+                    Reset to Original
+                  </Button>
+                )}
+              </div>
+            )}
+
             {fieldErrors.image && (
               <div className="mt-2 mb-2 p-2 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-red-700 text-sm">{fieldErrors.image}</p>
@@ -1109,6 +1308,51 @@ export default function UploadPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
+        <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle>Crop your photo strip</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4">
+            {originalImage && (
+              <ReactCrop
+                crop={crop}
+                onChange={(c) => setCrop(c)}
+                onComplete={(c) => setCompletedCrop(c)}
+              >
+                <img
+                  ref={imgRef}
+                  src={originalImage}
+                  alt="Crop me"
+                  onLoad={onImageLoad}
+                  style={{
+                    maxHeight: "70vh", // Fits within the flex-1 area roughly
+                    maxWidth: "100%",
+                    width: "auto",
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
+              </ReactCrop>
+            )}
+          </div>
+
+          <DialogFooter className="p-4 border-t bg-white gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsManualCropping(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSaveManualCrop}>
+              Apply Crop
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Footer Section */}
       <footer className="bg-soft-black text-warm-beige py-8">
