@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Playfair_Display, Inter, Caveat } from "next/font/google";
 // @ts-ignore
 import "../styles/globals.css";
 import { Analytics } from "@vercel/analytics/next";
@@ -15,6 +15,13 @@ const playfairDisplay = Playfair_Display({
 
 const inter = Inter({
   variable: "--font-body",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
+
+const caveat = Caveat({
+  variable: "--font-caption",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
@@ -41,7 +48,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${playfairDisplay.variable} ${inter.variable} antialiased`}
+        className={`${playfairDisplay.variable} ${inter.variable} ${caveat.variable} antialiased`}
       >
         <Providers>{children}</Providers>
         <Analytics />

@@ -1114,14 +1114,7 @@ export default function UploadPage() {
       <footer className="bg-soft-black text-warm-beige py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
-            <a
-              href="https://www.linkedin.com/in/bek-joon-hao/"
-              className="hover:underline transition-all hover:text-pastel-blue"
-            >
-              Joon Hao
-            </a>
-            .
+            &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
           </p>
           <div className="mt-4 flex justify-center space-x-4">
             <a

@@ -160,7 +160,7 @@ export const DeliveryMethodPicker = React.memo(
                 aria-invalid={error}
                 aria-describedby="email-helper-text"
               />
-              <p id="email-helper-text" className="text-sm text-gray-500">
+              <p id="email-helper-text" className="text-sm text-gray-500 text-center">
                 We'll send your memory to this email address
               </p>
             </div>
@@ -169,7 +169,7 @@ export const DeliveryMethodPicker = React.memo(
           {/* Telegram Info Box */}
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-600">
+              <p className="text-sm text-blue-600 text-center">
                 ✅ You'll be prompted to start our Telegram bot next
               </p>
             </div>

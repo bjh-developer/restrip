@@ -5,24 +5,24 @@ import { useRouter } from "next/navigation";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowUpRightIcon } from "lucide-react";
-import { PasskeyAuth } from "../../components/auth/PasskeyAuth";
-import { EmailPasswordAuth } from "../../components/auth/EmailPasswordAuth";
-import { usePasskeySupport } from "../../hooks/usePasskeySupport";
-import { useAuth } from "../../hooks/useAuth";
-import ShinyText from "../../components/ShinyText";
-import ScrollReveal from "../../components/ScrollReveal";
+import { PasskeyAuth } from "../../../components/auth/PasskeyAuth";
+import { EmailPasswordAuth } from "../../../components/auth/EmailPasswordAuth";
+import { usePasskeySupport } from "../../../hooks/usePasskeySupport";
+import { useAuth } from "../../../hooks/useAuth";
+import ShinyText from "../../../components/ShinyText";
+import ScrollReveal from "../../../components/ScrollReveal";
 import {
   Announcement,
   AnnouncementTag,
   AnnouncementTitle,
-} from "../../components/ui/shadcn-io/announcement";
+} from "../../../components/ui/shadcn-io/announcement";
 import {
   Banner,
   BannerAction,
   BannerClose,
   BannerIcon,
   BannerTitle,
-} from "../../components/ui/shadcn-io/banner";
+} from "../../../components/ui/shadcn-io/banner";
 import { CircleAlert } from "lucide-react";
 
 // Register ScrollTrigger plugin
@@ -78,7 +78,7 @@ export default function AuthPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const returnTo = searchParams.get("returnTo");
       // Validate returnTo is a relative path (starts with /) and doesn't contain protocol
-      let destination = "/upload";
+      let destination = "/gallery";
       if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
         destination = returnTo;
       } else if (returnTo) {
@@ -192,7 +192,7 @@ export default function AuthPage() {
               />
             </div>
             <div className="w-full max-w-md mx-auto p-6">
-              <PasskeyAuth onSuccess={() => router.push("/upload")} />
+              <PasskeyAuth onSuccess={() => router.push("/gallery")} />
             </div>
           </div>
           <Footer />
@@ -231,7 +231,7 @@ export default function AuthPage() {
             (user?.user_metadata?.auth_method === "passkey" ||
               user?.user_metadata?.auth_method ===
                 "passkey_pending_verification") ? (
-              <PasskeyAuth onSuccess={() => router.push("/upload")} />
+              <PasskeyAuth onSuccess={() => router.push("/gallery")} />
             ) : !passkeySupported &&
               (user?.user_metadata?.auth_method === "passkey" ||
                 user?.user_metadata?.auth_method ===
@@ -266,7 +266,7 @@ export default function AuthPage() {
               </div>
             ) : (
               <EmailPasswordAuth
-                onSuccess={() => router.push("/upload")}
+                onSuccess={() => router.push("/gallery")}
                 signinOnly
               />
             )}
@@ -293,7 +293,13 @@ export default function AuthPage() {
 
   // User is not authenticated - show full auth UI
   const handleSuccess = () => {
-    router.push("/upload");
+    const searchParams = new URLSearchParams(window.location.search);
+    const returnTo = searchParams.get("returnTo");
+    if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
+      router.push(returnTo);
+    } else {
+      router.push("/gallery");
+    }
   };
 
   return (

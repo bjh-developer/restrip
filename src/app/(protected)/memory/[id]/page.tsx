@@ -259,7 +259,7 @@ export default function MemoryPage() {
                 {/* Caption */}
                 {decryptedCaption && (
                   <div className="bg-gray-50 p-4 rounded-lg border">
-                    <p className="text-gray-700 whitespace-pre-wrap text-center">
+                    <p className="text-gray-700 whitespace-pre-wrap text-center font-caption">
                       {decryptedCaption}
                     </p>
                   </div>
@@ -268,7 +268,7 @@ export default function MemoryPage() {
                 {/* Back button */}
                 <div className="pt-4">
                   <button
-                    onClick={() => router.push("/upload")}
+                    onClick={() => router.push("/new")}
                     className="w-full bg-pastel-blue text-soft-black rounded-md py-3 font-body font-semibold hover:bg-blush-pink transition-all"
                   >
                     Create Another Memory

@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Clock, Heart } from "lucide-react";
-import { PasskeyAuth } from "../../../../../components/auth/PasskeyAuth";
-import { EmailPasswordAuth } from "../../../../../components/auth/EmailPasswordAuth";
-import { usePasskeySupport } from "../../../../../hooks/usePasskeySupport";
-import { useAuth } from "../../../../../hooks/useAuth";
+import { PasskeyAuth } from "../../../../components/auth/PasskeyAuth";
+import { EmailPasswordAuth } from "../../../../components/auth/EmailPasswordAuth";
+import { usePasskeySupport } from "../../../../hooks/usePasskeySupport";
+import { useAuth } from "../../../../hooks/useAuth";
 
 type AuthTab = "passkey" | "password";
 

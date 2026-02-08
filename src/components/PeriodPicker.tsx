@@ -154,7 +154,9 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [showCustomPeriod, setShowCustomPeriod] = useState(false);
   const [customDate, setCustomDate] = useState<string>("");
-  const [customPeriod, setCustomPeriod] = useState<CustomPeriodState | undefined>();
+  const [customPeriod, setCustomPeriod] = useState<
+    CustomPeriodState | undefined
+  >();
   const [randomDate, setRandomDate] = useState<Date | undefined>();
 
   const today = new Date();
@@ -254,32 +256,34 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
       {/* Custom Period Picker (date range) */}
       {showCustomPeriod && (
         <div className="mt-4 p-4 bg-pastel-blue bg-opacity-20 rounded-lg">
-          <label className="block font-body font-semibold text-soft-black mb-2">
+          <label className="block font-body font-semibold text-soft-black mb-2 text-center">
             Pick your period
           </label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                {customPeriod?.from && customPeriod?.to
-                  ? `${format(customPeriod.from, "LLL dd, y")} - ${format(
-                      customPeriod.to,
-                      "LLL dd, y",
-                    )}`
-                  : "Select a date range"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <Calendar
-                mode="range"
-                numberOfMonths={2}
-                onSelect={handleCustomPeriodChange}
-                selected={customPeriod}
-                disabled={[{ before: today }]}
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="flex justify-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  {customPeriod?.from && customPeriod?.to
+                    ? `${format(customPeriod.from, "LLL dd, y")} - ${format(
+                        customPeriod.to,
+                        "LLL dd, y",
+                      )}`
+                    : "Select a date range"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="range"
+                  numberOfMonths={2}
+                  onSelect={handleCustomPeriodChange}
+                  selected={customPeriod}
+                  disabled={[{ before: today }]}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {randomDate && customPeriod?.from && customPeriod?.to && (
-            <p className="text-xs text-grey mt-2">
+            <p className="text-xs text-grey mt-2 justify-center text-center">
               You'll open this email and smile on a random day between{" "}
               {format(customPeriod.from, "PPP")} and{" "}
               {format(customPeriod.to, "PPP")}.
@@ -291,28 +295,30 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
       {/* Custom Date Picker (single date) */}
       {showCustomDate && (
         <div className="mt-4 p-4 bg-pastel-blue bg-opacity-20 rounded-lg">
-          <label className="block font-body font-semibold text-soft-black mb-2">
+          <label className="block font-body font-semibold text-soft-black mb-2 text-center">
             Pick your date
           </label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                {customDate
-                  ? format(new Date(customDate), "PPP")
-                  : "Select a date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <Calendar
-                mode="single"
-                onSelect={(date) => handleCustomDateChange(date as Date)}
-                selected={customDate ? new Date(customDate) : undefined}
-                disabled={[{ before: today }]}
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="flex justify-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  {customDate
+                    ? format(new Date(customDate), "PPP")
+                    : "Select a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  onSelect={(date) => handleCustomDateChange(date as Date)}
+                  selected={customDate ? new Date(customDate) : undefined}
+                  disabled={[{ before: today }]}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           {customDate && (
-            <p className="text-xs text-grey mt-2">
+            <p className="text-xs text-grey mt-2 justify-center text-center">
               You'll open this email and smile on{" "}
               {format(new Date(customDate), "PPP")}.
             </p>
