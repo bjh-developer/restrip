@@ -1104,7 +1104,7 @@ export default function UploadPage() {
                 1. take photo/upload your photo strip
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify center" ref={imageRef}>
+            <div className="mt-6 flex gap-4 justify-center" ref={imageRef}>
               <UploadImage
                 key={resetKey}
                 displayImage={croppedImage ? croppedImage : undefined}
@@ -1115,7 +1115,7 @@ export default function UploadPage() {
             </div>
 
             {originalImage && (
-              <div className="flex gap-3 justify-center mt-4">
+              <div className="flex gap-3 justify-center mt-4 mb-4">
                 <Button
                   type="button"
                   variant="outline"
