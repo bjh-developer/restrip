@@ -245,7 +245,8 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 
 ### External Services
 
-- **RunPod Serverless** — GPU-based AI image processing
+- **RunPod Serverless** — GPU-based AI image processing (optional, for cloud deployment)
+- **Local Crop Server** — FastAPI server for local development (optional, zero cost)
 - **UserJot** — Feedback and feature request widget
 - **Vercel Analytics** — Usage analytics
 - **Vercel Speed Insights** — Performance monitoring
@@ -335,8 +336,9 @@ rereel/
 ├── supabase/                       # Database migrations
 │   └── migrations/                 # SQL migration files (001-008)
 ├── runpod/                         # AI Image Processing (Python)
-│   ├── handler.py                  # RunPod serverless handler
-│   ├── requirements.txt            # Python dependencies
+│   ├── handler.py                  # RunPod serverless handler (YOLO model inference)
+│   ├── server.py                   # Local FastAPI server wrapper (dev alternative to RunPod)
+│   ├── requirements.txt            # Python dependencies (includes fastapi, uvicorn)
 │   └── Dockerfile                  # Docker config
 ├── middleware.ts                   # Next.js middleware (route protection)
 ├── next.config.ts                  # Next.js configuration
@@ -670,7 +672,19 @@ You'll need accounts for the following services:
 3. Navigate to **Settings > API** to find your project URL and keys
 4. **Run database migrations** (see Step 4)
 
-#### B. RunPod (Optional - for AI auto-crop feature)
+#### B. Photo Strip Crop Backend (Optional - choose one)
+
+**Option 1: Local Crop Server (Recommended for Development)**
+
+- Free, runs on your machine
+- No RunPod account needed
+- Requires YOLO model weights (`runpod/runs/segment/train/weights/best.pt`)
+
+**Option 2: RunPod Serverless (For Production)**
+
+1. Create an account at [runpod.io](https://www.runpod.io/)
+2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
+3. Get your API key and endpoint ID from the RunPod dashboard
 
 1. Create an account at [runpod.io](https://www.runpod.io/)
 2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
@@ -685,6 +699,22 @@ cp .env.local.example .env.local
 ```
 
 Then edit `.env.local` with your configuration. See `.env.local.example` for all available options and descriptions.
+
+**Key Environment Variables:**
+
+```dotenv
+# Crop Backend Selection (choose one)
+CROP_BACKEND=local                      # Use "local" for dev, "runpod" for production
+LOCAL_CROP_URL=http://localhost:8000/crop  # Local crop server address
+
+# RunPod Configuration (only needed if CROP_BACKEND=runpod)
+RUNPOD_API_KEY=
+RUNPOD_ENDPOINT_ID=
+
+# Encryption
+# Generate with: openssl rand -base64 32
+ENCRYPTION_SECRET=
+```
 
 ***For ENCRYPTION_SECRET, generate your own secret using the following terminal command ```openssl rand -base64 32```***
 
@@ -763,7 +793,20 @@ SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('passkey_credent
 33. Click save cron job.
 
 
-### Step 6: Start the Development Server
+### Step 6: Start the Crop Server (Optional)
+
+If using **local crop backend** (recommended for development):
+
+```bash
+cd runpod
+python server.py
+```
+
+This starts the FastAPI server on `http://localhost:8000/crop`. Leave it running in the background.
+
+### Step 7: Start the Development Server
+
+In a new terminal:
 
 ```bash
 npm run dev
@@ -773,10 +816,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 
 > **Note:** Currently, no authentication is required. Users can directly access the upload flow without signing in. Authentication features will be added in a future update.
 
-### Step 7: Test Your Setup
+### Step 8: Test Your Setup
 
 1. **Test upload flow**: Navigate to `/upload` and try uploading an image
-2. **Test AI cropping** (if RunPod configured): Upload an image with auto-crop enabled
+2. **Test AI cropping**: Upload an image with auto-crop enabled (uses local or RunPod backend based on config)
 3. **Test form validation**: Try submitting with missing fields to see validation errors
 
 ### Available Scripts
@@ -786,8 +829,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 | `npm run dev` | Start development server (hot reload) |
 | `npm run build` | Create production build |
 | `npm run start` | Run production server |
-| `npm run lint` | Run ESLint code linting |
+| `npm run lint` | Run ESLint code linting || `python runpod/server.py` | Start local crop server (development) |
 
+**Switching Crop Backends:**
+
+```bash
+# Use local server (development)
+CROP_BACKEND=local npm run dev
+
+# Use RunPod (production)
+CROP_BACKEND=runpod npm run dev
+```
 ### Troubleshooting Setup Issues
 
 | Issue | Solution |
@@ -796,6 +848,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 | Supabase connection fails | Verify env variables are set correctly |
 | Passkey registration fails | Ensure `NEXT_PUBLIC_ALLOWED_RP_DOMAINS` includes `localhost` |
 | Build/prerender errors | Add `export const dynamic = "force-dynamic"` to affected layouts |
+| "Local crop server error" | Ensure `python server.py` is running in `runpod/` directory |
+| Crop processing fails | Check `CROP_BACKEND` is set correctly (`local` or `runpod`) |
+| "Connection refused" on localhost:8000 | Verify local server is running: `python runpod/server.py` |
 
 For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 17.
 

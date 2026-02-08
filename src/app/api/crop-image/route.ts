@@ -1,9 +1,13 @@
 /**
  * Crop Image API Route Handler
  *
- * Proxies image cropping requests to RunPod's serverless YOLO model.
- * The model detects and extracts photo strips from uploaded images,
- * applying perspective correction and orientation normalization.
+ * Proxies image cropping requests to either a local Python server
+ * or RunPod's serverless YOLO model, controlled by the CROP_BACKEND
+ * environment variable.
+ *
+ * Backends:
+ * - "local"  → LOCAL_CROP_URL (default http://localhost:8000/crop)
+ * - "runpod" → RunPod serverless API (default)
  *
  * @module api/crop-image
  */
@@ -26,6 +30,13 @@ interface RunPodResponse {
   status?: string;
 }
 
+/** Local backend response shape */
+interface LocalCropResponse {
+  success: boolean;
+  photostrip?: string;
+  error?: string;
+}
+
 /** Success response shape */
 interface SuccessResponse {
   success: true;
@@ -39,13 +50,6 @@ interface ErrorResponse {
 
 /**
  * Extracts base64 image data from a data URL or returns raw base64.
- *
- * Handles both formats:
- * - Data URL: "data:image/png;base64,iVBORw0KGgo..."
- * - Raw base64: "iVBORw0KGgo..."
- *
- * @param image - Image string (data URL or raw base64)
- * @returns Pure base64-encoded image data
  */
 function extractBase64Data(image: string): string {
   const commaIndex = image.indexOf(",");
@@ -54,18 +58,12 @@ function extractBase64Data(image: string): string {
 
 /**
  * Validates required environment variables for RunPod integration.
- *
- * @returns Object with validation result and missing vars if any
  */
 function validateRunPodConfig(): { valid: boolean; missing?: string[] } {
   const missing: string[] = [];
 
-  if (!process.env.RUNPOD_API_KEY) {
-    missing.push("RUNPOD_API_KEY");
-  }
-  if (!process.env.RUNPOD_ENDPOINT_ID) {
-    missing.push("RUNPOD_ENDPOINT_ID");
-  }
+  if (!process.env.RUNPOD_API_KEY) missing.push("RUNPOD_API_KEY");
+  if (!process.env.RUNPOD_ENDPOINT_ID) missing.push("RUNPOD_ENDPOINT_ID");
 
   return {
     valid: missing.length === 0,
@@ -73,29 +71,121 @@ function validateRunPodConfig(): { valid: boolean; missing?: string[] } {
   };
 }
 
+/** Whether the crop backend is set to local */
+function isLocalBackend(): boolean {
+  return (process.env.CROP_BACKEND ?? "runpod").toLowerCase() === "local";
+}
+
+// =============================================================================
+// Local backend handler
+// =============================================================================
+
 /**
- * Handles POST requests for image cropping via RunPod.
+ * Sends the image to the local Python crop server.
+ */
+async function cropViaLocal(
+  base64Data: string,
+): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
+  const localUrl =
+    process.env.LOCAL_CROP_URL ?? "http://localhost:8000/crop";
+
+  console.log(`🏠 Sending image to local crop server at ${localUrl}...`);
+
+  const response = await fetch(localUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: base64Data }),
+  });
+
+  if (!response.ok) {
+    console.error(`Local crop server error: ${response.status} ${response.statusText}`);
+    return NextResponse.json(
+      { error: `Local crop server error: ${response.status}` },
+      { status: 502 },
+    );
+  }
+
+  const data = (await response.json()) as LocalCropResponse;
+
+  if (data.success && data.photostrip) {
+    console.log("✅ Photostrip extracted successfully (local)");
+    return NextResponse.json({ success: true, photostrip: data.photostrip });
+  }
+
+  const errorMessage = data.error ?? "No photostrip detected in image";
+  console.error("Local crop error:", errorMessage);
+  return NextResponse.json({ error: errorMessage }, { status: 422 });
+}
+
+// =============================================================================
+// RunPod backend handler
+// =============================================================================
+
+/**
+ * Sends the image to RunPod's serverless YOLO endpoint.
+ */
+async function cropViaRunPod(
+  base64Data: string,
+): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
+  const configValidation = validateRunPodConfig();
+  if (!configValidation.valid) {
+    console.error(
+      "Missing RunPod configuration:",
+      configValidation.missing?.join(", "),
+    );
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 },
+    );
+  }
+
+  const apiKey = process.env.RUNPOD_API_KEY!;
+  const endpointId = process.env.RUNPOD_ENDPOINT_ID!;
+  const runpodUrl = `https://api.runpod.ai/v2/${endpointId}/runsync`;
+
+  console.log("🚀 Sending image to RunPod for processing...");
+  const response = await fetch(runpodUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ input: { image: base64Data } }),
+  });
+
+  if (!response.ok) {
+    console.error(`RunPod API error: ${response.status} ${response.statusText}`);
+    return NextResponse.json(
+      { error: `RunPod API error: ${response.status}` },
+      { status: 502 },
+    );
+  }
+
+  const data = (await response.json()) as RunPodResponse;
+  console.log("📥 RunPod response status:", data.status);
+
+  if (data.output?.photostrip) {
+    console.log("✅ Photostrip extracted successfully (RunPod)");
+    return NextResponse.json({
+      success: true,
+      photostrip: data.output.photostrip,
+    });
+  }
+
+  const errorMessage =
+    data.output?.error ?? data.error ?? "No photostrip detected in image";
+  console.error("RunPod processing error:", errorMessage);
+  return NextResponse.json({ error: errorMessage }, { status: 422 });
+}
+
+// =============================================================================
+// Route handler
+// =============================================================================
+
+/**
+ * POST /api/crop-image
  *
- * Process flow:
- * 1. Validate RunPod configuration is present
- * 2. Extract base64 image data from request
- * 3. Send to RunPod YOLO endpoint for processing
- * 4. Return cropped photostrip or error
- *
- * @param request - Incoming Next.js request object
- * @returns JSON response with cropped photostrip or error
- *
- * @example
- * // Request body
- * {
- *   "image": "data:image/png;base64,iVBORw0KGgo..."
- * }
- *
- * // Success response (200)
- * {
- *   "success": true,
- *   "photostrip": "base64-encoded-png"
- * }
+ * Routes to the local Python server or RunPod based on CROP_BACKEND env var.
  */
 export async function POST(
   request: NextRequest,
@@ -104,7 +194,6 @@ export async function POST(
     const body = (await request.json()) as Partial<CropImageRequestBody>;
     const { image } = body;
 
-    // Validate image is provided
     if (!image || typeof image !== "string") {
       return NextResponse.json(
         { error: "No image provided or invalid format" },
@@ -112,72 +201,15 @@ export async function POST(
       );
     }
 
-    // Validate RunPod configuration
-    const configValidation = validateRunPodConfig();
-    if (!configValidation.valid) {
-      console.error(
-        "Missing RunPod configuration:",
-        configValidation.missing?.join(", "),
-      );
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 },
-      );
-    }
-
-    const apiKey = process.env.RUNPOD_API_KEY!;
-    const endpointId = process.env.RUNPOD_ENDPOINT_ID!;
-    const runpodUrl = `https://api.runpod.ai/v2/${endpointId}/runsync`;
-
-    // Extract pure base64 data (remove data URL prefix if present)
     const base64Data = extractBase64Data(image);
 
-    // Call RunPod API
-    console.log("🚀 Sending image to RunPod for processing...");
-    const response = await fetch(runpodUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        input: {
-          image: base64Data,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(`RunPod API error: ${response.status} ${response.statusText}`);
-      return NextResponse.json(
-        { error: `RunPod API error: ${response.status}` },
-        { status: 502 },
-      );
+    if (isLocalBackend()) {
+      return await cropViaLocal(base64Data);
     }
 
-    const data = (await response.json()) as RunPodResponse;
-    console.log("📥 RunPod response status:", data.status);
-
-    // Extract cropped photostrip from response
-    if (data.output?.photostrip) {
-      console.log("✅ Photostrip extracted successfully");
-      return NextResponse.json({
-        success: true,
-        photostrip: data.output.photostrip,
-      });
-    }
-
-    // Handle case where no photostrip was detected
-    const errorMessage = data.output?.error ?? data.error ?? "No photostrip detected in image";
-    console.error("RunPod processing error:", errorMessage);
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 422 },
-    );
+    return await cropViaRunPod(base64Data);
   } catch (error) {
     console.error("Crop image handler error:", error);
-
     return NextResponse.json(
       { error: "Failed to process image" },
       { status: 500 },
