@@ -231,12 +231,7 @@ async function compressImage(base64Image: string): Promise<string> {
 /**
  * Draws the cropped portion of the original image onto a canvas
  */
-async function canvasPreview(
-  image: HTMLImageElement,
-  crop: PixelCrop,
-  scale = 1,
-  rotate = 0,
-) {
+async function canvasPreview(image: HTMLImageElement, crop: PixelCrop) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -246,45 +241,23 @@ async function canvasPreview(
 
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
-  const pixelRatio = window.devicePixelRatio;
 
-  canvas.width = Math.floor(crop.width * scaleX * pixelRatio);
-  canvas.height = Math.floor(crop.height * scaleY * pixelRatio);
+  // Set canvas size to match crop area (in actual pixels)
+  canvas.width = crop.width * scaleX;
+  canvas.height = crop.height * scaleY;
 
-  ctx.scale(pixelRatio, pixelRatio);
-  ctx.imageSmoothingQuality = "high";
-
-  const cropX = crop.x * scaleX;
-  const cropY = crop.y * scaleY;
-
-  const centerX = image.naturalWidth / 2;
-  const centerY = image.naturalHeight / 2;
-
-  ctx.save();
-
-  // Move the crop origin to the canvas origin (0,0)
-  ctx.translate(-cropX, -cropY);
-  // Move the origin to the center of the original position
-  ctx.translate(centerX, centerY);
-  // Rotate around the origin
-  ctx.rotate(rotate);
-  // Scale the image
-  ctx.scale(scale, scale);
-  // Move the center of the image to the origin (0,0)
-  ctx.translate(-centerX, -centerY);
+  // Draw just the cropped portion onto the canvas
   ctx.drawImage(
     image,
-    0,
-    0,
-    image.naturalWidth,
-    image.naturalHeight,
-    0,
-    0,
-    image.naturalWidth,
-    image.naturalHeight,
+    crop.x * scaleX, // Source X (where to start copying from)
+    crop.y * scaleY, // Source Y
+    crop.width * scaleX, // Source width (how much to copy)
+    crop.height * scaleY, // Source height
+    0, // Destination X (where to paste on canvas)
+    0, // Destination Y
+    canvas.width, // Destination width
+    canvas.height, // Destination height
   );
-
-  ctx.restore();
 
   return canvas.toDataURL("image/jpeg", 0.95);
 }
