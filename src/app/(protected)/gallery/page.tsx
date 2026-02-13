@@ -1,27 +1,38 @@
 /**
  * Gallery Page
  *
- * Displays the authenticated user's encrypted memories in a responsive grid.
- * Each snap card shows a thumbnail (client-side decrypted) with metadata.
- * Supports deletion and a lightbox viewer.
+ * Displays the authenticated user's encrypted memories in a GSAP-powered
+ * masonry grid. Images are decrypted client-side then measured for natural
+ * height before the masonry layout renders.
+ *
+ * Features:
+ * - True masonry layout with measured image heights
+ * - Status indicator overlays (✓ Sent · ⏱ Pending · ✗ Failed)
+ * - Right-click context menu for single delete
+ * - "Select" mode with checkmarks for batch delete
+ * - Lightbox viewer with keyboard navigation
  *
  * @module app/(protected)/gallery/page
  */
 
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
-  Calendar,
-  Clock,
   X,
   ChevronLeft,
   ChevronRight,
   ImageOff,
   Loader2,
+  CheckCircle2,
+  Circle,
+  SquareMousePointer,
+  CalendarDays,
+  ListFilter,
+  Menu,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import {
@@ -30,6 +41,7 @@ import {
   decryptDataAsString,
 } from "../../../lib/encryption";
 import { createClient } from "../../../lib/supabase/client";
+import Masonry, { type MasonryItem } from "../../../../components/Masonry";
 
 // =============================================================================
 // Types
@@ -57,8 +69,10 @@ interface SnapRecord {
 interface DecryptedSnap extends SnapRecord {
   decryptedImageUrl: string | null;
   decryptedCaption: string | null;
-  isDecrypting: boolean;
-  decryptError: string | null;
+  /** Natural width of the decoded image (for masonry aspect ratio) */
+  naturalWidth: number;
+  /** Natural height of the decoded image (for masonry aspect ratio) */
+  naturalHeight: number;
 }
 
 // =============================================================================
@@ -69,6 +83,22 @@ interface DecryptedSnap extends SnapRecord {
 const DECRYPT_BATCH_SIZE = 4;
 
 // =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * Load a data-URL into an Image to measure its natural dimensions.
+ * Returns { width, height } or a fallback on error.
+ */
+const measureImage = (dataUrl: string): Promise<{ width: number; height: number }> =>
+  new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 300, height: 400 }); // fallback 3:4
+    img.src = dataUrl;
+  });
+
+// =============================================================================
 // Component
 // =============================================================================
 
@@ -76,25 +106,45 @@ export default function GalleryPage() {
   const router = useRouter();
   const { user } = useAuth();
 
+  // Data states
   const [snaps, setSnaps] = useState<DecryptedSnap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [allDecrypted, setAllDecrypted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Delete / selection
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Context menu
+  const [contextMenu, setContextMenu] = useState<{
+    snapId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Group-by filter
+  type GroupBy = "all" | "year" | "month" | "day";
+  const [groupBy, setGroupBy] = useState<GroupBy>("all");
+  const [groupByOpen, setGroupByOpen] = useState(false);
+  
+  // Mobile menu
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // =========================================================================
   // Data fetching & decryption
   // =========================================================================
 
-  /**
-   * Fetches gallery snaps from the API, then decrypts each one client-side.
-   */
   const fetchAndDecryptGallery = useCallback(async () => {
     try {
       setIsLoading(true);
+      setAllDecrypted(false);
       setError(null);
 
-      // Fetch snap records from API
       const response = await fetch("/api/gallery");
       if (!response.ok) {
         const errorData = await response.json();
@@ -105,16 +155,13 @@ export default function GalleryPage() {
         snaps: SnapRecord[];
       };
 
-      // Initialize snaps in "decrypting" state
-      const initialSnaps: DecryptedSnap[] = rawSnaps.map((snap) => ({
-        ...snap,
-        decryptedImageUrl: null,
-        decryptedCaption: null,
-        isDecrypting: true,
-        decryptError: null,
-      }));
+      if (rawSnaps.length === 0) {
+        setSnaps([]);
+        setIsLoading(false);
+        setAllDecrypted(true);
+        return;
+      }
 
-      setSnaps(initialSnaps);
       setIsLoading(false);
 
       // Get encryption key
@@ -124,95 +171,69 @@ export default function GalleryPage() {
         return;
       }
 
-      // Decrypt snaps in batches to manage memory
       const supabase = createClient();
+      const decryptedResults: DecryptedSnap[] = [];
 
-      for (let i = 0; i < initialSnaps.length; i += DECRYPT_BATCH_SIZE) {
-        const batch = initialSnaps.slice(i, i + DECRYPT_BATCH_SIZE);
+      // Decrypt in batches
+      for (let i = 0; i < rawSnaps.length; i += DECRYPT_BATCH_SIZE) {
+        const batch = rawSnaps.slice(i, i + DECRYPT_BATCH_SIZE);
 
         const results = await Promise.allSettled(
           batch.map(async (snap) => {
-            try {
-              // Download encrypted image blob
-              const { data: imageBlob, error: dlError } =
-                await supabase.storage
-                  .from("encrypted-images")
-                  .download(snap.storage_path);
+            // Download encrypted image blob
+            const { data: imageBlob, error: dlError } =
+              await supabase.storage
+                .from("encrypted-images")
+                .download(snap.storage_path);
 
-              if (dlError || !imageBlob) {
-                throw new Error("Failed to download image");
-              }
-
-              // Convert blob to base64 (chunked for large files)
-              const arrayBuffer = await imageBlob.arrayBuffer();
-              const bytes = new Uint8Array(arrayBuffer);
-              let binary = "";
-              const chunkSize = 8192;
-              for (let j = 0; j < bytes.length; j += chunkSize) {
-                const chunk = bytes.subarray(
-                  j,
-                  Math.min(j + chunkSize, bytes.length),
-                );
-                binary += String.fromCharCode.apply(null, Array.from(chunk));
-              }
-              const base64 = btoa(binary);
-
-              // Decrypt image and caption
-              const decryptedImageUrl = await decryptImage(
-                base64,
-                snap.image_iv,
-                encryptionKey,
-              );
-              const decryptedCaption = await decryptDataAsString(
-                snap.encrypted_caption,
-                snap.caption_iv,
-                encryptionKey,
-              );
-
-              return {
-                id: snap.id,
-                decryptedImageUrl,
-                decryptedCaption,
-              };
-            } catch (err) {
-              return {
-                id: snap.id,
-                error:
-                  err instanceof Error ? err.message : "Decryption failed",
-              };
+            if (dlError || !imageBlob) {
+              throw new Error("Failed to download image");
             }
-          }),
-        );
 
-        // Update state with decrypted results
-        setSnaps((prev) =>
-          prev.map((snap) => {
-            const result = results.find((r) => {
-              if (r.status === "fulfilled") return r.value.id === snap.id;
-              return false;
-            });
-
-            if (!result || result.status === "rejected") return snap;
-
-            const value = result.value;
-            if ("error" in value) {
-              return {
-                ...snap,
-                isDecrypting: false,
-                decryptError: value.error as string,
-              };
+            // Convert blob to base64
+            const arrayBuffer = await imageBlob.arrayBuffer();
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let j = 0; j < bytes.length; j += chunkSize) {
+              const chunk = bytes.subarray(j, Math.min(j + chunkSize, bytes.length));
+              binary += String.fromCharCode.apply(null, Array.from(chunk));
             }
+            const base64 = btoa(binary);
+
+            // Decrypt image and caption
+            const decryptedImageUrl = await decryptImage(base64, snap.image_iv, encryptionKey);
+            const decryptedCaption = await decryptDataAsString(
+              snap.encrypted_caption,
+              snap.caption_iv,
+              encryptionKey
+            );
+
+            // Measure natural image dimensions
+            const { width: naturalWidth, height: naturalHeight } = await measureImage(decryptedImageUrl);
 
             return {
               ...snap,
-              decryptedImageUrl: value.decryptedImageUrl,
-              decryptedCaption: value.decryptedCaption,
-              isDecrypting: false,
-              decryptError: null,
-            };
-          }),
+              decryptedImageUrl,
+              decryptedCaption,
+              naturalWidth,
+              naturalHeight,
+            } satisfies DecryptedSnap;
+          })
         );
+
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            decryptedResults.push(result.value);
+          } else {
+            // Skip failed decryptions – could add error handling here
+            console.error("Decryption failed:", result.reason);
+          }
+        }
       }
+
+      setSnaps(decryptedResults);
+      setAllDecrypted(true);
     } catch (err) {
       console.error("Gallery fetch error:", err);
       setError(err instanceof Error ? err.message : "Failed to load gallery");
@@ -225,27 +246,47 @@ export default function GalleryPage() {
   }, [fetchAndDecryptGallery]);
 
   // =========================================================================
+  // Context menu & dropdown dismiss
+  // =========================================================================
+
+  useEffect(() => {
+    if (!contextMenu && !groupByOpen && !mobileMenuOpen) return;
+    const dismiss = () => {
+      setContextMenu(null);
+      setGroupByOpen(false);
+      setMobileMenuOpen(false);
+    };
+    window.addEventListener("click", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("click", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [contextMenu, groupByOpen, mobileMenuOpen]);
+
+  // =========================================================================
   // Actions
   // =========================================================================
 
-  /** Delete a snap by ID */
+  /** Delete a single snap by ID */
   const handleDelete = async (snapId: string) => {
     if (!confirm("Delete this memory? This action cannot be undone.")) return;
 
     try {
-      setDeletingId(snapId);
-
-      const response = await fetch(`/api/gallery/${snapId}`, {
-        method: "DELETE",
-      });
+      setDeletingIds((prev) => new Set(prev).add(snapId));
+      const response = await fetch(`/api/gallery/${snapId}`, { method: "DELETE" });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error ?? "Failed to delete");
       }
 
-      // Remove from local state
       setSnaps((prev) => prev.filter((s) => s.id !== snapId));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(snapId);
+        return next;
+      });
 
       // Close lightbox if viewing deleted snap
       if (lightboxIndex !== null && snaps[lightboxIndex]?.id === snapId) {
@@ -255,14 +296,195 @@ export default function GalleryPage() {
       console.error("Delete error:", err);
       alert(err instanceof Error ? err.message : "Failed to delete snap");
     } finally {
-      setDeletingId(null);
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(snapId);
+        return next;
+      });
     }
   };
 
-  /** Open lightbox at index */
+  /** Batch-delete selected snaps */
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} ${count === 1 ? "memory" : "memories"}? This cannot be undone.`))
+      return;
+
+    const ids = Array.from(selectedIds);
+    setDeletingIds(new Set(ids));
+
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const res = await fetch(`/api/gallery/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed");
+        return id;
+      })
+    );
+
+    const deletedIds = new Set(
+      results
+        .filter((r) => r.status === "fulfilled")
+        .map((r) => (r as PromiseFulfilledResult<string>).value)
+    );
+
+    setSnaps((prev) => prev.filter((s) => !deletedIds.has(s.id)));
+    setSelectedIds(new Set());
+    setDeletingIds(new Set());
+    setSelectMode(false);
+    setLightboxIndex(null);
+  };
+
+  /** Toggle selection of a snap */
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // =========================================================================
+  // Masonry item mapping
+  // =========================================================================
+
+  const masonryItems: MasonryItem[] = snaps.map((snap) => ({
+    id: snap.id,
+    img: snap.decryptedImageUrl ?? "",
+    width: snap.naturalWidth,
+    height: snap.naturalHeight,
+  }));
+
+  // =========================================================================
+  // Grouped masonry sections
+  // =========================================================================
+
+  const groupedSections = useMemo(() => {
+    if (groupBy === "all") return [{ label: null, items: masonryItems, snaps }];
+
+    // Sort snaps by created_at descending
+    const sorted = [...snaps].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    const groups = new Map<string, { label: string; snapsList: DecryptedSnap[] }>();
+
+    for (const snap of sorted) {
+      const date = new Date(snap.created_at);
+      let key: string;
+      let label: string;
+
+      if (groupBy === "year") {
+        key = `${date.getFullYear()}`;
+        label = key;
+      } else if (groupBy === "month") {
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      } else {
+        // day
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        label = date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      }
+
+      if (!groups.has(key)) {
+        groups.set(key, { label, snapsList: [] });
+      }
+      groups.get(key)!.snapsList.push(snap);
+    }
+
+    return Array.from(groups.values()).map(({ label, snapsList }) => ({
+      label,
+      snaps: snapsList,
+      items: snapsList.map((snap) => ({
+        id: snap.id,
+        img: snap.decryptedImageUrl ?? "",
+        width: snap.naturalWidth,
+        height: snap.naturalHeight,
+      })),
+    }));
+  }, [snaps, groupBy, masonryItems]);
+
+  const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
+    { value: "all", label: "All Photostrips" },
+    { value: "year", label: "Years" },
+    { value: "month", label: "Months" },
+    { value: "day", label: "Days" },
+  ];
+
+  // =========================================================================
+  // Masonry callbacks
+  // =========================================================================
+
+  const handleItemClick = (id: string) => {
+    if (selectMode) {
+      toggleSelect(id);
+      return;
+    }
+    const index = snaps.findIndex((s) => s.id === id);
+    if (index !== -1) setLightboxIndex(index);
+  };
+
+  const handleContextMenu = (id: string, event: React.MouseEvent) => {
+    setContextMenu({ snapId: id, x: event.clientX, y: event.clientY });
+  };
+
+  // =========================================================================
+  // Masonry overlay renderer
+  // =========================================================================
+
+  const renderOverlay = (id: string) => {
+    const snap = snaps.find((s) => s.id === id);
+    if (!snap) return null;
+
+    return (
+      <>
+        {/* Status indicator — top-right corner */}
+        <div className="absolute top-2 right-2 z-10">
+          {snap.delivery_status === "sent" && (
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500/90 text-white text-xs shadow-sm" title="Delivered">
+              ✓
+            </span>
+          )}
+          {snap.delivery_status === "pending" && (
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/90 text-white text-xs shadow-sm" title="Pending">
+              ⏱
+            </span>
+          )}
+          {snap.delivery_status === "failed" && (
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/90 text-white text-xs shadow-sm" title="Failed">
+              ✗
+            </span>
+          )}
+        </div>
+
+        {/* Selection checkmark — top-left corner */}
+        {selectMode && (
+          <div className="absolute top-2 left-2 z-10">
+            {selectedIds.has(id) ? (
+              <CheckCircle2 className="w-6 h-6 text-white drop-shadow-md" fill="rgba(59,130,246,0.9)" />
+            ) : (
+              <Circle className="w-6 h-6 text-white/70 drop-shadow-md" />
+            )}
+          </div>
+        )}
+
+        {/* Deleting spinner overlay */}
+        {deletingIds.has(id) && (
+          <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-20">
+            <Loader2 className="w-6 h-6 text-white animate-spin" />
+          </div>
+        )}
+      </>
+    );
+  };
+
+  // =========================================================================
+  // Lightbox navigation
+  // =========================================================================
+
   const openLightbox = (index: number) => setLightboxIndex(index);
 
-  /** Navigate lightbox */
   const navigateLightbox = (direction: -1 | 1) => {
     if (lightboxIndex === null) return;
     const newIndex = lightboxIndex + direction;
@@ -271,19 +493,13 @@ export default function GalleryPage() {
     }
   };
 
-  // =========================================================================
-  // Keyboard navigation for lightbox
-  // =========================================================================
-
   useEffect(() => {
     if (lightboxIndex === null) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLightboxIndex(null);
       if (e.key === "ArrowLeft") navigateLightbox(-1);
       if (e.key === "ArrowRight") navigateLightbox(1);
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,38 +509,15 @@ export default function GalleryPage() {
   // Render helpers
   // =========================================================================
 
-  /** Format a date string for display */
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-  };
 
-  /** Get delivery status badge */
-  const getStatusBadge = (snap: DecryptedSnap) => {
-    if (snap.delivery_status === 'sent') {
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          ✓ Delivered
-        </span>
-      );
-    }
-    if (snap.delivery_status === 'failed') {
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-          ✗ Failed
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-        <Clock className="w-3 h-3 mr-1" />
-        Pending
-      </span>
-    );
-  };
+  const decryptedCount = snaps.length;
+  const isDecryptionInProgress = !isLoading && !allDecrypted;
 
   // =========================================================================
   // Render
@@ -333,24 +526,191 @@ export default function GalleryPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-soft-black">
             My Gallery
           </h1>
           <p className="text-sm text-grey mt-1">
-            {snaps.length} {snaps.length === 1 ? "photo strip memory" : "photo strip memories"}
+            {decryptedCount} {decryptedCount === 1 ? "memory" : "memories"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/new")}
-          className="flex items-center gap-2 px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          New Memory
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Mobile menu button - shows on small screens */}
+          {allDecrypted && snaps.length > 0 && (
+            <div className="relative sm:hidden">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMobileMenuOpen((prev) => !prev);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-soft-black text-warm-beige hover:bg-soft-black/90 transition"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+              {mobileMenuOpen && (
+                <div 
+                  className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* New Memory option */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push("/new");
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Memory
+                  </button>
+
+                  {/* Select mode toggle */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectMode((prev) => !prev);
+                      setSelectedIds(new Set());
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition border-b border-mist-grey ${
+                      selectMode
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "text-soft-black hover:bg-mist-grey/30"
+                    }`}
+                  >
+                    <SquareMousePointer className="w-4 h-4" />
+                    {selectMode ? "Cancel Select" : "Select"}
+                  </button>
+
+                  {/* Group by label */}
+                  <div className="px-4 py-1.5 text-xs text-grey font-medium uppercase tracking-wider">
+                    Group By
+                  </div>
+
+                  {/* Group by options */}
+                  {GROUP_BY_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGroupBy(option.value);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition ${
+                        groupBy === option.value
+                          ? "bg-mist-grey/60 text-soft-black font-medium"
+                          : "text-soft-black hover:bg-mist-grey/30"
+                      }`}
+                    >
+                      {groupBy === option.value && <span className="text-xs">✓</span>}
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Desktop buttons - hidden on small screens */}
+          <div className="hidden sm:flex items-center gap-2">
+            {/* Group-by dropdown */}
+            {allDecrypted && snaps.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setGroupByOpen((prev) => !prev);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition"
+                >
+                  <ListFilter className="w-4 h-4" />
+                  {GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label}
+                </button>
+                {groupByOpen && (
+                  <div 
+                    className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {GROUP_BY_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGroupBy(option.value);
+                          setGroupByOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition ${
+                          groupBy === option.value
+                            ? "bg-mist-grey/60 text-soft-black font-medium"
+                            : "text-soft-black hover:bg-mist-grey/30"
+                        }`}
+                      >
+                        {groupBy === option.value && <span className="text-xs">✓</span>}
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Select mode toggle */}
+            {allDecrypted && snaps.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectMode((prev) => !prev);
+                  setSelectedIds(new Set());
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
+                  selectMode
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-mist-grey text-soft-black hover:bg-mist-grey/80"
+                }`}
+              >
+                <SquareMousePointer className="w-4 h-4" />
+                {selectMode ? "Cancel" : "Select"}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => router.push("/new")}
+              className="flex items-center gap-2 px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              New
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Batch delete bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="mb-4 flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+          <span className="text-sm text-red-800 font-medium">
+            {selectedIds.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={handleBatchDelete}
+            disabled={deletingIds.size > 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium disabled:opacity-50"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -359,16 +719,18 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-grey" />
-          <span className="ml-2 text-grey">Loading your memories...</span>
+      {/* Loading / decrypting state */}
+      {(isLoading || isDecryptionInProgress) && (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-grey mb-3" />
+          <span className="text-grey text-sm">
+            {isLoading ? "Loading your memories..." : "Decrypting & measuring images..."}
+          </span>
         </div>
       )}
 
       {/* Empty state */}
-      {!isLoading && snaps.length === 0 && !error && (
+      {allDecrypted && snaps.length === 0 && !error && (
         <div className="text-center py-20">
           <ImageOff className="w-12 h-12 text-grey/40 mx-auto mb-4" />
           <h2 className="font-display text-xl font-semibold text-soft-black mb-2">
@@ -388,82 +750,74 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Gallery Grid */}
-      {!isLoading && snaps.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {snaps.map((snap, index) => (
-            <div
-              key={snap.id}
-              className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden group"
-            >
-              {/* Image area */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (snap.decryptedImageUrl) openLightbox(index);
-                }}
-                className="w-full aspect-[3/4] relative bg-mist-grey overflow-hidden"
-                disabled={!snap.decryptedImageUrl}
-              >
-                {snap.isDecrypting && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 animate-spin text-grey" />
-                  </div>
-                )}
-                {snap.decryptError && (
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <p className="text-xs text-red-500 text-center">
-                      {snap.decryptError}
-                    </p>
-                  </div>
-                )}
-                {snap.decryptedImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={snap.decryptedImageUrl}
-                    alt={snap.decryptedCaption ?? "Encrypted memory"}
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
-                  />
-                )}
-              </button>
-
-              {/* Metadata area */}
-              <div className="p-3">
-                {/* Caption */}
-                <p className="text-sm text-soft-black font-caption line-clamp-2 mb-2">
-                  {snap.decryptedCaption ?? (
-                    <span className="text-grey italic">Decrypting...</span>
-                  )}
-                </p>
-
-                {/* Date & Status */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-xs text-grey">
-                    <Calendar className="w-3 h-3" />
-                    {formatDate(snap.created_at)}
-                  </div>
-                  {getStatusBadge(snap)}
-                </div>
-
-                {/* Delete button */}
-                <div className="mt-2 pt-2 border-t border-mist-grey">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(snap.id)}
-                    disabled={deletingId === snap.id}
-                    className="flex items-center gap-1 text-xs text-grey hover:text-red-600 transition disabled:opacity-50"
-                  >
-                    {deletingId === snap.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3 h-3" />
-                    )}
-                    Delete
-                  </button>
-                </div>
+      {/* Masonry Gallery — grouped sections */}
+      {allDecrypted && snaps.length > 0 &&
+        groupedSections.map((section, sectionIdx) => (
+          <div key={section.label ?? "all"} className={sectionIdx > 0 ? "mt-10" : ""}>
+            {/* Section header */}
+            {section.label && (
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="font-display text-xl font-semibold text-soft-black">
+                  {section.label}
+                </h2>
+                <span className="text-xs text-grey ml-1 mt-1">
+                  {section.items.length} {section.items.length === 1 ? "strip" : "strips"}
+                </span>
               </div>
-            </div>
-          ))}
+            )}
+
+            <Masonry
+              items={section.items}
+              skipPreload
+              columnBreakpoints={[4, 4, 3, 3]}
+              gap={10}
+              animateFrom="bottom"
+              blurToFocus
+              scaleOnHover
+              hoverScale={0.99}
+              duration={0.5}
+              stagger={0.04}
+              onItemClick={handleItemClick}
+              onItemContextMenu={handleContextMenu}
+              renderOverlay={renderOverlay}
+            />
+          </div>
+        ))
+      }
+
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-[60] bg-white rounded-xl shadow-xl border border-mist-grey py-1.5 min-w-[160px] animate-in fade-in zoom-in-95 duration-150"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const snap = snaps.find((s) => s.id === contextMenu.snapId);
+              if (snap) {
+                const idx = snaps.indexOf(snap);
+                setLightboxIndex(idx);
+              }
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/50 transition"
+          >
+            View
+          </button>
+          <div className="border-t border-mist-grey my-1" />
+          <button
+            type="button"
+            onClick={() => {
+              handleDelete(contextMenu.snapId);
+              setContextMenu(null);
+            }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
         </div>
       )}
 
@@ -525,9 +879,7 @@ export default function GalleryPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={snaps[lightboxIndex].decryptedImageUrl!}
-                alt={
-                  snaps[lightboxIndex].decryptedCaption ?? "Encrypted memory"
-                }
+                alt={snaps[lightboxIndex].decryptedCaption ?? "Encrypted memory"}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />
             )}
@@ -540,9 +892,9 @@ export default function GalleryPage() {
                 </p>
                 <p className="text-white/60 text-xs mt-1">
                   {formatDate(snaps[lightboxIndex].send_date)} ·{" "}
-                  {snaps[lightboxIndex].delivery_status === 'sent'
+                  {snaps[lightboxIndex].delivery_status === "sent"
                     ? "Delivered"
-                    : snaps[lightboxIndex].delivery_status === 'failed'
+                    : snaps[lightboxIndex].delivery_status === "failed"
                     ? "Failed"
                     : "Pending delivery"}
                 </p>

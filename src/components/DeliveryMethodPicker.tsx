@@ -144,28 +144,6 @@ export const DeliveryMethodPicker = React.memo(
 
         {/* Conditional Input Fields */}
         <div className="mt-4">
-          {/* Email Input */}
-          {selected === "email" && (
-            <div className="space-y-2">
-              <Input
-                type="email"
-                placeholder="Enter your email address"
-                value={emailInput}
-                onChange={(e) => handleEmailChange(e.target.value)}
-                className={
-                  error
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                    : ""
-                }
-                aria-invalid={error}
-                aria-describedby="email-helper-text"
-              />
-              <p id="email-helper-text" className="text-sm text-gray-500 text-center">
-                We'll send your memory to this email address
-              </p>
-            </div>
-          )}
-
           {/* Telegram Info Box */}
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">

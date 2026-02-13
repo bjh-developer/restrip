@@ -9,7 +9,7 @@
  * - Client-side encryption via encryption.ts (zero-knowledge)
  * - Uploads stored under user's folder: {userId}/...
  * - Snap records have user_id set
- * - Optional delivery (email/telegram) OR gallery-only storage
+ * - Optional delivery (email/telegram)
  *
  * @module app/(protected)/new/page
  */
@@ -97,7 +97,7 @@ interface FieldErrors {
   image?: string;
   caption?: string;
   period?: string;
-  deliveryAddress?: string;
+  telegramUsername?: string;
 }
 
 // =============================================================================
@@ -314,7 +314,7 @@ export default function NewMemoryPage() {
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [telegramUsername, setTelegramUsername] = useState("");
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -388,8 +388,10 @@ export default function NewMemoryPage() {
   const handleDeliveryMethodSelect = useCallback(
     (method: DeliveryMethod, value?: string) => {
       setDeliveryMethod(method);
-      setDeliveryAddress(value ?? "");
-      setFieldErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+      if (method === "telegram") {
+        setTelegramUsername(value ?? "");
+        setFieldErrors((prev) => ({ ...prev, telegramUsername: undefined }));
+      }
     },
     [],
   );
@@ -416,16 +418,16 @@ export default function NewMemoryPage() {
       Caption: z.string().min(1, "Caption is required"),
       sendTime: z.date(),
       deliveryMethod: z.enum(["email", "telegram"]),
-      Delivery_Address: z.string(),
+      telegramUsername: z.string().optional(),
     })
     .refine(
       (data) => {
-        if (data.deliveryMethod === "email") {
-          return z.string().email().safeParse(data.Delivery_Address).success;
+        if (data.deliveryMethod === "telegram") {
+          return data.telegramUsername && data.telegramUsername.length > 0;
         }
         return true;
       },
-      { message: "Invalid email address", path: ["Delivery_Address"] },
+      { message: "Telegram username is required", path: ["telegramUsername"] },
     );
 
   const mapValidationErrors = (issues: z.ZodIssue[]): FieldErrors => {
@@ -442,8 +444,8 @@ export default function NewMemoryPage() {
         case "sendTime":
           errors.period = "Please select when to deliver your memory";
           break;
-        case "Delivery_Address":
-          errors.deliveryAddress = "Please enter a valid email address";
+        case "telegramUsername":
+          errors.telegramUsername = "Please enter your Telegram username";
           break;
       }
     });
@@ -472,7 +474,7 @@ export default function NewMemoryPage() {
       Caption: caption,
       sendTime: scheduledSendTime,
       deliveryMethod,
-      Delivery_Address: deliveryAddress,
+      telegramUsername,
     });
 
     if (!validation.success) {
@@ -526,7 +528,7 @@ export default function NewMemoryPage() {
           filePath,
           scheduledSendTime: scheduledSendTime!.toISOString(),
           deliveryMethod,
-          deliveryAddress,
+          deliveryAddress: deliveryMethod === "email" ? user!.email! : telegramUsername,
           periodType: selectedPeriod,
         }),
       });
@@ -597,7 +599,7 @@ export default function NewMemoryPage() {
                 setCaption("");
                 setSelectedPeriod("surprise");
                 setScheduledSendTime(undefined);
-                setDeliveryAddress("");
+                setTelegramUsername("");
               }}
               className="px-4 py-2 bg-white border border-mist-grey text-soft-black rounded-lg hover:bg-mist-grey/30 transition text-sm font-medium"
             >
@@ -702,12 +704,17 @@ export default function NewMemoryPage() {
             </label>
             <DeliveryMethodPicker
               onSelect={handleDeliveryMethodSelect}
-              error={!!fieldErrors.deliveryAddress}
+              error={!!fieldErrors.telegramUsername}
             />
-            {fieldErrors.deliveryAddress && (
+            {deliveryMethod === "email" && (
+              <p className="mt-2 text-xs text-grey flex items-center gap-1">
+                Will be sent to: {user?.email}
+              </p>
+            )}
+            {fieldErrors.telegramUsername && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
                 <CircleAlert className="w-3 h-3" />
-                {fieldErrors.deliveryAddress}
+                {fieldErrors.telegramUsername}
               </p>
             )}
           </div>
