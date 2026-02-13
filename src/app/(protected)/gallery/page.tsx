@@ -135,6 +135,9 @@ export default function GalleryPage() {
   // Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Lightbox focus trap
+  const lightboxRef = useRef<HTMLDivElement>(null);
+
   // =========================================================================
   // Data fetching & decryption
   // =========================================================================
@@ -147,8 +150,19 @@ export default function GalleryPage() {
 
       const response = await fetch("/api/gallery");
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error ?? "Failed to fetch gallery");
+        let errorMessage = "Failed to fetch gallery";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error ?? errorMessage;
+        } catch {
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || `HTTP ${response.status}`;
+          } catch {
+            errorMessage = `HTTP ${response.status}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const { snaps: rawSnaps } = (await response.json()) as {
@@ -265,6 +279,90 @@ export default function GalleryPage() {
   }, [contextMenu, groupByOpen, mobileMenuOpen]);
 
   // =========================================================================
+  // Focus trap for lightbox
+  // =========================================================================
+
+  useEffect(() => {
+    if (lightboxIndex === null || !snaps[lightboxIndex]) return;
+
+    // Save the previously focused element
+    const previouslyFocused = document.activeElement as HTMLElement;
+
+    // Get all focusable elements in the lightbox
+    const getFocusableElements = () => {
+      if (!lightboxRef.current) return [];
+      return Array.from(
+        lightboxRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      );
+    };
+
+    // Focus the first focusable element
+    const focusFirst = () => {
+      const elements = getFocusableElements();
+      if (elements.length > 0) {
+        elements[0].focus();
+      }
+    };
+
+    // Trap focus within lightbox
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Close on Escape
+      if (e.key === "Escape") {
+        setLightboxIndex(null);
+        return;
+      }
+
+      // Tab navigation
+      if (e.key === "Tab") {
+        const elements = getFocusableElements();
+        if (elements.length === 0) return;
+
+        const firstElement = elements[0];
+        const lastElement = elements[elements.length - 1];
+
+        if (e.shiftKey) {
+          // Shift+Tab: if on first element, move to last
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          // Tab: if on last element, move to first
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    };
+
+    // Mark background as inert
+    const mainContent = document.getElementById("gallery-content");
+    if (mainContent) {
+      mainContent.setAttribute("inert", "");
+      mainContent.setAttribute("aria-hidden", "true");
+    }
+
+    // Set up focus trap
+    setTimeout(focusFirst, 0);
+    document.addEventListener("keydown", handleKeyDown);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (mainContent) {
+        mainContent.removeAttribute("inert");
+        mainContent.removeAttribute("aria-hidden");
+      }
+      if (previouslyFocused && previouslyFocused.focus) {
+        previouslyFocused.focus();
+      }
+    };
+  }, [lightboxIndex, snaps]);
+
+  // =========================================================================
   // Actions
   // =========================================================================
 
@@ -328,11 +426,41 @@ export default function GalleryPage() {
         .map((r) => (r as PromiseFulfilledResult<string>).value)
     );
 
+    const failedResults = results
+      .map((r, index) => ({ result: r, id: ids[index] }))
+      .filter(({ result }) => result.status === "rejected");
+
+    const failedIds = new Set(failedResults.map(({ id }) => id));
+
+    // Remove successfully deleted snaps
     setSnaps((prev) => prev.filter((s) => !deletedIds.has(s.id)));
-    setSelectedIds(new Set());
+    
+    // Keep only failed IDs selected for retry
+    setSelectedIds(failedIds);
+    
+    // Clear deleting status
     setDeletingIds(new Set());
-    setSelectMode(false);
+    
+    // Only exit select mode if all succeeded
+    if (failedIds.size === 0) {
+      setSelectMode(false);
+    }
+    
     setLightboxIndex(null);
+
+    // Show error message if any deletions failed
+    if (failedIds.size > 0) {
+      const failedMessages = failedResults
+        .map(({ id, result }) => {
+          const reason = (result as PromiseRejectedResult).reason;
+          return `${id}: ${reason instanceof Error ? reason.message : String(reason)}`;
+        })
+        .join(", ");
+      alert(
+        `Failed to delete ${failedIds.size} ${failedIds.size === 1 ? "memory" : "memories"}. ` +
+        `The failed items remain selected for retry. Details: ${failedMessages}`
+      );
+    }
   };
 
   /** Toggle selection of a snap */
@@ -524,8 +652,7 @@ export default function GalleryPage() {
   // =========================================================================
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
+    <div id="gallery-content" className="container mx-auto px-4 py-8">{/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-soft-black">
@@ -824,6 +951,7 @@ export default function GalleryPage() {
       {/* Lightbox Overlay */}
       {lightboxIndex !== null && snaps[lightboxIndex] && (
         <div
+          ref={lightboxRef}
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setLightboxIndex(null)}
           role="dialog"

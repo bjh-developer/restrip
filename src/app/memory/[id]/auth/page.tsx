@@ -58,29 +58,61 @@ export default function MemoryAuthPage() {
   const { user, isLoading: authLoading, hasEncryptionKey } = useAuth();
   const { passkeySupported, isLoading: supportLoading } = usePasskeySupport();
   const [activeTab, setActiveTab] = useState<AuthTab>("passkey");
-  const [randomQuote] = useState(
-    () => MEMORY_QUOTES[Math.floor(Math.random() * MEMORY_QUOTES.length)],
-  );
+  const [randomQuote, setRandomQuote] = useState<string | undefined>();
+
+  // Set random quote client-side only to avoid hydration mismatch
+  useEffect(() => {
+    setRandomQuote(MEMORY_QUOTES[Math.floor(Math.random() * MEMORY_QUOTES.length)]);
+  }, []);
 
   // Load UserJot SDK
   useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_USERJOT_KEY;
+    if (!apiKey) {
+      console.warn("UserJot API key not configured");
+      return;
+    }
+
     const script1 = document.createElement("script");
-    script1.innerHTML = `window.$ujq=window.$ujq||[];window.uj=window.uj||new Proxy({},{get:(_,p)=>(...a)=>window.$ujq.push([p,...a])});document.head.appendChild(Object.assign(document.createElement('script'),{src:'https://cdn.userjot.com/sdk/v2/uj.js',type:'module',async:!0}));`;
-    document.head.appendChild(script1);
+    script1.src = "https://cdn.userjot.com/sdk/v2/uj.js";
+    script1.type = "module";
+    script1.async = true;
 
     const script2 = document.createElement("script");
     script2.innerHTML = `
-        window.uj.init('cmjjzikhm01fr15o1n4jg1h93', {
-          widget: true,
-          position: 'right',
-          theme: 'auto'
-        });
-      `;
+      window.$ujq = window.$ujq || [];
+      window.uj = window.uj || new Proxy({}, {
+        get: (_, p) => (...a) => window.$ujq.push([p, ...a])
+      });
+    `;
+
     document.head.appendChild(script2);
+    document.head.appendChild(script1);
+
+    script1.onload = () => {
+      if (window.uj && typeof window.uj.init === "function") {
+        window.uj.init(apiKey, {
+          widget: true,
+          position: "right",
+          theme: "auto",
+        });
+      }
+    };
 
     return () => {
       script1.remove();
       script2.remove();
+      
+      // Teardown SDK
+      if (window.uj) {
+        if (typeof window.uj.destroy === "function") {
+          window.uj.destroy();
+        }
+        delete window.uj;
+      }
+      if (window.$ujq) {
+        delete window.$ujq;
+      }
     };
   }, []);
 
@@ -177,7 +209,9 @@ export default function MemoryAuthPage() {
 
           {/* Bottom message */}
           <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600 italic">"{randomQuote}"</p>
+            {randomQuote && (
+              <p className="text-sm text-gray-600 italic">&ldquo;{randomQuote}&rdquo;</p>
+            )}
           </div>
         </div>
       </div>

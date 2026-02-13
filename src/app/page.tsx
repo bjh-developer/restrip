@@ -97,7 +97,11 @@ export default function LandingPage() {
                 Sign in to save, view, and manage your encrypted memories.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
-                {user ? "Open gallery" : "Sign in"}
+                {user && hasEncryptionKey
+                  ? "Open gallery"
+                  : user
+                  ? "Set up encryption key"
+                  : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>
             </button>

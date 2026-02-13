@@ -81,11 +81,15 @@ export async function GET(
 
     // Parse pagination params
     const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const pageSize = Math.min(
-      MAX_PAGE_SIZE,
-      Math.max(1, parseInt(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE), 10)),
-    );
+    const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
+    const parsedPageSize = parseInt(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE), 10);
+    
+    // Validate and fallback to defaults if NaN
+    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0
+      ? Math.min(MAX_PAGE_SIZE, parsedPageSize)
+      : DEFAULT_PAGE_SIZE;
+    
     const offset = (page - 1) * pageSize;
 
     // Fetch total count for user's snaps

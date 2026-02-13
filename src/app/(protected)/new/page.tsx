@@ -106,17 +106,36 @@ interface FieldErrors {
 
 /**
  * Converts a base64 data URL to a Blob (CSP-friendly).
+ * Returns null if input is malformed.
  */
-function base64ToBlob(base64: string): Blob {
-  const parts = base64.split(",");
-  const mimeMatch = parts[0].match(/:(.*?);/);
-  const mime = mimeMatch?.[1] ?? "image/jpeg";
-  const binaryString = atob(parts[1]);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+function base64ToBlob(base64: string): Blob | null {
+  try {
+    const parts = base64.split(",");
+    if (parts.length < 2) {
+      console.error("Invalid base64: missing comma separator");
+      return null;
+    }
+    
+    const mimeMatch = parts[0].match(/:(.*?);/);
+    const mime = mimeMatch?.[1] ?? "image/jpeg";
+    
+    const base64Data = parts[1];
+    // Validate base64 format
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64Data)) {
+      console.error("Invalid base64: contains illegal characters");
+      return null;
+    }
+    
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  } catch (error) {
+    console.error("base64ToBlob error:", error);
+    return null;
   }
-  return new Blob([bytes], { type: mime });
 }
 
 /**
@@ -125,6 +144,10 @@ function base64ToBlob(base64: string): Blob {
 async function compressImage(base64Image: string): Promise<string> {
   try {
     const blob = base64ToBlob(base64Image);
+    if (!blob) {
+      console.warn("Failed to convert base64 to blob, using original");
+      return base64Image;
+    }
     const sizeInMB = blob.size / 1024 / 1024;
     if (sizeInMB <= COMPRESSION_THRESHOLD_MB) return base64Image;
 
@@ -466,6 +489,13 @@ export default function NewMemoryPage() {
   const handleStartProcessing = async () => {
     if (isSubmitting) return;
 
+    // Guard: Ensure user is authenticated
+    if (!user || !user.email) {
+      alert("Session expired. Please sign in again.");
+      router.push("/auth");
+      return;
+    }
+
     const imageToSubmit = autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
     // Validate
@@ -508,13 +538,9 @@ export default function NewMemoryPage() {
         await clientEncryptData(caption, encryptionKey);
 
       // Step 4: Upload encrypted blob to Supabase Storage
-      const encryptedBuffer = Uint8Array.from(atob(encryptedImage), (c) =>
-        c.charCodeAt(0),
-      );
-
       const timestamp = Date.now();
       const randomId = Math.random().toString(36).substring(2, 9);
-      const filePath = `${user!.id}/${timestamp}-${randomId}.enc`;
+      const filePath = `${user.id}/${timestamp}-${randomId}.enc`;
 
       console.log("☁️ Uploading encrypted image...");
       const uploadResponse = await fetch("/api/upload/authenticated", {
@@ -528,7 +554,7 @@ export default function NewMemoryPage() {
           filePath,
           scheduledSendTime: scheduledSendTime!.toISOString(),
           deliveryMethod,
-          deliveryAddress: deliveryMethod === "email" ? user!.email! : telegramUsername,
+          deliveryAddress: deliveryMethod === "email" ? user.email : telegramUsername,
           periodType: selectedPeriod,
         }),
       });
@@ -597,8 +623,7 @@ export default function NewMemoryPage() {
                 setOriginalImage(undefined);
                 setCroppedImage(undefined);
                 setCaption("");
-                setSelectedPeriod("surprise");
-                setScheduledSendTime(undefined);
+                handlePeriodSelect("surprise");
                 setTelegramUsername("");
               }}
               className="px-4 py-2 bg-white border border-mist-grey text-soft-black rounded-lg hover:bg-mist-grey/30 transition text-sm font-medium"

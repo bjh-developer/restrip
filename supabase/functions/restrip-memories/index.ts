@@ -357,6 +357,14 @@ serve(async (req) => {
             await sendTelegramLink(strip.telegram_chat_id, memoryLink);
             console.log(`✅ Sent Telegram link for strip ${strip.id} to chat ${strip.telegram_chat_id}`);
           } else {
+            // Email delivery - validate address first
+            if (!strip.delivery_address || strip.delivery_address.trim() === "") {
+              throw new Error("Missing or invalid email address for email delivery");
+            }
+            // Basic email format validation
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strip.delivery_address)) {
+              throw new Error(`Invalid email address format: ${strip.delivery_address}`);
+            }
             await sendEmailWithLink(strip.delivery_address, strip.id, memoryLink);
             console.log(`✅ Sent email link for strip ${strip.id} to ${strip.delivery_address}`);
           }
@@ -413,6 +421,15 @@ serve(async (req) => {
               `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
             );
           } else {
+            // Email delivery - validate address first
+            if (!strip.delivery_address || strip.delivery_address.trim() === "") {
+              throw new Error("Missing or invalid email address for email delivery");
+            }
+            // Basic email format validation
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strip.delivery_address)) {
+              throw new Error(`Invalid email address format: ${strip.delivery_address}`);
+            }
+            
             await sendEmailWithGmail(
               strip.delivery_address,
               strip.id,

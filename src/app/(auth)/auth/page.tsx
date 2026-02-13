@@ -32,6 +32,30 @@ try {
   // Plugin already registered or registration failed
 }
 
+/**
+ * Validates and returns a safe returnTo URL.
+ * Ensures it starts with / and rejects protocol-relative URLs or any scheme.
+ */
+function getValidReturnTo(returnTo: string | null, defaultPath: string = "/gallery"): string {
+  if (!returnTo) return defaultPath;
+  
+  // Decode in case it's URL-encoded
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(returnTo);
+  } catch {
+    decoded = returnTo;
+  }
+  
+  // Must start with single slash and not be protocol-relative
+  if (decoded.startsWith("/") && !decoded.startsWith("//") && !decoded.includes("://")) {
+    return decoded;
+  }
+  
+  console.warn("Invalid returnTo parameter, using default:", returnTo);
+  return defaultPath;
+}
+
 type AuthTab = "passkey" | "password";
 
 const AnnouncementBanner = () => (
@@ -77,13 +101,7 @@ export default function AuthPage() {
     if (user && hasEncryptionKey) {
       const searchParams = new URLSearchParams(window.location.search);
       const returnTo = searchParams.get("returnTo");
-      // Validate returnTo is a relative path (starts with /) and doesn't contain protocol
-      let destination = "/gallery";
-      if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
-        destination = returnTo;
-      } else if (returnTo) {
-        console.warn("Invalid returnTo parameter, using default:", returnTo);
-      }
+      const destination = getValidReturnTo(returnTo);
       console.log(
         `AuthPage: User fully authenticated, redirecting to ${destination}`,
       );
@@ -295,11 +313,8 @@ export default function AuthPage() {
   const handleSuccess = () => {
     const searchParams = new URLSearchParams(window.location.search);
     const returnTo = searchParams.get("returnTo");
-    if (returnTo && returnTo.startsWith("/") && !returnTo.includes("://")) {
-      router.push(returnTo);
-    } else {
-      router.push("/gallery");
-    }
+    const destination = getValidReturnTo(returnTo);
+    router.push(destination);
   };
 
   return (
