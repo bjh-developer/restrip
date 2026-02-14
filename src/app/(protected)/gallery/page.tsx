@@ -114,6 +114,7 @@ export default function GalleryPage() {
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxSectionSnaps, setLightboxSectionSnaps] = useState<DecryptedSnap[]>([]);
 
   // Delete / selection
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -283,84 +284,35 @@ export default function GalleryPage() {
   // =========================================================================
 
   useEffect(() => {
-    if (lightboxIndex === null || !snaps[lightboxIndex]) return;
+    if (lightboxIndex === null || !lightboxSectionSnaps[lightboxIndex]) return;
 
     // Save the previously focused element
     const previouslyFocused = document.activeElement as HTMLElement;
 
-    // Get all focusable elements in the lightbox
-    const getFocusableElements = () => {
-      if (!lightboxRef.current) return [];
-      return Array.from(
-        lightboxRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-      );
-    };
-
-    // Focus the first focusable element
-    const focusFirst = () => {
-      const elements = getFocusableElements();
-      if (elements.length > 0) {
-        elements[0].focus();
-      }
-    };
-
-    // Trap focus within lightbox
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Close on Escape
-      if (e.key === "Escape") {
-        setLightboxIndex(null);
-        return;
-      }
-
-      // Tab navigation
-      if (e.key === "Tab") {
-        const elements = getFocusableElements();
-        if (elements.length === 0) return;
-
-        const firstElement = elements[0];
-        const lastElement = elements[elements.length - 1];
-
-        if (e.shiftKey) {
-          // Shift+Tab: if on first element, move to last
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement.focus();
-          }
-        } else {
-          // Tab: if on last element, move to first
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement.focus();
-          }
-        }
-      }
-    };
-
-    // Mark background as inert
+    // Mark background as inert for screen readers only (not blocking interactions)
     const mainContent = document.getElementById("gallery-content");
     if (mainContent) {
-      mainContent.setAttribute("inert", "");
       mainContent.setAttribute("aria-hidden", "true");
     }
 
-    // Set up focus trap
-    setTimeout(focusFirst, 0);
-    document.addEventListener("keydown", handleKeyDown);
+    // Focus the close button when lightbox opens
+    setTimeout(() => {
+      const closeButton = lightboxRef.current?.querySelector('button[aria-label="Close viewer"]') as HTMLElement;
+      if (closeButton) {
+        closeButton.focus();
+      }
+    }, 0);
 
     // Cleanup
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
       if (mainContent) {
-        mainContent.removeAttribute("inert");
         mainContent.removeAttribute("aria-hidden");
       }
       if (previouslyFocused && previouslyFocused.focus) {
         previouslyFocused.focus();
       }
     };
-  }, [lightboxIndex, snaps]);
+  }, [lightboxIndex, lightboxSectionSnaps]);
 
   // =========================================================================
   // Actions
@@ -544,13 +496,16 @@ export default function GalleryPage() {
   // Masonry callbacks
   // =========================================================================
 
-  const handleItemClick = (id: string) => {
+  const handleItemClick = (id: string, sectionSnaps: DecryptedSnap[]) => {
     if (selectMode) {
       toggleSelect(id);
       return;
     }
-    const index = snaps.findIndex((s) => s.id === id);
-    if (index !== -1) setLightboxIndex(index);
+    const index = sectionSnaps.findIndex((s) => s.id === id);
+    if (index !== -1) {
+      setLightboxIndex(index);
+      setLightboxSectionSnaps(sectionSnaps);
+    }
   };
 
   const handleContextMenu = (id: string, event: React.MouseEvent) => {
@@ -616,7 +571,7 @@ export default function GalleryPage() {
   const navigateLightbox = (direction: -1 | 1) => {
     if (lightboxIndex === null) return;
     const newIndex = lightboxIndex + direction;
-    if (newIndex >= 0 && newIndex < snaps.length) {
+    if (newIndex >= 0 && newIndex < lightboxSectionSnaps.length) {
       setLightboxIndex(newIndex);
     }
   };
@@ -631,7 +586,7 @@ export default function GalleryPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lightboxIndex, snaps.length]);
+  }, [lightboxIndex, lightboxSectionSnaps.length]);
 
   // =========================================================================
   // Render helpers
@@ -904,7 +859,7 @@ export default function GalleryPage() {
               hoverScale={0.99}
               duration={0.5}
               stagger={0.04}
-              onItemClick={handleItemClick}
+              onItemClick={(id) => handleItemClick(id, section.snaps)}
               onItemContextMenu={handleContextMenu}
               renderOverlay={renderOverlay}
             />
@@ -924,8 +879,15 @@ export default function GalleryPage() {
             onClick={() => {
               const snap = snaps.find((s) => s.id === contextMenu.snapId);
               if (snap) {
-                const idx = snaps.indexOf(snap);
-                setLightboxIndex(idx);
+                // Find which section this snap belongs to
+                const section = groupedSections.find((sec) =>
+                  sec.snaps.some((s) => s.id === snap.id)
+                );
+                if (section) {
+                  const idx = section.snaps.findIndex((s) => s.id === snap.id);
+                  setLightboxIndex(idx);
+                  setLightboxSectionSnaps(section.snaps);
+                }
               }
               setContextMenu(null);
             }}
@@ -949,7 +911,7 @@ export default function GalleryPage() {
       )}
 
       {/* Lightbox Overlay */}
-      {lightboxIndex !== null && snaps[lightboxIndex] && (
+      {lightboxIndex !== null && lightboxSectionSnaps[lightboxIndex] && (
         <div
           ref={lightboxRef}
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
@@ -984,7 +946,7 @@ export default function GalleryPage() {
           )}
 
           {/* Next button */}
-          {lightboxIndex < snaps.length - 1 && (
+          {lightboxIndex < lightboxSectionSnaps.length - 1 && (
             <button
               type="button"
               onClick={(e) => {
@@ -1003,26 +965,26 @@ export default function GalleryPage() {
             className="max-w-4xl max-h-[85vh] relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {snaps[lightboxIndex].decryptedImageUrl && (
+            {lightboxSectionSnaps[lightboxIndex].decryptedImageUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={snaps[lightboxIndex].decryptedImageUrl!}
-                alt={snaps[lightboxIndex].decryptedCaption ?? "Encrypted memory"}
+                src={lightboxSectionSnaps[lightboxIndex].decryptedImageUrl!}
+                alt={lightboxSectionSnaps[lightboxIndex].decryptedCaption ?? "Encrypted memory"}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />
             )}
 
             {/* Caption overlay */}
-            {snaps[lightboxIndex].decryptedCaption && (
+            {lightboxSectionSnaps[lightboxIndex].decryptedCaption && (
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
                 <p className="text-white text-sm font-caption">
-                  {snaps[lightboxIndex].decryptedCaption}
+                  {lightboxSectionSnaps[lightboxIndex].decryptedCaption}
                 </p>
                 <p className="text-white/60 text-xs mt-1">
-                  {formatDate(snaps[lightboxIndex].send_date)} ·{" "}
-                  {snaps[lightboxIndex].delivery_status === "sent"
+                  {formatDate(lightboxSectionSnaps[lightboxIndex].send_date)} ·{" "}
+                  {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
                     ? "Delivered"
-                    : snaps[lightboxIndex].delivery_status === "failed"
+                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
                     ? "Failed"
                     : "Pending delivery"}
                 </p>
