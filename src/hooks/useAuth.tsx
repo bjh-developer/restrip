@@ -21,6 +21,7 @@ import {
   deriveKeyFromPassword,
   getEncryptionKey,
 } from "../lib/encryption";
+import { clearGalleryCache } from "../lib/gallery-cache";
 
 type AuthMethod = "passkey" | "password" | null;
 
@@ -101,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(null);
           setAuthMethod(null);
           clearEncryptionKey();
+          clearGalleryCache();
           setEncryptionKeySet(false);
         }
       },
@@ -118,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setAuthMethod(null);
     clearEncryptionKey();
+    clearGalleryCache();
     setEncryptionKeySet(false);
   }, [supabase.auth]);
 

@@ -41,6 +41,14 @@ import {
   decryptDataAsString,
 } from "../../../lib/encryption";
 import { createClient } from "../../../lib/supabase/client";
+import {
+  getCachedSnaps,
+  setCachedSnaps,
+  removeCachedSnap,
+  removeCachedSnaps,
+  purgeStaleCachedSnaps,
+  type CachedSnap,
+} from "../../../lib/gallery-cache";
 import Masonry, { type MasonryItem } from "../../../../components/Masonry";
 import { Skeleton } from "../../../../components/ui/skeleton";
 
@@ -179,9 +187,42 @@ export default function GalleryPage() {
         return;
       }
 
+      // ----- Cache-first strategy -----
+      const allIds = rawSnaps.map((s) => s.id);
+      const cached = await getCachedSnaps(allIds);
+
+      // Separate cached vs uncached snaps
+      const cachedResults: DecryptedSnap[] = [];
+      const uncachedSnaps: SnapRecord[] = [];
+
+      for (const snap of rawSnaps) {
+        const hit = cached.get(snap.id);
+        if (hit) {
+          cachedResults.push({
+            ...snap,
+            decryptedImageUrl: hit.decryptedImageUrl,
+            decryptedCaption: hit.decryptedCaption,
+            naturalWidth: hit.naturalWidth,
+            naturalHeight: hit.naturalHeight,
+          });
+        } else {
+          uncachedSnaps.push(snap);
+        }
+      }
+
+      // If everything was cached, we're done instantly
+      if (uncachedSnaps.length === 0) {
+        setSnaps(cachedResults);
+        setIsLoading(false);
+        setAllDecrypted(true);
+        // Purge stale entries in background
+        purgeStaleCachedSnaps(new Set(allIds));
+        return;
+      }
+
       setIsLoading(false);
 
-      // Get encryption key
+      // Get encryption key (only needed for uncached snaps)
       const encryptionKey = await getEncryptionKey();
       if (!encryptionKey) {
         setError("Encryption key not available. Please sign in again.");
@@ -189,11 +230,12 @@ export default function GalleryPage() {
       }
 
       const supabase = createClient();
-      const decryptedResults: DecryptedSnap[] = [];
+      const freshlyDecrypted: DecryptedSnap[] = [];
+      const newCacheEntries: CachedSnap[] = [];
 
-      // Decrypt in batches
-      for (let i = 0; i < rawSnaps.length; i += DECRYPT_BATCH_SIZE) {
-        const batch = rawSnaps.slice(i, i + DECRYPT_BATCH_SIZE);
+      // Decrypt uncached snaps in batches
+      for (let i = 0; i < uncachedSnaps.length; i += DECRYPT_BATCH_SIZE) {
+        const batch = uncachedSnaps.slice(i, i + DECRYPT_BATCH_SIZE);
 
         const results = await Promise.allSettled(
           batch.map(async (snap) => {
@@ -241,16 +283,36 @@ export default function GalleryPage() {
 
         for (const result of results) {
           if (result.status === "fulfilled") {
-            decryptedResults.push(result.value);
+            freshlyDecrypted.push(result.value);
+            // Queue for cache write
+            newCacheEntries.push({
+              id: result.value.id,
+              decryptedImageUrl: result.value.decryptedImageUrl!,
+              decryptedCaption: result.value.decryptedCaption,
+              naturalWidth: result.value.naturalWidth,
+              naturalHeight: result.value.naturalHeight,
+            });
           } else {
-            // Skip failed decryptions – could add error handling here
             console.error("Decryption failed:", result.reason);
           }
         }
       }
 
-      setSnaps(decryptedResults);
+      // Merge cached + freshly decrypted, preserving original API order
+      const allDecryptedMap = new Map<string, DecryptedSnap>();
+      for (const snap of [...cachedResults, ...freshlyDecrypted]) {
+        allDecryptedMap.set(snap.id, snap);
+      }
+      const orderedResults = rawSnaps
+        .map((s) => allDecryptedMap.get(s.id))
+        .filter((s): s is DecryptedSnap => s != null);
+
+      setSnaps(orderedResults);
       setAllDecrypted(true);
+
+      // Write new entries to cache and purge stale ones in background
+      setCachedSnaps(newCacheEntries);
+      purgeStaleCachedSnaps(new Set(allIds));
     } catch (err) {
       console.error("Gallery fetch error:", err);
       setError(err instanceof Error ? err.message : "Failed to load gallery");
@@ -262,13 +324,10 @@ export default function GalleryPage() {
     fetchAndDecryptGallery();
   }, [fetchAndDecryptGallery]);
 
-  // Show masonry after a brief delay when decryption completes
-  // This prevents layout glitch when transitioning from skeleton to masonry
+  // Show masonry immediately when data is ready (no delay needed with cache)
   useEffect(() => {
     if (allDecrypted && snaps.length > 0) {
-      // Small delay to let the masonry calculate positions before animating
-      const timer = setTimeout(() => setShowMasonry(true), 50);
-      return () => clearTimeout(timer);
+      setShowMasonry(true);
     } else {
       setShowMasonry(false);
     }
@@ -352,6 +411,9 @@ export default function GalleryPage() {
         return next;
       });
 
+      // Remove from IndexedDB cache
+      removeCachedSnap(snapId);
+
       // Close lightbox if viewing deleted snap
       if (lightboxIndex !== null && snaps[lightboxIndex]?.id === snapId) {
         setLightboxIndex(null);
@@ -400,6 +462,9 @@ export default function GalleryPage() {
 
     // Remove successfully deleted snaps
     setSnaps((prev) => prev.filter((s) => !deletedIds.has(s.id)));
+
+    // Remove from IndexedDB cache
+    removeCachedSnaps(Array.from(deletedIds));
     
     // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
