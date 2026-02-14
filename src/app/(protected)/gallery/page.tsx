@@ -42,6 +42,7 @@ import {
 } from "../../../lib/encryption";
 import { createClient } from "../../../lib/supabase/client";
 import Masonry, { type MasonryItem } from "../../../../components/Masonry";
+import { Skeleton } from "../../../../components/ui/skeleton";
 
 // =============================================================================
 // Types
@@ -110,6 +111,7 @@ export default function GalleryPage() {
   const [snaps, setSnaps] = useState<DecryptedSnap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [allDecrypted, setAllDecrypted] = useState(false);
+  const [showMasonry, setShowMasonry] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Lightbox
@@ -259,6 +261,18 @@ export default function GalleryPage() {
   useEffect(() => {
     fetchAndDecryptGallery();
   }, [fetchAndDecryptGallery]);
+
+  // Show masonry after a brief delay when decryption completes
+  // This prevents layout glitch when transitioning from skeleton to masonry
+  useEffect(() => {
+    if (allDecrypted && snaps.length > 0) {
+      // Small delay to let the masonry calculate positions before animating
+      const timer = setTimeout(() => setShowMasonry(true), 50);
+      return () => clearTimeout(timer);
+    } else {
+      setShowMasonry(false);
+    }
+  }, [allDecrypted, snaps.length]);
 
   // =========================================================================
   // Context menu & dropdown dismiss
@@ -809,13 +823,32 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Loading / decrypting state */}
-      {(isLoading || isDecryptionInProgress) && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-grey mb-3" />
-          <span className="text-grey text-sm">
-            {isLoading ? "Loading your memories..." : "Decrypting memories..."}
-          </span>
+      {/* Loading / decrypting state with skeleton masonry */}
+      {(isLoading || isDecryptionInProgress || (allDecrypted && !showMasonry && snaps.length > 0)) && (
+        <div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            {/* Generate skeleton items with varying heights to mimic masonry */}
+            {Array.from({ length: 12 }).map((_, i) => {
+              // Create varying heights for a masonry-like appearance
+              const heights = ["h-48", "h-64", "h-56", "h-72", "h-60", "h-52"];
+              const height = heights[i % heights.length];
+              return (
+                <Skeleton 
+                  key={i} 
+                  className={`w-full ${height} rounded-xl`}
+                  style={{ 
+                    animationDelay: `${i * 50}ms`,
+                    animationDuration: '1.5s'
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-center mt-8">
+            <span className="text-grey text-sm">
+              {isLoading ? "Loading your memories..." : isDecryptionInProgress ? "Decrypting memories..." : ""}
+            </span>
+          </div>
         </div>
       )}
 
@@ -841,8 +874,9 @@ export default function GalleryPage() {
       )}
 
       {/* Masonry Gallery — grouped sections */}
-      {allDecrypted && snaps.length > 0 &&
-        groupedSections.map((section, sectionIdx) => (
+      {showMasonry && snaps.length > 0 && (
+        <div className="animate-in fade-in duration-300">
+          {groupedSections.map((section, sectionIdx) => (
           <div key={section.label ?? "all"} className={sectionIdx > 0 ? "mt-10" : ""}>
             {/* Section header */}
             {section.label && (
@@ -861,19 +895,17 @@ export default function GalleryPage() {
               skipPreload
               columnBreakpoints={[4, 4, 3, 3]}
               gap={10}
-              animateFrom="bottom"
-              blurToFocus
               scaleOnHover
               hoverScale={0.99}
-              duration={0.5}
-              stagger={0.04}
+              duration={0.3}
               onItemClick={(id) => handleItemClick(id, section.snaps)}
               onItemContextMenu={handleContextMenu}
               renderOverlay={renderOverlay}
             />
           </div>
-        ))
-      }
+          ))}
+        </div>
+      )}
 
       {/* Right-click context menu */}
       {contextMenu && (

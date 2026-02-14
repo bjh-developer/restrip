@@ -63,11 +63,8 @@ export interface MasonryProps {
   columnBreakpoints?: [number, number, number, number];
   ease?: string;
   duration?: number;
-  stagger?: number;
-  animateFrom?: 'bottom' | 'top' | 'left' | 'right' | 'center' | 'random';
   scaleOnHover?: boolean;
   hoverScale?: number;
-  blurToFocus?: boolean;
   /** Called when an item is clicked */
   onItemClick?: (id: string) => void;
   /** Called when an item is right-clicked or long-pressed (contextmenu) */
@@ -87,12 +84,9 @@ const Masonry: React.FC<MasonryProps> = ({
   skipPreload = false,
   columnBreakpoints = [3, 3, 2, 2],
   ease = 'power3.out',
-  duration = 0.6,
-  stagger = 0.05,
-  animateFrom = 'bottom',
+  duration = 0.3,
   scaleOnHover = true,
   hoverScale = 0.97,
-  blurToFocus = true,
   onItemClick,
   onItemContextMenu,
   renderOverlay,
@@ -106,35 +100,6 @@ const Masonry: React.FC<MasonryProps> = ({
 
   const [containerRef, { width }] = useMeasure<HTMLDivElement>();
   const [imagesReady, setImagesReady] = useState(skipPreload);
-
-  const getInitialPosition = (item: GridItem) => {
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return { x: item.x, y: item.y };
-
-    let direction = animateFrom;
-    if (animateFrom === 'random') {
-      const dirs = ['top', 'bottom', 'left', 'right'];
-      direction = dirs[Math.floor(Math.random() * dirs.length)] as typeof animateFrom;
-    }
-
-    switch (direction) {
-      case 'top':
-        return { x: item.x, y: -200 };
-      case 'bottom':
-        return { x: item.x, y: window.innerHeight + 200 };
-      case 'left':
-        return { x: -200, y: item.y };
-      case 'right':
-        return { x: window.innerWidth + 200, y: item.y };
-      case 'center':
-        return {
-          x: containerRect.width / 2 - item.w / 2,
-          y: containerRect.height / 2 - item.h / 2
-        };
-      default:
-        return { x: item.x, y: item.y + 100 };
-    }
-  };
 
   // Preload images (skipped for data URLs)
   useEffect(() => {
@@ -189,24 +154,17 @@ const Masonry: React.FC<MasonryProps> = ({
       const animProps = { x: item.x, y: item.y, width: item.w, height: item.h };
 
       if (!hasMounted.current) {
-        const start = getInitialPosition(item);
+        // Simple fade-in animation for snappier feel
         gsap.fromTo(
           selector,
           {
             opacity: 0,
-            x: start.x,
-            y: start.y,
-            width: item.w,
-            height: item.h,
-            ...(blurToFocus && { filter: 'blur(10px)' })
+            ...animProps
           },
           {
             opacity: 1,
-            ...animProps,
-            ...(blurToFocus && { filter: 'blur(0px)' }),
-            duration: 0.8,
-            ease: 'power3.out',
-            delay: index * stagger
+            duration: 0.3,
+            ease: 'power2.out'
           }
         );
       } else {
@@ -220,7 +178,7 @@ const Masonry: React.FC<MasonryProps> = ({
     });
 
     hasMounted.current = true;
-  }, [grid, imagesReady, stagger, animateFrom, blurToFocus, duration, ease]);
+  }, [grid, imagesReady, duration, ease]);
 
   // Reset hasMounted when items change (e.g. after deletion)
   useEffect(() => {
