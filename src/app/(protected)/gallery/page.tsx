@@ -806,7 +806,7 @@ export default function GalleryPage() {
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-grey mb-3" />
           <span className="text-grey text-sm">
-            {isLoading ? "Loading your memories..." : "Decrypting & measuring images..."}
+            {isLoading ? "Loading your memories..." : "Decrypting memories..."}
           </span>
         </div>
       )}
@@ -981,7 +981,7 @@ export default function GalleryPage() {
                   {lightboxSectionSnaps[lightboxIndex].decryptedCaption}
                 </p>
                 <p className="text-white/60 text-xs mt-1">
-                  {formatDate(lightboxSectionSnaps[lightboxIndex].send_date)} ·{" "}
+                  Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
                   {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
                     ? "Delivered"
                     : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
