@@ -619,84 +619,92 @@ export default function GalleryPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mobile menu button - shows on small screens */}
+          {/* Mobile buttons - shows on small screens */}
           {allDecrypted && snaps.length > 0 && (
-            <div className="relative sm:hidden">
+            <div className="flex items-center gap-2 sm:hidden">
+              {/* Delete mode toggle button */}
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMobileMenuOpen((prev) => !prev);
+                onClick={() => {
+                  setSelectMode((prev) => !prev);
+                  setSelectedIds(new Set());
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-soft-black text-warm-beige hover:bg-soft-black/90 transition"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
+                  selectMode
+                    ? "bg-red-100 text-red-700"
+                    : "bg-mist-grey text-soft-black hover:bg-mist-grey/80"
+                }`}
+                aria-label={selectMode ? "Cancel delete" : "Delete memories"}
               >
-                <Menu className="w-4 h-4" />
+                {selectMode ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </>
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
               </button>
-              {mobileMenuOpen && (
-                <div 
-                  className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-150"
-                  onClick={(e) => e.stopPropagation()}
+
+              {/* Menu button */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMobileMenuOpen((prev) => !prev);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-soft-black text-warm-beige hover:bg-soft-black/90 transition"
                 >
-                  {/* New Memory option */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push("/new");
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey"
+                  <Menu className="w-4 h-4" />
+                </button>
+                {mobileMenuOpen && (
+                  <div 
+                    className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Plus className="w-4 h-4" />
-                    New Memory
-                  </button>
-
-                  {/* Select mode toggle */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectMode((prev) => !prev);
-                      setSelectedIds(new Set());
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition border-b border-mist-grey ${
-                      selectMode
-                        ? "bg-blue-50 text-blue-700 font-medium"
-                        : "text-soft-black hover:bg-mist-grey/30"
-                    }`}
-                  >
-                    <SquareMousePointer className="w-4 h-4" />
-                    {selectMode ? "Cancel Select" : "Select"}
-                  </button>
-
-                  {/* Group by label */}
-                  <div className="px-4 py-1.5 text-xs text-grey font-medium uppercase tracking-wider">
-                    Group By
-                  </div>
-
-                  {/* Group by options */}
-                  {GROUP_BY_OPTIONS.map((option) => (
+                    {/* New Memory option */}
                     <button
-                      key={option.value}
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setGroupBy(option.value);
+                        router.push("/new");
                         setMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition ${
-                        groupBy === option.value
-                          ? "bg-mist-grey/60 text-soft-black font-medium"
-                          : "text-soft-black hover:bg-mist-grey/30"
-                      }`}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey"
                     >
-                      {groupBy === option.value && <span className="text-xs">✓</span>}
-                      {option.label}
+                      <Plus className="w-4 h-4" />
+                      New Memory
                     </button>
-                  ))}
-                </div>
-              )}
+
+                    {/* Group by label */}
+                    <div className="px-4 py-1.5 text-xs text-grey font-medium uppercase tracking-wider">
+                      Group By
+                    </div>
+
+                    {/* Group by options */}
+                    {GROUP_BY_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGroupBy(option.value);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition ${
+                          groupBy === option.value
+                            ? "bg-mist-grey/60 text-soft-black font-medium"
+                            : "text-soft-black hover:bg-mist-grey/30"
+                        }`}
+                      >
+                        {groupBy === option.value && <span className="text-xs">✓</span>}
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

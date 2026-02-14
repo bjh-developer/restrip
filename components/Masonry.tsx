@@ -1,4 +1,4 @@
-import React, { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 
 // =============================================================================
@@ -247,43 +247,6 @@ const Masonry: React.FC<MasonryProps> = ({
     }
   };
 
-  // Long-press support for mobile context menu
-  const LONG_PRESS_MS = 500;
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFiredRef = useRef(false);
-
-  const handleTouchStart = useCallback(
-    (id: string, e: React.TouchEvent) => {
-      if (!onItemContextMenu) return;
-      longPressFiredRef.current = false;
-      const touch = e.touches[0];
-      const { clientX, clientY } = touch;
-      longPressTimerRef.current = setTimeout(() => {
-        longPressFiredRef.current = true;
-        onItemContextMenu(id, { clientX, clientY });
-      }, LONG_PRESS_MS);
-    },
-    [onItemContextMenu],
-  );
-
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      cancelLongPress();
-      // Prevent the tap from also firing onClick after a long press
-      if (longPressFiredRef.current) {
-        e.preventDefault();
-      }
-    },
-    [cancelLongPress],
-  );
-
   return (
     <div
       ref={containerRef}
@@ -297,7 +260,7 @@ const Masonry: React.FC<MasonryProps> = ({
           className="absolute box-content cursor-pointer"
           style={{ willChange: 'transform, width, height, opacity' }}
           onClick={() => {
-            if (!longPressFiredRef.current) onItemClick?.(item.id);
+            onItemClick?.(item.id);
           }}
           onContextMenu={(e) => {
             if (onItemContextMenu) {
@@ -305,9 +268,6 @@ const Masonry: React.FC<MasonryProps> = ({
               onItemContextMenu(item.id, e);
             }
           }}
-          onTouchStart={(e) => handleTouchStart(item.id, e)}
-          onTouchMove={cancelLongPress}
-          onTouchEnd={handleTouchEnd}
           onMouseEnter={() => handleMouseEnter(item.id)}
           onMouseLeave={() => handleMouseLeave(item.id)}
         >
