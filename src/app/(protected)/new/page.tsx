@@ -97,7 +97,6 @@ interface FieldErrors {
   image?: string;
   caption?: string;
   period?: string;
-  telegramUsername?: string;
 }
 
 // =============================================================================
@@ -337,11 +336,12 @@ export default function NewMemoryPage() {
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
-  const [telegramUsername, setTelegramUsername] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>("");
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<z.ZodIssue[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -411,10 +411,7 @@ export default function NewMemoryPage() {
   const handleDeliveryMethodSelect = useCallback(
     (method: DeliveryMethod, value?: string) => {
       setDeliveryMethod(method);
-      if (method === "telegram") {
-        setTelegramUsername(value ?? "");
-        setFieldErrors((prev) => ({ ...prev, telegramUsername: undefined }));
-      }
+      setDeliveryAddress(value ?? "");
     },
     [],
   );
@@ -435,23 +432,12 @@ export default function NewMemoryPage() {
   // =========================================================================
 
   /** Zod schema for form validation */
-  const SnapSchema = z
-    .object({
-      Image: z.string().min(1, "Image is required"),
-      Caption: z.string().min(1, "Caption is required"),
-      sendTime: z.date(),
-      deliveryMethod: z.enum(["email", "telegram"]),
-      telegramUsername: z.string().optional(),
-    })
-    .refine(
-      (data) => {
-        if (data.deliveryMethod === "telegram") {
-          return data.telegramUsername && data.telegramUsername.length > 0;
-        }
-        return true;
-      },
-      { message: "Telegram username is required", path: ["telegramUsername"] },
-    );
+  const SnapSchema = z.object({
+    Image: z.string().min(1, "Image is required"),
+    Caption: z.string().min(1, "Caption is required"),
+    sendTime: z.date(),
+    deliveryMethod: z.enum(["email", "telegram"]),
+  });
 
   const mapValidationErrors = (issues: z.ZodIssue[]): FieldErrors => {
     const errors: FieldErrors = {};
@@ -466,9 +452,6 @@ export default function NewMemoryPage() {
           break;
         case "sendTime":
           errors.period = "Please select when to deliver your memory";
-          break;
-        case "telegramUsername":
-          errors.telegramUsername = "Please enter your Telegram username";
           break;
       }
     });
@@ -504,7 +487,6 @@ export default function NewMemoryPage() {
       Caption: caption,
       sendTime: scheduledSendTime,
       deliveryMethod,
-      telegramUsername,
     });
 
     if (!validation.success) {
@@ -554,7 +536,7 @@ export default function NewMemoryPage() {
           filePath,
           scheduledSendTime: scheduledSendTime!.toISOString(),
           deliveryMethod,
-          deliveryAddress: deliveryMethod === "email" ? user.email : telegramUsername,
+          deliveryAddress: deliveryMethod === "email" ? user.email : deliveryAddress,
           periodType: selectedPeriod,
         }),
       });
@@ -567,12 +549,12 @@ export default function NewMemoryPage() {
       const responseData = await uploadResponse.json();
       console.log("✅ Memory created successfully!");
 
-      // Open Telegram bot in new tab if delivery method is telegram
+      // Store telegram bot link if telegram delivery was selected
       if (deliveryMethod === "telegram" && responseData.snap?.id) {
         const botUsername =
           process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
         const telegramLink = `https://t.me/${botUsername}?start=snap_${responseData.snap.id}`;
-        window.open(telegramLink, "_blank", "noopener,noreferrer");
+        setTelegramBotLink(telegramLink);
       }
 
       setIsSuccess(true);
@@ -605,9 +587,29 @@ export default function NewMemoryPage() {
           <p className="text-grey mb-2">
             Your photo strip has been saved to your gallery.
           </p>
-          <p className="text-grey mb-2">
-            Your memory will be delivered to you soon...
-          </p>
+          {telegramBotLink ? (
+            <>
+              <p className="text-grey mb-4">
+                To receive your memory, please start the Telegram bot by clicking the button below.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(telegramBotLink, "_blank", "noopener,noreferrer");
+                }}
+                className="w-full mb-4 px-4 py-3 bg-[#229ED9] text-white rounded-lg hover:bg-[#1e8bc3] transition text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.14.121.099.154.232.17.326.016.094.036.308.02.475z" />
+                </svg>
+                Start Telegram Bot
+              </button>
+            </>
+          ) : (
+            <p className="text-grey mb-4">
+              Your memory will be delivered to you soon...
+            </p>
+          )}
           <div className="flex gap-3 justify-center">
             <button
               type="button"
@@ -620,11 +622,12 @@ export default function NewMemoryPage() {
               type="button"
               onClick={() => {
                 setIsSuccess(false);
+                setTelegramBotLink(null);
                 setOriginalImage(undefined);
                 setCroppedImage(undefined);
                 setCaption("");
+                setDeliveryAddress("");
                 handlePeriodSelect("surprise");
-                setTelegramUsername("");
               }}
               className="px-4 py-2 bg-white border border-mist-grey text-soft-black rounded-lg hover:bg-mist-grey/30 transition text-sm font-medium"
             >
@@ -727,19 +730,10 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-2">
               How to deliver
             </label>
-            <DeliveryMethodPicker
-              onSelect={handleDeliveryMethodSelect}
-              error={!!fieldErrors.telegramUsername}
-            />
+            <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             {deliveryMethod === "email" && (
               <p className="mt-2 text-xs text-grey flex items-center gap-1">
                 Will be sent to: {user?.email}
-              </p>
-            )}
-            {fieldErrors.telegramUsername && (
-              <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
-                <CircleAlert className="w-3 h-3" />
-                {fieldErrors.telegramUsername}
               </p>
             )}
           </div>

@@ -508,7 +508,7 @@ export default function GalleryPage() {
     }
   };
 
-  const handleContextMenu = (id: string, event: React.MouseEvent) => {
+  const handleContextMenu = (id: string, event: { clientX: number; clientY: number }) => {
     setContextMenu({ snapId: id, x: event.clientX, y: event.clientY });
   };
 

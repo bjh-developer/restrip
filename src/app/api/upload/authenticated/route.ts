@@ -128,14 +128,6 @@ export async function POST(
       );
     }
 
-    // Validate telegram identifier if delivery method is telegram
-    if (deliveryMethod === "telegram" && !deliveryAddress) {
-      return NextResponse.json(
-        { error: "Telegram identifier is required for telegram delivery" },
-        { status: 400 },
-      );
-    }
-
     // Parse send time
     const sendTime = new Date(scheduledSendTime);
     if (isNaN(sendTime.getTime())) {

@@ -11,7 +11,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Images, Plus, LogOut } from "lucide-react";
@@ -38,6 +38,23 @@ export default function ProtectedLayout({
     router.push("/");
   };
 
+  // Handle redirects in useEffect to avoid "setState during render" error
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Redirect to auth if no session at all
+    if (!user) {
+      router.push(`/auth?returnTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
+    // User is authenticated but encryption key expired or missing
+    if (!hasEncryptionKey) {
+      router.push(`/auth?returnTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
+  }, [user, hasEncryptionKey, isLoading, router, pathname]);
+
   // Show loading state while checking auth
   if (isLoading) {
     return (
@@ -47,12 +64,8 @@ export default function ProtectedLayout({
     );
   }
 
-  // Redirect to auth if no session at all
-  // (middleware handles server-side redirect, this is a client-side fallback)
+  // Show loading message while redirecting
   if (!user) {
-    if (typeof window !== "undefined") {
-      router.push(`/auth?returnTo=${encodeURIComponent(pathname)}`);
-    }
     return (
       <div className="min-h-screen bg-warm-beige flex items-center justify-center">
         <div className="animate-pulse text-grey">Redirecting to sign in...</div>
@@ -60,12 +73,7 @@ export default function ProtectedLayout({
     );
   }
 
-  // User is authenticated but encryption key expired or missing —
-  // redirect to auth so they can re-enter password/passkey to restore it
   if (!hasEncryptionKey) {
-    if (typeof window !== "undefined") {
-      router.push(`/auth?returnTo=${encodeURIComponent(pathname)}`);
-    }
     return (
       <div className="min-h-screen bg-warm-beige flex items-center justify-center">
         <div className="animate-pulse text-grey">
