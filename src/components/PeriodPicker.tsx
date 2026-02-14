@@ -83,17 +83,17 @@ const PERIOD_OPTIONS: readonly PeriodConfig[] = [
   {
     id: "surprise",
     label: "Surprise me! 🎲",
-    description: "sends email in 1-6 months on a random day",
+    description: "Sends email in 1-6 months on a random day",
   },
   {
     id: "custom period",
     label: "Custom Period",
-    description: "sends email in a custom period on a random day",
+    description: "Sends email in a custom period on a random day",
   },
   {
     id: "custom date",
     label: "Custom Date",
-    description: "sends email on a specific day",
+    description: "Sends email on a specific day",
   },
 ] as const;
 
