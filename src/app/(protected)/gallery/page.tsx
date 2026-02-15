@@ -31,20 +31,26 @@ import {
   SquareMousePointer,
   ListFilter,
   Menu,
+  RefreshCw,
 } from "lucide-react";
 import Masonry, { type MasonryItem } from "../../../../components/Masonry";
 import { Skeleton } from "../../../../components/ui/skeleton";
+import {
+  getCachedImage,
+  setCachedImage,
+  getCachedIds,
+  removeCachedImage,
+} from "../../../lib/gallery-cache";
 
 // =============================================================================
 // Types
 // =============================================================================
 
-/** Raw snap record from the API (includes signed image URL) */
+/** Snap metadata from the gallery API (no image data) */
 interface SnapRecord {
   id: string;
   storage_path: string;
   caption: string;
-  image_url: string | null;
   send_date: string;
   send_time: string;
   delivery_method: string;
@@ -56,8 +62,10 @@ interface SnapRecord {
   created_at: string;
 }
 
-/** Snap ready for display with measured dimensions */
+/** Snap ready for display with image URL and measured dimensions */
 interface DisplaySnap extends SnapRecord {
+  /** Object URL or /api/images/[id] URL for the image */
+  image_url: string | null;
   /** Natural width of the image (for masonry aspect ratio) */
   naturalWidth: number;
   /** Natural height of the image (for masonry aspect ratio) */
@@ -74,18 +82,6 @@ const LOAD_BATCH_SIZE = 4;
 // =============================================================================
 // Helpers
 // =============================================================================
-
-/**
- * Load a URL into an Image to measure its natural dimensions.
- * Returns { width, height } or a fallback on error.
- */
-const measureImage = (url: string): Promise<{ width: number; height: number }> =>
-  new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => resolve({ width: 300, height: 400 }); // fallback 3:4
-    img.src = url;
-  });
 
 // =============================================================================
 // Component
@@ -128,17 +124,83 @@ export default function GalleryPage() {
   // Lightbox focus trap
   const lightboxRef = useRef<HTMLDivElement>(null);
 
+  // Track active object URLs for cleanup
+  const objectUrlsRef = useRef<Map<string, string>>(new Map());
+
+  // Guard against concurrent fetches
+  const isFetchingRef = useRef(false);
+
   // =========================================================================
-  // Data fetching
+  // Data fetching — metadata first, then images progressively
   // =========================================================================
 
-  const fetchGallery = useCallback(async () => {
+  /**
+   * Load a single snap's image: check IndexedDB cache first, then fetch
+   * from /api/images/[id]. Creates an object URL and updates state.
+   */
+  const loadSnapImage = useCallback(
+    async (snapId: string, cachedIds: Set<string>) => {
+      try {
+        let blob: Blob | null = null;
+
+        // 1. Try IndexedDB cache
+        if (cachedIds.has(snapId)) {
+          blob = await getCachedImage(snapId);
+        }
+
+        // 2. Fall back to network fetch
+        if (!blob) {
+          const res = await fetch(`/api/images/${snapId}`);
+          if (!res.ok) {
+            console.error(`[Gallery] Image fetch failed for ${snapId}: ${res.status}`);
+            return;
+          }
+          blob = await res.blob();
+          // Cache for next time
+          await setCachedImage(snapId, blob);
+        }
+
+        // Create object URL
+        const url = URL.createObjectURL(blob);
+        objectUrlsRef.current.set(snapId, url);
+
+        // Measure dimensions inline (avoid callback dependency)
+        const dims = await new Promise<{ width: number; height: number }>((resolve) => {
+          const img = new window.Image();
+          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          img.onerror = () => resolve({ width: 300, height: 400 });
+          img.src = url;
+        });
+
+        // Update this snap in state
+        setSnaps((prev) =>
+          prev.map((s) =>
+            s.id === snapId
+              ? { ...s, image_url: url, naturalWidth: dims.width, naturalHeight: dims.height }
+              : s,
+          ),
+        );
+      } catch (err) {
+        console.error(`[Gallery] Image load error for ${snapId}:`, err);
+      }
+    },
+    [], // No dependencies — all state updates use functional form
+  );
+
+  // Fetch gallery data (metadata + progressive image loading)
+  const fetchGallery = useCallback(async (signal?: AbortSignal) => {
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     try {
       setIsLoading(true);
       setAllLoaded(false);
       setError(null);
 
       const response = await fetch("/api/gallery");
+      if (signal?.aborted) return;
+
       if (!response.ok) {
         let errorMessage = "Failed to fetch gallery";
         try {
@@ -159,6 +221,8 @@ export default function GalleryPage() {
         snaps: SnapRecord[];
       };
 
+      if (signal?.aborted) return;
+
       if (rawSnaps.length === 0) {
         setSnaps([]);
         setIsLoading(false);
@@ -166,62 +230,84 @@ export default function GalleryPage() {
         return;
       }
 
-      // Measure image dimensions in batches for masonry layout
-      const displaySnaps: DisplaySnap[] = [];
+      const placeholderSnaps: DisplaySnap[] = rawSnaps.map((snap) => ({
+        ...snap,
+        image_url: null,
+        naturalWidth: 300,
+        naturalHeight: 400,
+      }));
 
-      for (let i = 0; i < rawSnaps.length; i += LOAD_BATCH_SIZE) {
-        const batch = rawSnaps.slice(i, i + LOAD_BATCH_SIZE);
-
-        const results = await Promise.allSettled(
-          batch.map(async (snap) => {
-            let naturalWidth = 300;
-            let naturalHeight = 400;
-
-            if (snap.image_url) {
-              const dims = await measureImage(snap.image_url);
-              naturalWidth = dims.width;
-              naturalHeight = dims.height;
-            }
-
-            return {
-              ...snap,
-              naturalWidth,
-              naturalHeight,
-            } satisfies DisplaySnap;
-          })
-        );
-
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-            displaySnaps.push(result.value);
-          } else {
-            console.error("Image load failed:", result.reason);
-          }
-        }
-      }
-
-      setSnaps(displaySnaps);
+      setSnaps(placeholderSnaps);
       setIsLoading(false);
       setAllLoaded(true);
-    } catch (err) {
-      console.error("Gallery fetch error:", err);
-      setError(err instanceof Error ? err.message : "Failed to load gallery");
-      setIsLoading(false);
-    }
-  }, []);
 
+      const cachedIds = await getCachedIds();
+      if (signal?.aborted) return;
+
+      const snapIds = rawSnaps.map((s) => s.id);
+      const cached = snapIds.filter((id) => cachedIds.has(id));
+      const uncached = snapIds.filter((id) => !cachedIds.has(id));
+
+      if (cached.length > 0) {
+        await Promise.all(cached.map((id) => loadSnapImage(id, cachedIds)));
+      }
+
+      for (let i = 0; i < uncached.length; i += LOAD_BATCH_SIZE) {
+        if (signal?.aborted) return;
+        const batch = uncached.slice(i, i + LOAD_BATCH_SIZE);
+        await Promise.all(batch.map((id) => loadSnapImage(id, cachedIds)));
+      }
+    } catch (err) {
+      if (!signal?.aborted) {
+        console.error("Gallery fetch error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load gallery");
+        setIsLoading(false);
+      }
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [loadSnapImage]);
+
+  // Initial fetch on mount
   useEffect(() => {
-    fetchGallery();
+    const controller = new AbortController();
+    fetchGallery(controller.signal);
+
+    // Cleanup: abort pending work and revoke object URLs
+    return () => {
+      controller.abort();
+      isFetchingRef.current = false;
+      for (const url of objectUrlsRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      objectUrlsRef.current.clear();
+    };
   }, [fetchGallery]);
 
-  // Show masonry immediately when data is ready
+  // Manual refresh handler
+  const handleRefresh = () => {
+    // Clear existing object URLs to prevent memory leaks
+    for (const url of objectUrlsRef.current.values()) {
+      URL.revokeObjectURL(url);
+    }
+    objectUrlsRef.current.clear();
+    
+    // Fetch fresh data
+    fetchGallery();
+  };
+
+  // Show masonry as soon as metadata is ready (images load progressively)
   useEffect(() => {
-    if (allLoaded && snaps.length > 0) {
+    if (!isLoading && snaps.length > 0) {
       setShowMasonry(true);
     } else {
       setShowMasonry(false);
     }
-  }, [allLoaded, snaps.length]);
+  }, [isLoading, snaps.length]);
+
+  // Count how many images have loaded
+  const loadedImageCount = snaps.filter((s) => s.image_url !== null).length;
+  const isLoadingImages = !isLoading && snaps.length > 0 && loadedImageCount === 0;
 
   // =========================================================================
   // Context menu & dropdown dismiss
@@ -294,6 +380,14 @@ export default function GalleryPage() {
         throw new Error(errorData.error ?? "Failed to delete");
       }
 
+      // Remove from IndexedDB cache and revoke object URL
+      await removeCachedImage(snapId);
+      const objUrl = objectUrlsRef.current.get(snapId);
+      if (objUrl) {
+        URL.revokeObjectURL(objUrl);
+        objectUrlsRef.current.delete(snapId);
+      }
+
       setSnaps((prev) => prev.filter((s) => s.id !== snapId));
       setSelectedIds((prev) => {
         const next = new Set(prev);
@@ -340,6 +434,16 @@ export default function GalleryPage() {
         .filter((r) => r.status === "fulfilled")
         .map((r) => (r as PromiseFulfilledResult<string>).value)
     );
+
+    // Clean up IndexedDB cache and object URLs for deleted snaps
+    for (const id of deletedIds) {
+      removeCachedImage(id);
+      const objUrl = objectUrlsRef.current.get(id);
+      if (objUrl) {
+        URL.revokeObjectURL(objUrl);
+        objectUrlsRef.current.delete(id);
+      }
+    }
 
     const failedResults = results
       .map((r, index) => ({ result: r, id: ids[index] }))
@@ -389,15 +493,17 @@ export default function GalleryPage() {
   };
 
   // =========================================================================
-  // Masonry item mapping
+  // Masonry item mapping (only include snaps with loaded images)
   // =========================================================================
 
-  const masonryItems: MasonryItem[] = snaps.map((snap) => ({
-    id: snap.id,
-    img: snap.image_url ?? "",
-    width: snap.naturalWidth,
-    height: snap.naturalHeight,
-  }));
+  const masonryItems: MasonryItem[] = snaps
+    .filter((snap) => snap.image_url !== null)
+    .map((snap) => ({
+      id: snap.id,
+      img: snap.image_url!,
+      width: snap.naturalWidth,
+      height: snap.naturalHeight,
+    }));
 
   // =========================================================================
   // Grouped masonry sections
@@ -439,12 +545,14 @@ export default function GalleryPage() {
     return Array.from(groups.values()).map(({ label, snapsList }) => ({
       label,
       snaps: snapsList,
-      items: snapsList.map((snap) => ({
-        id: snap.id,
-        img: snap.image_url ?? "",
-        width: snap.naturalWidth,
-        height: snap.naturalHeight,
-      })),
+      items: snapsList
+        .filter((snap) => snap.image_url !== null)
+        .map((snap) => ({
+          id: snap.id,
+          img: snap.image_url!,
+          width: snap.naturalWidth,
+          height: snap.naturalHeight,
+        })),
     }));
   }, [snaps, groupBy, masonryItems]);
 
@@ -633,10 +741,25 @@ export default function GalleryPage() {
                         router.push("/new");
                         setMobileMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition"
                     >
                       <Plus className="w-4 h-4" />
                       New Memory
+                    </button>
+
+                    {/* Refresh option */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRefresh();
+                        setMobileMenuOpen(false);
+                      }}
+                      disabled={isLoading}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      Refresh
                     </button>
 
                     {/* Group by label */}
@@ -734,6 +857,17 @@ export default function GalleryPage() {
               </button>
             )}
 
+            {/* Refresh button */}
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition disabled:opacity-50"
+              title="Refresh gallery"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+
             <button
               type="button"
               onClick={() => router.push("/new")}
@@ -771,8 +905,8 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Loading / decrypting state with skeleton masonry */}
-      {(isLoading || (allLoaded && !showMasonry && snaps.length > 0)) && (
+      {/* Loading skeleton (during metadata fetch or initial image load) */}
+      {(isLoading || isLoadingImages) && (
         <div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
             {/* Generate skeleton items with varying heights to mimic masonry */}
@@ -794,7 +928,7 @@ export default function GalleryPage() {
           </div>
           <div className="flex items-center justify-center mt-8">
             <span className="text-grey text-sm">
-              {isLoading ? "Loading your memories..." : ""}
+              {isLoading ? "Loading your memories..." : isLoadingImages ? "Loading images..." : ""}
             </span>
           </div>
         </div>

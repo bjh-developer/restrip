@@ -1,7 +1,10 @@
 /**
  * Gallery API Route Handler
  *
- * Fetches a paginated list of the authenticated user's snaps.
+ * Fetches a paginated list of the authenticated user's snap metadata.
+ * Images are NOT included — they are loaded separately via /api/images/[id]
+ * to enable HTTP caching and progressive loading.
+ *
  * Authentication is enforced by Clerk middleware.
  *
  * @module api/gallery
@@ -11,17 +14,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import {
-  decryptImage,
   decryptDataAsString,
   getServerEncryptionKey,
 } from "../../../lib/simple-encryption";
 
-/** Shape of a snap item returned in the gallery list */
+/** Shape of a snap item returned in the gallery list (metadata only, no image) */
 interface GallerySnapItem {
   id: string;
   storage_path: string;
   caption: string;
-  image_url: string | null;
   send_date: string;
   send_time: string;
   delivery_method: string;
@@ -32,9 +33,6 @@ interface GallerySnapItem {
   retry_count: number;
   created_at: string;
 }
-
-/** Storage bucket name */
-const STORAGE_BUCKET = "encrypted-images";
 
 /** Paginated gallery response */
 interface GalleryResponse {
@@ -62,11 +60,14 @@ const supabaseAdmin = createClient(
 /**
  * GET /api/gallery
  *
- * Returns the authenticated user's snaps, ordered by creation date (newest first).
- * Supports pagination via `page` and `pageSize` query parameters.
+ * Returns the authenticated user's snap metadata, ordered by creation date
+ * (newest first). Supports pagination via `page` and `pageSize` query params.
+ *
+ * Images are NOT included — fetch them via /api/images/[id] which supports
+ * HTTP caching for fast repeat loads.
  *
  * @param request - Incoming request with optional page/pageSize query params
- * @returns Paginated list of snaps or error
+ * @returns Paginated list of snap metadata or error
  */
 export async function GET(
   request: NextRequest,
@@ -82,7 +83,7 @@ export async function GET(
       );
     }
 
-    console.log("[Gallery API] Fetching for user:", userId);
+    console.log("[Gallery API] Fetching metadata for user:", userId);
 
     // Parse pagination params
     const { searchParams } = new URL(request.url);
@@ -116,10 +117,12 @@ export async function GET(
       );
     }
 
-    // Fetch paginated snaps
+    // Fetch paginated snaps (metadata columns only — skip encrypted image data)
     const { data: snaps, error: fetchError } = await supabaseAdmin
       .from("snaps")
-      .select("*")
+      .select(
+        "id, storage_path, encrypted_caption, caption_iv, send_date, send_time, delivery_method, delivery_address, period_type, delivery_status, error_message, retry_count, created_at"
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
@@ -137,68 +140,44 @@ export async function GET(
       );
     }
 
-    // Generate signed URLs and decrypt data for each snap
+    // Decrypt captions only (images loaded separately via /api/images/[id])
     const encryptionKey = getServerEncryptionKey();
-    
-    const snapsWithUrls = await Promise.all(
+
+    const snapsWithCaptions: GallerySnapItem[] = await Promise.all(
       (snaps ?? []).map(async (snap) => {
+        let caption = "";
         try {
-          // Download encrypted image from storage
-          const { data: encryptedBlob, error: downloadError } = await supabaseAdmin.storage
-            .from(STORAGE_BUCKET)
-            .download(snap.storage_path);
-
-          if (downloadError || !encryptedBlob) {
-            console.error("[Gallery API] Download error for snap", snap.id, downloadError);
-            return {
-              ...snap,
-              image_url: null,
-              caption: "Failed to load",
-            } as GallerySnapItem;
+          if (snap.encrypted_caption && snap.caption_iv) {
+            caption = await decryptDataAsString(
+              snap.encrypted_caption,
+              snap.caption_iv,
+              encryptionKey,
+            );
           }
-
-          // Convert blob to base64
-          const arrayBuffer = await encryptedBlob.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = "";
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const encryptedBase64 = Buffer.from(binary, "binary").toString("base64");
-
-          // Decrypt image
-          const decryptedImageDataUrl = await decryptImage(
-            encryptedBase64,
-            snap.image_iv,
-            encryptionKey,
-            "image/jpeg",
-          );
-
-          // Decrypt caption
-          const decryptedCaption = await decryptDataAsString(
-            snap.encrypted_caption,
-            snap.caption_iv,
-            encryptionKey,
-          );
-
-          return {
-            ...snap,
-            image_url: decryptedImageDataUrl,
-            caption: decryptedCaption,
-          } as GallerySnapItem;
         } catch (error) {
-          console.error("[Gallery API] Decryption error for snap", snap.id, error);
-          return {
-            ...snap,
-            image_url: null,
-            caption: "Decryption failed",
-          } as GallerySnapItem;
+          console.error("[Gallery API] Caption decryption error for snap", snap.id, error);
+          caption = "Decryption failed";
         }
+
+        return {
+          id: snap.id,
+          storage_path: snap.storage_path,
+          caption,
+          send_date: snap.send_date,
+          send_time: snap.send_time,
+          delivery_method: snap.delivery_method,
+          delivery_address: snap.delivery_address,
+          period_type: snap.period_type,
+          delivery_status: snap.delivery_status,
+          error_message: snap.error_message,
+          retry_count: snap.retry_count,
+          created_at: snap.created_at,
+        };
       }),
     );
 
     return NextResponse.json({
-      snaps: snapsWithUrls,
+      snaps: snapsWithCaptions,
       total: count ?? 0,
       page,
       pageSize,
