@@ -1,11 +1,11 @@
 /**
- * Next.js Middleware
+ * Next.js Proxy
  *
  * Uses Clerk for auth session management and route protection.
  * - Public routes: /, /upload, /privacy-policy, /contact, /sign-in, /sign-up
  * - Protected routes: /gallery/*, /new, /memory/* (require authenticated session)
  *
- * @module middleware
+ * @module proxy
  */
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
