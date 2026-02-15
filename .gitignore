@@ -115,3 +115,6 @@ supabase/.temp
 # local backup
 backup-auth-version/
 /.github
+
+# clerk configuration (can include secrets)
+/.clerk/

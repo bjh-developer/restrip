@@ -2,14 +2,14 @@
  * Gallery Snap Delete API Route Handler
  *
  * Deletes a specific snap belonging to the authenticated user.
- * Removes both the database record and the encrypted file from storage.
+ * Removes both the database record and the image file from storage.
  *
  * @module api/gallery/[id]
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "../../../../lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
 
 /**
  * Supabase admin client for direct database and storage access.
@@ -19,13 +19,13 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
 );
 
-/** Storage bucket name for encrypted images */
+/** Storage bucket name for images */
 const STORAGE_BUCKET = "encrypted-images";
 
 /**
  * DELETE /api/gallery/[id]
  *
- * Deletes a snap record and its associated encrypted file from storage.
+ * Deletes a snap record and its associated file from storage.
  * Verifies ownership before deletion.
  *
  * @param request - Incoming request
@@ -39,14 +39,10 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Verify authentication
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Verify authentication via Clerk
+    const { userId } = await auth();
 
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
@@ -68,14 +64,14 @@ export async function DELETE(
     }
 
     // Verify the user owns this snap
-    if (snap.user_id !== user.id) {
+    if (snap.user_id !== userId) {
       return NextResponse.json(
         { error: "Not authorized to delete this snap" },
         { status: 403 },
       );
     }
 
-    // Delete the encrypted file from storage
+    // Delete the file from storage
     if (snap.storage_path) {
       const { error: storageError } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
@@ -92,7 +88,7 @@ export async function DELETE(
       .from("snaps")
       .delete()
       .eq("id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     if (deleteError) {
       console.error("Database delete error:", deleteError);
@@ -102,7 +98,7 @@ export async function DELETE(
       );
     }
 
-    console.log(`✅ Snap ${id} deleted by user ${user.id}`);
+    console.log(`✅ Snap ${id} deleted by user ${userId}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

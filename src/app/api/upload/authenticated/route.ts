@@ -1,14 +1,13 @@
 /**
  * Authenticated Upload API Route Handler
  *
- * Handles image uploads for authenticated users with client-side encryption.
- * Unlike the anonymous /api/upload route, this does NOT encrypt on the server —
- * images arrive already encrypted from the client (zero-knowledge).
+ * Handles image uploads for authenticated users.
+ * Images are stored as-is (no client-side encryption).
  *
  * Flow:
- * 1. Verify authenticated session
- * 2. Accept pre-encrypted image blob + metadata
- * 3. Upload encrypted blob to Supabase Storage under user's folder
+ * 1. Verify authenticated session via Clerk
+ * 2. Accept image + metadata
+ * 3. Upload image to Supabase Storage under user's folder
  * 4. Create snap record in database with user_id
  *
  * @module api/upload/authenticated
@@ -16,14 +15,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "../../../../lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import {
+  encryptImage,
+  encryptData,
+  getServerEncryptionKey,
+} from "../../../../lib/simple-encryption";
 
 /** Request body shape */
 interface AuthUploadBody {
-  encryptedImage: string;
-  encryptedCaption: string;
-  captionIv: string;
-  imageIv: string;
+  image: string;
+  caption: string;
   filePath: string;
   scheduledSendTime: string;
   deliveryMethod: "email" | "telegram";
@@ -36,6 +38,9 @@ interface SuccessResponse {
   snap: {
     id: string;
     storage_path: string;
+    encrypted_caption: string;
+    caption_iv: string;
+    image_iv: string;
   };
 }
 
@@ -58,20 +63,16 @@ const supabaseAdmin = createClient(
 /**
  * POST /api/upload/authenticated
  *
- * Accepts client-encrypted data and stores it in Supabase.
+ * Accepts image data and stores it in Supabase.
  */
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
-    // Verify authentication
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Verify authentication via Clerk
+    const { userId } = await auth();
 
-    if (authError || !user) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
@@ -82,11 +83,8 @@ export async function POST(
 
     // Validate required fields
     const requiredFields: (keyof AuthUploadBody)[] = [
-      "encryptedImage",
-      "encryptedCaption",
-      "captionIv",
-      "imageIv",
-      "filePath",
+      "image",
+      "caption",
       "scheduledSendTime",
       "deliveryMethod",
       "periodType",
@@ -101,24 +99,16 @@ export async function POST(
     }
 
     const {
-      encryptedImage,
-      encryptedCaption,
-      captionIv,
-      imageIv,
-      filePath,
+      image,
+      caption,
       scheduledSendTime,
       deliveryMethod,
       deliveryAddress,
       periodType,
     } = body as AuthUploadBody;
 
-    // Verify the file path belongs to this user
-    if (!filePath.startsWith(`${user.id}/`)) {
-      return NextResponse.json(
-        { error: "Invalid storage path" },
-        { status: 403 },
-      );
-    }
+    // Get server-side encryption key
+    const encryptionKey = getServerEncryptionKey();
 
     // Validate email if delivery method is email
     if (deliveryMethod === "email" && !deliveryAddress) {
@@ -137,10 +127,31 @@ export async function POST(
       );
     }
 
-    // Convert base64 encrypted image to buffer for binary storage
+    // Encrypt the image
+    console.log("🔐 Encrypting image server-side...");
+    const { encrypted: encryptedImage, iv: imageIv } = await encryptImage(
+      image,
+      encryptionKey,
+    );
+    console.log("✅ Image encrypted successfully");
+
+    // Encrypt the caption
+    console.log("🔐 Encrypting caption server-side...");
+    const { encrypted: encryptedCaption, iv: captionIv } = await encryptData(
+      caption,
+      encryptionKey,
+    );
+    console.log("✅ Caption encrypted successfully");
+
+    // Convert encrypted base64 to buffer for binary storage
     const encryptedBuffer = Buffer.from(encryptedImage, "base64");
 
-    // Upload encrypted blob to Supabase Storage
+    // Generate unique storage path with .enc extension
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 9);
+    const filePath = `${userId}/${timestamp}-${randomId}.enc`;
+
+    // Upload encrypted image to Supabase Storage
     const { data: uploadData, error: storageError } = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
       .upload(filePath, encryptedBuffer, {
@@ -151,18 +162,18 @@ export async function POST(
     if (storageError) {
       console.error("Storage upload error:", storageError);
       return NextResponse.json(
-        { error: "Failed to upload encrypted image" },
+        { error: "Failed to upload image" },
         { status: 500 },
       );
     }
 
     console.log("✅ Encrypted image uploaded to:", uploadData.path);
 
-    // Insert snap record into database with user_id
+    // Insert snap record into database with user_id and encrypted data
     const { data: snapData, error: dbError } = await supabaseAdmin
       .from("snaps")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         storage_path: uploadData.path,
         encrypted_caption: encryptedCaption,
         caption_iv: captionIv,
@@ -173,7 +184,7 @@ export async function POST(
         delivery_address: deliveryAddress ?? "",
         period_type: periodType,
       })
-      .select("id, storage_path")
+      .select("id, storage_path, encrypted_caption, caption_iv, image_iv")
       .single();
 
     if (dbError || !snapData) {
@@ -186,7 +197,7 @@ export async function POST(
       );
     }
 
-    console.log(`✅ Snap ${snapData.id} created for user ${user.id}`);
+    console.log(`✅ Snap ${snapData.id} created for user ${userId}`);
 
     return NextResponse.json({ snap: snapData }, { status: 200 });
   } catch (error) {

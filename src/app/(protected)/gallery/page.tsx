@@ -1,9 +1,8 @@
 /**
  * Gallery Page
  *
- * Displays the authenticated user's encrypted memories in a GSAP-powered
- * masonry grid. Images are decrypted client-side then measured for natural
- * height before the masonry layout renders.
+ * Displays the authenticated user's memories in a GSAP-powered
+ * masonry grid. Images are loaded via signed URLs from the API.
  *
  * Features:
  * - True masonry layout with measured image heights
@@ -30,25 +29,9 @@ import {
   CheckCircle2,
   Circle,
   SquareMousePointer,
-  CalendarDays,
   ListFilter,
   Menu,
 } from "lucide-react";
-import { useAuth } from "../../../hooks/useAuth";
-import {
-  getEncryptionKey,
-  decryptImage,
-  decryptDataAsString,
-} from "../../../lib/encryption";
-import { createClient } from "../../../lib/supabase/client";
-import {
-  getCachedSnaps,
-  setCachedSnaps,
-  removeCachedSnap,
-  removeCachedSnaps,
-  purgeStaleCachedSnaps,
-  type CachedSnap,
-} from "../../../lib/gallery-cache";
 import Masonry, { type MasonryItem } from "../../../../components/Masonry";
 import { Skeleton } from "../../../../components/ui/skeleton";
 
@@ -56,13 +39,12 @@ import { Skeleton } from "../../../../components/ui/skeleton";
 // Types
 // =============================================================================
 
-/** Raw snap record from the API */
+/** Raw snap record from the API (includes signed image URL) */
 interface SnapRecord {
   id: string;
   storage_path: string;
-  encrypted_caption: string;
-  caption_iv: string;
-  image_iv: string;
+  caption: string;
+  image_url: string | null;
   send_date: string;
   send_time: string;
   delivery_method: string;
@@ -74,13 +56,11 @@ interface SnapRecord {
   created_at: string;
 }
 
-/** Snap with decrypted data for display */
-interface DecryptedSnap extends SnapRecord {
-  decryptedImageUrl: string | null;
-  decryptedCaption: string | null;
-  /** Natural width of the decoded image (for masonry aspect ratio) */
+/** Snap ready for display with measured dimensions */
+interface DisplaySnap extends SnapRecord {
+  /** Natural width of the image (for masonry aspect ratio) */
   naturalWidth: number;
-  /** Natural height of the decoded image (for masonry aspect ratio) */
+  /** Natural height of the image (for masonry aspect ratio) */
   naturalHeight: number;
 }
 
@@ -88,23 +68,23 @@ interface DecryptedSnap extends SnapRecord {
 // Constants
 // =============================================================================
 
-/** Number of snaps to decrypt concurrently to avoid memory pressure */
-const DECRYPT_BATCH_SIZE = 4;
+/** Number of images to load concurrently to avoid memory pressure */
+const LOAD_BATCH_SIZE = 4;
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
 /**
- * Load a data-URL into an Image to measure its natural dimensions.
+ * Load a URL into an Image to measure its natural dimensions.
  * Returns { width, height } or a fallback on error.
  */
-const measureImage = (dataUrl: string): Promise<{ width: number; height: number }> =>
+const measureImage = (url: string): Promise<{ width: number; height: number }> =>
   new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
     img.onerror = () => resolve({ width: 300, height: 400 }); // fallback 3:4
-    img.src = dataUrl;
+    img.src = url;
   });
 
 // =============================================================================
@@ -113,18 +93,17 @@ const measureImage = (dataUrl: string): Promise<{ width: number; height: number 
 
 export default function GalleryPage() {
   const router = useRouter();
-  const { user } = useAuth();
 
   // Data states
-  const [snaps, setSnaps] = useState<DecryptedSnap[]>([]);
+  const [snaps, setSnaps] = useState<DisplaySnap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [allDecrypted, setAllDecrypted] = useState(false);
+  const [allLoaded, setAllLoaded] = useState(false);
   const [showMasonry, setShowMasonry] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [lightboxSectionSnaps, setLightboxSectionSnaps] = useState<DecryptedSnap[]>([]);
+  const [lightboxSectionSnaps, setLightboxSectionSnaps] = useState<DisplaySnap[]>([]);
 
   // Delete / selection
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -150,13 +129,13 @@ export default function GalleryPage() {
   const lightboxRef = useRef<HTMLDivElement>(null);
 
   // =========================================================================
-  // Data fetching & decryption
+  // Data fetching
   // =========================================================================
 
-  const fetchAndDecryptGallery = useCallback(async () => {
+  const fetchGallery = useCallback(async () => {
     try {
       setIsLoading(true);
-      setAllDecrypted(false);
+      setAllLoaded(false);
       setError(null);
 
       const response = await fetch("/api/gallery");
@@ -183,136 +162,47 @@ export default function GalleryPage() {
       if (rawSnaps.length === 0) {
         setSnaps([]);
         setIsLoading(false);
-        setAllDecrypted(true);
+        setAllLoaded(true);
         return;
       }
 
-      // ----- Cache-first strategy -----
-      const allIds = rawSnaps.map((s) => s.id);
-      const cached = await getCachedSnaps(allIds);
+      // Measure image dimensions in batches for masonry layout
+      const displaySnaps: DisplaySnap[] = [];
 
-      // Separate cached vs uncached snaps
-      const cachedResults: DecryptedSnap[] = [];
-      const uncachedSnaps: SnapRecord[] = [];
-
-      for (const snap of rawSnaps) {
-        const hit = cached.get(snap.id);
-        if (hit) {
-          cachedResults.push({
-            ...snap,
-            decryptedImageUrl: hit.decryptedImageUrl,
-            decryptedCaption: hit.decryptedCaption,
-            naturalWidth: hit.naturalWidth,
-            naturalHeight: hit.naturalHeight,
-          });
-        } else {
-          uncachedSnaps.push(snap);
-        }
-      }
-
-      // If everything was cached, we're done instantly
-      if (uncachedSnaps.length === 0) {
-        setSnaps(cachedResults);
-        setIsLoading(false);
-        setAllDecrypted(true);
-        // Purge stale entries in background
-        purgeStaleCachedSnaps(new Set(allIds));
-        return;
-      }
-
-      setIsLoading(false);
-
-      // Get encryption key (only needed for uncached snaps)
-      const encryptionKey = await getEncryptionKey();
-      if (!encryptionKey) {
-        setError("Encryption key not available. Please sign in again.");
-        return;
-      }
-
-      const supabase = createClient();
-      const freshlyDecrypted: DecryptedSnap[] = [];
-      const newCacheEntries: CachedSnap[] = [];
-
-      // Decrypt uncached snaps in batches
-      for (let i = 0; i < uncachedSnaps.length; i += DECRYPT_BATCH_SIZE) {
-        const batch = uncachedSnaps.slice(i, i + DECRYPT_BATCH_SIZE);
+      for (let i = 0; i < rawSnaps.length; i += LOAD_BATCH_SIZE) {
+        const batch = rawSnaps.slice(i, i + LOAD_BATCH_SIZE);
 
         const results = await Promise.allSettled(
           batch.map(async (snap) => {
-            // Download encrypted image blob
-            const { data: imageBlob, error: dlError } =
-              await supabase.storage
-                .from("encrypted-images")
-                .download(snap.storage_path);
+            let naturalWidth = 300;
+            let naturalHeight = 400;
 
-            if (dlError || !imageBlob) {
-              throw new Error("Failed to download image");
+            if (snap.image_url) {
+              const dims = await measureImage(snap.image_url);
+              naturalWidth = dims.width;
+              naturalHeight = dims.height;
             }
-
-            // Convert blob to base64
-            const arrayBuffer = await imageBlob.arrayBuffer();
-            const bytes = new Uint8Array(arrayBuffer);
-            let binary = "";
-            const chunkSize = 8192;
-            for (let j = 0; j < bytes.length; j += chunkSize) {
-              const chunk = bytes.subarray(j, Math.min(j + chunkSize, bytes.length));
-              binary += String.fromCharCode.apply(null, Array.from(chunk));
-            }
-            const base64 = btoa(binary);
-
-            // Decrypt image and caption
-            const decryptedImageUrl = await decryptImage(base64, snap.image_iv, encryptionKey);
-            const decryptedCaption = await decryptDataAsString(
-              snap.encrypted_caption,
-              snap.caption_iv,
-              encryptionKey
-            );
-
-            // Measure natural image dimensions
-            const { width: naturalWidth, height: naturalHeight } = await measureImage(decryptedImageUrl);
 
             return {
               ...snap,
-              decryptedImageUrl,
-              decryptedCaption,
               naturalWidth,
               naturalHeight,
-            } satisfies DecryptedSnap;
+            } satisfies DisplaySnap;
           })
         );
 
         for (const result of results) {
           if (result.status === "fulfilled") {
-            freshlyDecrypted.push(result.value);
-            // Queue for cache write
-            newCacheEntries.push({
-              id: result.value.id,
-              decryptedImageUrl: result.value.decryptedImageUrl!,
-              decryptedCaption: result.value.decryptedCaption,
-              naturalWidth: result.value.naturalWidth,
-              naturalHeight: result.value.naturalHeight,
-            });
+            displaySnaps.push(result.value);
           } else {
-            console.error("Decryption failed:", result.reason);
+            console.error("Image load failed:", result.reason);
           }
         }
       }
 
-      // Merge cached + freshly decrypted, preserving original API order
-      const allDecryptedMap = new Map<string, DecryptedSnap>();
-      for (const snap of [...cachedResults, ...freshlyDecrypted]) {
-        allDecryptedMap.set(snap.id, snap);
-      }
-      const orderedResults = rawSnaps
-        .map((s) => allDecryptedMap.get(s.id))
-        .filter((s): s is DecryptedSnap => s != null);
-
-      setSnaps(orderedResults);
-      setAllDecrypted(true);
-
-      // Write new entries to cache and purge stale ones in background
-      setCachedSnaps(newCacheEntries);
-      purgeStaleCachedSnaps(new Set(allIds));
+      setSnaps(displaySnaps);
+      setIsLoading(false);
+      setAllLoaded(true);
     } catch (err) {
       console.error("Gallery fetch error:", err);
       setError(err instanceof Error ? err.message : "Failed to load gallery");
@@ -321,17 +211,17 @@ export default function GalleryPage() {
   }, []);
 
   useEffect(() => {
-    fetchAndDecryptGallery();
-  }, [fetchAndDecryptGallery]);
+    fetchGallery();
+  }, [fetchGallery]);
 
-  // Show masonry immediately when data is ready (no delay needed with cache)
+  // Show masonry immediately when data is ready
   useEffect(() => {
-    if (allDecrypted && snaps.length > 0) {
+    if (allLoaded && snaps.length > 0) {
       setShowMasonry(true);
     } else {
       setShowMasonry(false);
     }
-  }, [allDecrypted, snaps.length]);
+  }, [allLoaded, snaps.length]);
 
   // =========================================================================
   // Context menu & dropdown dismiss
@@ -411,9 +301,6 @@ export default function GalleryPage() {
         return next;
       });
 
-      // Remove from IndexedDB cache
-      removeCachedSnap(snapId);
-
       // Close lightbox if viewing deleted snap
       if (lightboxIndex !== null && snaps[lightboxIndex]?.id === snapId) {
         setLightboxIndex(null);
@@ -462,9 +349,6 @@ export default function GalleryPage() {
 
     // Remove successfully deleted snaps
     setSnaps((prev) => prev.filter((s) => !deletedIds.has(s.id)));
-
-    // Remove from IndexedDB cache
-    removeCachedSnaps(Array.from(deletedIds));
     
     // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
@@ -510,7 +394,7 @@ export default function GalleryPage() {
 
   const masonryItems: MasonryItem[] = snaps.map((snap) => ({
     id: snap.id,
-    img: snap.decryptedImageUrl ?? "",
+    img: snap.image_url ?? "",
     width: snap.naturalWidth,
     height: snap.naturalHeight,
   }));
@@ -527,7 +411,7 @@ export default function GalleryPage() {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
-    const groups = new Map<string, { label: string; snapsList: DecryptedSnap[] }>();
+    const groups = new Map<string, { label: string; snapsList: DisplaySnap[] }>();
 
     for (const snap of sorted) {
       const date = new Date(snap.created_at);
@@ -557,7 +441,7 @@ export default function GalleryPage() {
       snaps: snapsList,
       items: snapsList.map((snap) => ({
         id: snap.id,
-        img: snap.decryptedImageUrl ?? "",
+        img: snap.image_url ?? "",
         width: snap.naturalWidth,
         height: snap.naturalHeight,
       })),
@@ -575,7 +459,7 @@ export default function GalleryPage() {
   // Masonry callbacks
   // =========================================================================
 
-  const handleItemClick = (id: string, sectionSnaps: DecryptedSnap[]) => {
+  const handleItemClick = (id: string, sectionSnaps: DisplaySnap[]) => {
     if (selectMode) {
       toggleSelect(id);
       return;
@@ -678,8 +562,7 @@ export default function GalleryPage() {
       year: "numeric",
     });
 
-  const decryptedCount = snaps.length;
-  const isDecryptionInProgress = !isLoading && !allDecrypted;
+  const loadedCount = snaps.length;
 
   // =========================================================================
   // Render
@@ -693,13 +576,13 @@ export default function GalleryPage() {
             My Gallery
           </h1>
           <p className="text-sm text-grey mt-1">
-            {decryptedCount} {decryptedCount === 1 ? "memory" : "memories"}
+            {loadedCount} {loadedCount === 1 ? "memory" : "memories"}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {/* Mobile buttons - shows on small screens */}
-          {allDecrypted && snaps.length > 0 && (
+          {allLoaded && snaps.length > 0 && (
             <div className="flex items-center gap-2 sm:hidden">
               {/* Delete mode toggle button */}
               <button
@@ -790,7 +673,7 @@ export default function GalleryPage() {
           {/* Desktop buttons - hidden on small screens */}
           <div className="hidden sm:flex items-center gap-2">
             {/* Group-by dropdown */}
-            {allDecrypted && snaps.length > 0 && (
+            {allLoaded && snaps.length > 0 && (
               <div className="relative">
                 <button
                   type="button"
@@ -833,7 +716,7 @@ export default function GalleryPage() {
             )}
 
             {/* Select mode toggle */}
-            {allDecrypted && snaps.length > 0 && (
+            {allLoaded && snaps.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -889,7 +772,7 @@ export default function GalleryPage() {
       )}
 
       {/* Loading / decrypting state with skeleton masonry */}
-      {(isLoading || isDecryptionInProgress || (allDecrypted && !showMasonry && snaps.length > 0)) && (
+      {(isLoading || (allLoaded && !showMasonry && snaps.length > 0)) && (
         <div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
             {/* Generate skeleton items with varying heights to mimic masonry */}
@@ -911,14 +794,14 @@ export default function GalleryPage() {
           </div>
           <div className="flex items-center justify-center mt-8">
             <span className="text-grey text-sm">
-              {isLoading ? "Loading your memories..." : isDecryptionInProgress ? "Decrypting memories..." : ""}
+              {isLoading ? "Loading your memories..." : ""}
             </span>
           </div>
         </div>
       )}
 
       {/* Empty state */}
-      {allDecrypted && snaps.length === 0 && !error && (
+      {allLoaded && snaps.length === 0 && !error && (
         <div className="text-center py-20">
           <ImageOff className="w-12 h-12 text-grey/40 mx-auto mb-4" />
           <h2 className="font-display text-xl font-semibold text-soft-black mb-2">
@@ -1070,20 +953,20 @@ export default function GalleryPage() {
             className="max-w-4xl max-h-[85vh] relative"
             onClick={(e) => e.stopPropagation()}
           >
-            {lightboxSectionSnaps[lightboxIndex].decryptedImageUrl && (
+            {lightboxSectionSnaps[lightboxIndex].image_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={lightboxSectionSnaps[lightboxIndex].decryptedImageUrl!}
-                alt={lightboxSectionSnaps[lightboxIndex].decryptedCaption ?? "Encrypted memory"}
+                src={lightboxSectionSnaps[lightboxIndex].image_url!}
+                alt={lightboxSectionSnaps[lightboxIndex].caption ?? "Memory"}
                 className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />
             )}
 
             {/* Caption overlay */}
-            {lightboxSectionSnaps[lightboxIndex].decryptedCaption && (
+            {lightboxSectionSnaps[lightboxIndex].caption && (
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
                 <p className="text-white text-sm font-caption">
-                  {lightboxSectionSnaps[lightboxIndex].decryptedCaption}
+                  {lightboxSectionSnaps[lightboxIndex].caption}
                 </p>
                 <p className="text-white/60 text-xs mt-1">
                   Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}

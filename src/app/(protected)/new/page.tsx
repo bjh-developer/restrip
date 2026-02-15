@@ -1,15 +1,14 @@
 /**
  * Authenticated Upload Page (/new)
  *
- * Allows signed-in users to create encrypted memories that are saved
- * to their gallery. Uses client-side zero-knowledge encryption so
- * even the server cannot read uploaded images.
+ * Allows signed-in users to create memories that are saved
+ * to their gallery.
  *
  * Key differences from anonymous /upload:
- * - Client-side encryption via encryption.ts (zero-knowledge)
  * - Uploads stored under user's folder: {userId}/...
  * - Snap records have user_id set
  * - Optional delivery (email/telegram)
+ * - Auth managed by Clerk
  *
  * @module app/(protected)/new/page
  */
@@ -36,12 +35,7 @@ import {
   DropzoneEmptyState,
 } from "../../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
-import {
-  getEncryptionKey,
-  encryptImage as clientEncryptImage,
-  encryptData as clientEncryptData,
-} from "../../../lib/encryption";
-import { useAuth } from "../../../hooks/useAuth";
+import { useUser } from "@clerk/nextjs";
 import * as z from "zod";
 
 // =============================================================================
@@ -323,7 +317,7 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function NewMemoryPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useUser();
 
   // Form state
   const [originalImage, setOriginalImage] = useState<string | undefined>();
@@ -428,7 +422,7 @@ export default function NewMemoryPage() {
   }, [handlePeriodSelect]);
 
   // =========================================================================
-  // Form submission — client-side encryption
+  // Form submission
   // =========================================================================
 
   /** Zod schema for form validation */
@@ -464,18 +458,16 @@ export default function NewMemoryPage() {
    * Flow:
    * 1. Validate form with Zod
    * 2. Compress image
-   * 3. Get encryption key from session
-   * 4. Encrypt image + caption client-side
-   * 5. Upload encrypted blob to Supabase Storage (user folder)
-   * 6. Create snap record with user_id
+   * 3. Upload image to storage (via authenticated API)
+   * 4. Create snap record with user_id
    */
   const handleStartProcessing = async () => {
     if (isSubmitting) return;
 
     // Guard: Ensure user is authenticated
-    if (!user || !user.email) {
+    if (!user || !user.primaryEmailAddress?.emailAddress) {
       alert("Session expired. Please sign in again.");
-      router.push("/auth");
+      router.push("/sign-in");
       return;
     }
 
@@ -504,39 +496,19 @@ export default function NewMemoryPage() {
       console.log("📦 Compressing image...");
       const compressed = await compressImage(imageToSubmit!);
 
-      // Step 2: Get client-side encryption key
-      const encryptionKey = await getEncryptionKey();
-      if (!encryptionKey) {
-        throw new Error("Encryption key not available. Please sign in again.");
-      }
-
-      // Step 3: Encrypt image and caption client-side (zero-knowledge)
-      console.log("🔐 Encrypting image client-side (zero-knowledge)...");
-      const { encrypted: encryptedImage, iv: imageIv } =
-        await clientEncryptImage(compressed, encryptionKey);
-
-      console.log("🔐 Encrypting caption client-side...");
-      const { encrypted: encryptedCaption, iv: captionIv } =
-        await clientEncryptData(caption, encryptionKey);
-
-      // Step 4: Upload encrypted blob to Supabase Storage
-      const timestamp = Date.now();
-      const randomId = Math.random().toString(36).substring(2, 9);
-      const filePath = `${user.id}/${timestamp}-${randomId}.enc`;
+      // Step 2: Upload image to storage
+      const userEmail = user.primaryEmailAddress.emailAddress;
 
       console.log("☁️ Uploading encrypted image...");
       const uploadResponse = await fetch("/api/upload/authenticated", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          encryptedImage,
-          encryptedCaption,
-          captionIv,
-          imageIv,
-          filePath,
+          image: compressed,
+          caption,
           scheduledSendTime: scheduledSendTime!.toISOString(),
           deliveryMethod,
-          deliveryAddress: deliveryMethod === "email" ? user.email : deliveryAddress,
+          deliveryAddress: deliveryMethod === "email" ? userEmail : deliveryAddress,
           periodType: selectedPeriod,
         }),
       });
@@ -733,7 +705,7 @@ export default function NewMemoryPage() {
             <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
             {deliveryMethod === "email" && (
               <p className="mt-2 text-xs text-grey flex items-center gap-1">
-                Will be sent to: {user?.email}
+                Will be sent to: {user?.primaryEmailAddress?.emailAddress}
               </p>
             )}
           </div>
