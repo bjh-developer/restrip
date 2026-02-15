@@ -13,24 +13,24 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Camera, Images } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
+import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, hasEncryptionKey } = useAuth();
+  const { user, isSignedIn } = useUser();
 
   /** Navigate to the anonymous quick-send upload flow */
   const handleQuickSend = () => {
     router.push("/upload");
   };
 
-  /** Navigate to gallery (or auth page if not signed in) */
+  /** Navigate to gallery (or sign-in page if not signed in) */
   const handleGallery = () => {
-    if (user && hasEncryptionKey) {
+    if (isSignedIn) {
       router.push("/gallery");
     } else {
-      router.push("/auth");
+      router.push("/sign-in");
     }
   };
 
@@ -97,10 +97,8 @@ export default function LandingPage() {
                 Sign in to save, view, and manage your encrypted memories.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
-                {user && hasEncryptionKey
+                {isSignedIn
                   ? "Open gallery"
-                  : user
-                  ? "Set up encryption key"
                   : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>

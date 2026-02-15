@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "../../../../lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import {
+  decryptImage,
+  decryptDataAsString,
+  getServerEncryptionKey,
+} from "../../../../lib/simple-encryption";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -13,14 +18,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    // Verify authenticated user
-    const supabase = await createServerClient();
-    const {
-      data: { user: sessionUser },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Verify authenticated user via Clerk
+    const { userId } = await auth();
 
-    if (authError || !sessionUser) {
+    if (!userId) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
@@ -41,21 +42,60 @@ export async function GET(
     }
 
     // Verify the snap belongs to the authenticated user
-    if (snap.user_id !== sessionUser.id) {
+    if (snap.user_id !== userId) {
       return NextResponse.json(
         { error: "Unauthorized to view this snap" },
         { status: 403 },
       );
     }
 
-    // Return snap metadata (encrypted data + IVs, but no decryption server-side)
+    // Get server encryption key
+    const encryptionKey = getServerEncryptionKey();
+
+    // Download encrypted image from storage
+    const { data: encryptedBlob, error: downloadError } = await supabaseAdmin.storage
+      .from("encrypted-images")
+      .download(snap.storage_path);
+
+    if (downloadError || !encryptedBlob) {
+      console.error("Failed to download encrypted image:", downloadError);
+      return NextResponse.json(
+        { error: "Failed to load image" },
+        { status: 500 },
+      );
+    }
+
+    // Convert blob to base64
+    const arrayBuffer = await encryptedBlob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const encryptedBase64 = Buffer.from(binary, "binary").toString("base64");
+
+    // Decrypt image
+    const decryptedImageDataUrl = await decryptImage(
+      encryptedBase64,
+      snap.image_iv,
+      encryptionKey,
+      "image/jpeg",
+    );
+
+    // Decrypt caption
+    const decryptedCaption = await decryptDataAsString(
+      snap.encrypted_caption,
+      snap.caption_iv,
+      encryptionKey,
+    );
+
+    // Return snap metadata with decrypted data
     return NextResponse.json(
       {
         id: snap.id,
         storage_path: snap.storage_path,
-        encrypted_caption: snap.encrypted_caption,
-        caption_iv: snap.caption_iv,
-        image_iv: snap.image_iv,
+        caption: decryptedCaption,
+        image_url: decryptedImageDataUrl,
         send_date: snap.send_date,
         send_time: snap.send_time,
         delivery_method: snap.delivery_method,
