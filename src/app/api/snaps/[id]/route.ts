@@ -6,10 +6,15 @@ import {
   decryptDataAsString,
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
+import { checkRateLimit, rateLimitResponse, READ_LIMIT } from "../../../../lib/rate-limit";
+
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
 
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 // Fetch snap metadata for viewing
@@ -28,6 +33,12 @@ export async function GET(
       );
     }
 
+    // Rate limiting by userId
+    const rl = checkRateLimit(`snaps:${userId}`, READ_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
+
     const { id: snapId } = await params;
 
     // Fetch snap from database
@@ -44,8 +55,8 @@ export async function GET(
     // Verify the snap belongs to the authenticated user
     if (snap.user_id !== userId) {
       return NextResponse.json(
-        { error: "Unauthorized to view this snap" },
-        { status: 403 },
+        { error: "Snap not found" },
+        { status: 404 },
       );
     }
 

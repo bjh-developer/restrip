@@ -20,6 +20,7 @@ import {
   decryptImage,
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
+import { checkRateLimit, rateLimitResponse, READ_LIMIT } from "../../../../lib/rate-limit";
 
 /** Storage bucket name */
 const STORAGE_BUCKET = "encrypted-images";
@@ -30,9 +31,13 @@ const CACHE_MAX_AGE = 86400;
 /**
  * Supabase admin client for storage access.
  */
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /**
@@ -62,22 +67,13 @@ export async function GET(
       );
     }
 
-    // Generate ETag from snap ID (images are immutable)
-    const etag = `"snap-${snapId}"`;
-
-    // Check If-None-Match for conditional requests
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch === etag) {
-      return new NextResponse(null, {
-        status: 304,
-        headers: {
-          ETag: etag,
-          "Cache-Control": `private, max-age=${CACHE_MAX_AGE}, immutable`,
-        },
-      });
+    // Rate limiting by userId
+    const rl = checkRateLimit(`images:${userId}`, READ_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
     }
 
-    // Fetch snap to verify ownership and get storage path + IV
+    // Fetch snap to verify ownership FIRST (before ETag check)
     const { data: snap, error: fetchError } = await supabaseAdmin
       .from("snaps")
       .select("id, user_id, storage_path, image_iv")
@@ -94,9 +90,24 @@ export async function GET(
     // Verify ownership
     if (snap.user_id !== userId) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 },
+        { error: "Image not found" },
+        { status: 404 },
       );
+    }
+
+    // Generate ETag scoped to user + snap (prevents cross-user cache confusion)
+    const etag = `"snap-${snapId}-${userId}"`;
+
+    // Check If-None-Match for conditional requests (AFTER ownership verified)
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": `private, max-age=${CACHE_MAX_AGE}, immutable`,
+        },
+      });
     }
 
     // Download encrypted image from storage
@@ -107,7 +118,7 @@ export async function GET(
     if (downloadError || !encryptedBlob) {
       console.error("[Image API] Download error for snap", snapId, downloadError);
       return NextResponse.json(
-        { error: "Failed to download image" },
+        { error: "Failed to load image" },
         { status: 500 },
       );
     }

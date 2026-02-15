@@ -525,7 +525,7 @@ export default function NewMemoryPage() {
       if (deliveryMethod === "telegram" && responseData.snap?.id) {
         const botUsername =
           process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
-        const telegramLink = `https://t.me/${botUsername}?start=snap_${responseData.snap.id}`;
+        const telegramLink = `https://t.me/${botUsername}?start=snap_${responseData.snap.id}_${responseData.snap.telegram_link_token}`;
         setTelegramBotLink(telegramLink);
       }
 

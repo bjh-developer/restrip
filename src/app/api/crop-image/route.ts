@@ -13,6 +13,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { checkRateLimit, getClientIp, rateLimitResponse, CROP_LIMIT } from "../../../lib/rate-limit";
+
+/** Maximum request body size: 10 MB */
+const MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+/** Allowed origin for CORS */
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 /** Request body shape */
 interface CropImageRequestBody {
@@ -98,9 +106,9 @@ async function cropViaLocal(
   });
 
   if (!response.ok) {
-    console.error(`Local crop server error: ${response.status} ${response.statusText}`);
+    console.error(`Local crop server error: ${response.status}`);
     return NextResponse.json(
-      { error: `Local crop server error: ${response.status}` },
+      { error: "Image processing failed" },
       { status: 502 },
     );
   }
@@ -154,9 +162,9 @@ async function cropViaRunPod(
   });
 
   if (!response.ok) {
-    console.error(`RunPod API error: ${response.status} ${response.statusText}`);
+    console.error(`RunPod API error: ${response.status}`);
     return NextResponse.json(
-      { error: `RunPod API error: ${response.status}` },
+      { error: "Image processing failed" },
       { status: 502 },
     );
   }
@@ -191,6 +199,36 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    // Authentication check — require Clerk session
+    const { userId } = await auth();
+    if (!userId) {
+      // Fall back to IP-based rate limiting for anonymous users
+      const origin = request.headers.get("origin");
+      if (ALLOWED_ORIGIN && origin && origin !== ALLOWED_ORIGIN) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const clientIp = getClientIp(request);
+      const rl = checkRateLimit(`crop:${clientIp}`, CROP_LIMIT);
+      if (!rl.allowed) {
+        return rateLimitResponse(rl.retryAfterSeconds);
+      }
+    } else {
+      const rl = checkRateLimit(`crop:${userId}`, CROP_LIMIT);
+      if (!rl.allowed) {
+        return rateLimitResponse(rl.retryAfterSeconds);
+      }
+    }
+
+    // Body size check
+    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    if (contentLength > MAX_BODY_SIZE) {
+      return NextResponse.json(
+        { error: "Request body too large (max 10 MB)" },
+        { status: 413 },
+      );
+    }
+
     const body = (await request.json()) as Partial<CropImageRequestBody>;
     const { image } = body;
 

@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://va.vercel-scripts.com https://cdn.userjot.com https://*.clerk.accounts.dev https://challenges.cloudflare.com https://cdn.jsdelivr.net", // Cloudflare Turnstile CAPTCHA + image compression
+              "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://cdn.userjot.com https://*.clerk.accounts.dev https://challenges.cloudflare.com https://cdn.jsdelivr.net", // Cloudflare Turnstile CAPTCHA
               "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-jsx and Tailwind
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
@@ -37,6 +37,10 @@ const nextConfig: NextConfig = {
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
           },
           {
             key: "Permissions-Policy",

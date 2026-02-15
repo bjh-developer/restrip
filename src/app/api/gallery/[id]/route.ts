@@ -10,13 +10,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
+import { checkRateLimit, rateLimitResponse, DELETE_LIMIT } from "../../../../lib/rate-limit";
 
 /**
  * Supabase admin client for direct database and storage access.
  */
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /** Storage bucket name for images */
@@ -49,6 +54,12 @@ export async function DELETE(
       );
     }
 
+    // Rate limiting by userId
+    const rl = checkRateLimit(`delete:${userId}`, DELETE_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
+
     // Fetch the snap to verify ownership and get storage path
     const { data: snap, error: fetchError } = await supabaseAdmin
       .from("snaps")
@@ -66,8 +77,8 @@ export async function DELETE(
     // Verify the user owns this snap
     if (snap.user_id !== userId) {
       return NextResponse.json(
-        { error: "Not authorized to delete this snap" },
-        { status: 403 },
+        { error: "Snap not found" },
+        { status: 404 },
       );
     }
 

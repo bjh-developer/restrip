@@ -17,6 +17,7 @@ import {
   decryptDataAsString,
   getServerEncryptionKey,
 } from "../../../lib/simple-encryption";
+import { checkRateLimit, rateLimitResponse, READ_LIMIT } from "../../../lib/rate-limit";
 
 /** Shape of a snap item returned in the gallery list (metadata only, no image) */
 interface GallerySnapItem {
@@ -52,9 +53,13 @@ const MAX_PAGE_SIZE = 50;
  * Supabase admin client for direct database queries.
  * Used after verifying user identity via Clerk.
  */
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /**
@@ -81,6 +86,12 @@ export async function GET(
         { error: "Authentication required" },
         { status: 401 },
       );
+    }
+
+    // Rate limiting by userId
+    const rl = checkRateLimit(`gallery:${userId}`, READ_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
     }
 
     console.log("[Gallery API] Fetching metadata for user:", userId);
@@ -112,7 +123,7 @@ export async function GET(
         details: countError.details,
       });
       return NextResponse.json(
-        { error: `Database error: ${countError.message}` },
+        { error: "Failed to load gallery" },
         { status: 500 },
       );
     }
@@ -135,7 +146,7 @@ export async function GET(
         details: fetchError.details,
       });
       return NextResponse.json(
-        { error: `Database error: ${fetchError.message}` },
+        { error: "Failed to load gallery" },
         { status: 500 },
       );
     }
@@ -190,7 +201,7 @@ export async function GET(
     });
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : "Failed to load gallery" 
+        error: "Failed to load gallery" 
       },
       { status: 500 },
     );

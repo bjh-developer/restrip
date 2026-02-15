@@ -51,6 +51,7 @@ import {
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
+import { loadUserJot } from "../../lib/userjot";
 
 // =============================================================================
 // Constants
@@ -482,6 +483,7 @@ export default function UploadPage() {
   const [resetKey, setResetKey] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Refs for scroll-to-error functionality
@@ -794,6 +796,7 @@ export default function UploadPage() {
         body: JSON.stringify({
           image: compressedImage,
           caption: caption,
+          turnstileToken: turnstileToken,
         }),
       });
 
@@ -824,6 +827,7 @@ export default function UploadPage() {
           deliveryMethod,
           deliveryAddress,
           periodType: selectedPeriod,
+          turnstileToken: turnstileToken,
         }),
       });
 
@@ -839,7 +843,7 @@ export default function UploadPage() {
       if (deliveryMethod === "telegram" && snapData.snap?.id) {
         const botUsername =
           process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
-        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
+        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}_${snapData.snap.telegram_link_token}`;
         setTelegramBotLink(telegramLink);
         setIsSuccess(true);
       } else {
@@ -905,33 +909,63 @@ export default function UploadPage() {
    * Load UserJot feedback widget SDK.
    */
   useEffect(() => {
-    // Load UserJot SDK loader
-    const loaderScript = document.createElement("script");
-    loaderScript.innerHTML = `
-      window.$ujq = window.$ujq || [];
-      window.uj = window.uj || new Proxy({}, {
-        get: (_, p) => (...a) => window.$ujq.push([p, ...a])
-      });
-      document.head.appendChild(
-        Object.assign(document.createElement('script'), {
-          src: 'https://cdn.userjot.com/sdk/v2/uj.js',
-          type: 'module',
-          async: true
-        })
-      );
-    `;
-    document.head.appendChild(loaderScript);
+    return loadUserJot(USERJOT_CONFIG_ID);
+  }, []);
 
-    // Initialize UserJot widget
-    const initScript = document.createElement("script");
-    initScript.innerHTML = `
-      window.uj.init('${USERJOT_CONFIG_ID}', {
-        widget: true,
-        position: 'right',
-        theme: 'auto'
-      });
-    `;
-    document.head.appendChild(initScript);
+  /**
+   * Load Cloudflare Turnstile CAPTCHA script and initialize widget.
+   * Uses explicit rendering for SPA compatibility.
+   * @see https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
+   */
+  useEffect(() => {
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    
+    if (!siteKey) {
+      console.warn("Turnstile site key not configured");
+      return;
+    }
+
+    let widgetId: string | undefined;
+
+    // Define onload callback before loading script
+    const callbackName = `onTurnstileLoad_${Date.now()}`;
+    (window as unknown as Record<string, unknown>)[callbackName] = () => {
+      if (window.turnstile) {
+        const container = document.getElementById("turnstile-widget");
+        if (!container) return;
+
+        widgetId = window.turnstile.render(container, {
+          sitekey: siteKey,
+          callback: (token: string) => {
+            setTurnstileToken(token);
+          },
+          "error-callback": () => {
+            setTurnstileToken(null);
+          },
+          "expired-callback": () => {
+            setTurnstileToken(null);
+          },
+          theme: "light",
+        });
+      }
+    };
+
+    // Load Turnstile script with explicit rendering
+    const script = document.createElement("script");
+    script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+    script.defer = true;
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup widget and script on unmount
+      if (widgetId && window.turnstile) {
+        window.turnstile.remove(widgetId);
+      }
+      delete (window as unknown as Record<string, unknown>)[callbackName];
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
   }, []);
 
   // -------------------------------------------------------------------------
@@ -1114,10 +1148,15 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* Turnstile CAPTCHA Widget */}
+            <div className="mt-6 flex justify-center">
+              <div id="turnstile-widget"></div>
+            </div>
+
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing}
+              disabled={isProcessing || !turnstileToken}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing

@@ -31,24 +31,9 @@ export default function MemoryPage() {
     const apiKey = process.env.NEXT_PUBLIC_USERJOT_KEY;
     if (!apiKey) return;
 
-    const script1 = document.createElement("script");
-    script1.innerHTML = `window.$ujq=window.$ujq||[];window.uj=window.uj||new Proxy({},{get:(_,p)=>(...a)=>window.$ujq.push([p,...a])});document.head.appendChild(Object.assign(document.createElement('script'),{src:'https://cdn.userjot.com/sdk/v2/uj.js',type:'module',async:!0}));`;
-    document.head.appendChild(script1);
-
-    const script2 = document.createElement("script");
-    script2.innerHTML = `
-      window.uj.init('${apiKey}', {
-        widget: true,
-        position: 'right',
-        theme: 'auto'
-      });
-    `;
-    document.head.appendChild(script2);
-
-    return () => {
-      script1.remove();
-      script2.remove();
-    };
+    const { loadUserJot } = require("../../../../lib/userjot");
+    const cleanup = loadUserJot(apiKey);
+    return cleanup;
   }, []);
 
   // Fetch snap data from API

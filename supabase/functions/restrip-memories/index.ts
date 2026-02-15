@@ -73,18 +73,27 @@ async function sendEmailWithGmail(
   imageBase64: string,
   caption: string,
 ) {
-  // Create SMTP client per email to avoid connection issues
+  const resendApiKey = Deno.env.get("GMAIL_APP_PASSWORD");
+  const fromEmail = Deno.env.get("GMAIL_USER") || "onboarding@resend.dev";
+
+  if (!resendApiKey) {
+    throw new Error("GMAIL_APP_PASSWORD (Resend API key) not configured");
+  }
+
+  // Create SMTP client with Resend configuration
   const smtpClient = new SMTPClient({
     connection: {
-      hostname: "smtp.gmail.com",
+      hostname: "smtp.resend.com",
       port: 465,
       tls: true,
       auth: {
-        username: Deno.env.get("GMAIL_USER")!,
-        password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+        username: "resend",
+        password: resendApiKey,
       },
     },
   });
+
+  let connected = false;
 
   try {
     const emailHtml = minifyHtml(`
@@ -130,7 +139,7 @@ async function sendEmailWithGmail(
     `);
 
     await smtpClient.send({
-      from: Deno.env.get("GMAIL_USER")!,
+      from: fromEmail,
       to: to,
       subject: "📸 A memory from your past!",
       html: emailHtml,
@@ -144,10 +153,20 @@ async function sendEmailWithGmail(
       ],
     });
 
+    connected = true;
     console.log(`✅ Sent email with image to ${to}`);
+  } catch (error) {
+    console.error("SMTP error:", error);
+    throw error;
   } finally {
-    // Always close the connection after sending
-    await smtpClient.close();
+    // Only close if connection was established
+    if (connected) {
+      try {
+        await smtpClient.close();
+      } catch (closeError) {
+        console.warn("Warning: Could not close SMTP connection:", closeError);
+      }
+    }
   }
 }
 
@@ -207,11 +226,13 @@ serve(async (req) => {
     const MAX_MEMORIES_TO_SEND = 50;
 
     // Get photo strips that are due to be sent
+    // Include NULL delivery_status (for snaps created before column existed)
+    // NOTE: send_time filter disabled for beta testing — sends all pending snaps immediately
     const { data: dueStrips, error } = await supabase
       .from("snaps")
       .select("*")
-      .or("delivery_status.eq.pending,delivery_status.eq.failed")
-      // .lte("send_time", now)
+      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      // .lte("send_time", now)  // TODO: Re-enable after beta testing
       .limit(MAX_MEMORIES_TO_SEND); // Rate limiting
 
     if (error) throw error;

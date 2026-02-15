@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import {
@@ -21,6 +22,13 @@ import {
   encryptData,
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
+import { checkRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "../../../../lib/rate-limit";
+
+/** Maximum request body size: 10 MB */
+const MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+/** Email validation regex */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Request body shape */
 interface AuthUploadBody {
@@ -55,9 +63,13 @@ const STORAGE_BUCKET = "encrypted-images";
 /**
  * Supabase admin client for elevated storage/database access.
  */
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /**
@@ -76,6 +88,21 @@ export async function POST(
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 },
+      );
+    }
+
+    // Rate limiting by userId
+    const rl = checkRateLimit(`auth-upload:${userId}`, UPLOAD_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
+
+    // Body size check
+    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    if (contentLength > MAX_BODY_SIZE) {
+      return NextResponse.json(
+        { error: "Request body too large (max 10 MB)" },
+        { status: 413 },
       );
     }
 
@@ -111,11 +138,19 @@ export async function POST(
     const encryptionKey = getServerEncryptionKey();
 
     // Validate email if delivery method is email
-    if (deliveryMethod === "email" && !deliveryAddress) {
-      return NextResponse.json(
-        { error: "Email address is required for email delivery" },
-        { status: 400 },
-      );
+    if (deliveryMethod === "email") {
+      if (!deliveryAddress) {
+        return NextResponse.json(
+          { error: "Email address is required for email delivery" },
+          { status: 400 },
+        );
+      }
+      if (!EMAIL_REGEX.test(deliveryAddress)) {
+        return NextResponse.json(
+          { error: "Invalid email address format" },
+          { status: 400 },
+        );
+      }
     }
 
     // Parse send time
@@ -169,6 +204,12 @@ export async function POST(
 
     console.log("✅ Encrypted image uploaded to:", uploadData.path);
 
+    // Generate a link token for telegram delivery to prevent IDOR
+    // 8 bytes = 16 hex chars (keeps deep link under Telegram's 64-char limit)
+    const telegramLinkToken = deliveryMethod === "telegram"
+      ? randomBytes(8).toString("hex")
+      : null;
+
     // Insert snap record into database with user_id and encrypted data
     const { data: snapData, error: dbError } = await supabaseAdmin
       .from("snaps")
@@ -183,8 +224,9 @@ export async function POST(
         delivery_method: deliveryMethod,
         delivery_address: deliveryAddress ?? "",
         period_type: periodType,
+        ...(telegramLinkToken ? { telegram_link_token: telegramLinkToken } : {}),
       })
-      .select("id, storage_path, encrypted_caption, caption_iv, image_iv")
+      .select("id, storage_path, encrypted_caption, caption_iv, image_iv, telegram_link_token")
       .single();
 
     if (dbError || !snapData) {
