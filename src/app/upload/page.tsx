@@ -18,10 +18,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRightIcon, Brush, CircleAlert, Check } from "lucide-react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import gsap from "gsap";
+import { ArrowUpRightIcon, Brush, CircleAlert, Check, ArrowLeft } from "lucide-react";
+// import { ScrollTrigger } from "gsap/ScrollTrigger";
 import imageCompression from "browser-image-compression";
+import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,8 +30,6 @@ import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../components/DeliveryMethodPicker";
-import ScrollReveal from "../../components/ScrollReveal";
-import ShinyText from "../../components/ShinyText";
 import {
   Announcement,
   AnnouncementTag,
@@ -86,16 +84,6 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
-
-// =============================================================================
-// GSAP Plugin Registration
-// =============================================================================
-
-try {
-  gsap.registerPlugin(ScrollTrigger);
-} catch {
-  // Plugin already registered - safe to ignore
-}
 
 // =============================================================================
 // Types
@@ -565,8 +553,8 @@ export default function UploadPage() {
         setCroppedImage(croppedResult);
         console.log("✅ Image cropped successfully");
 
-        // Refresh scroll triggers after image changes
-        setTimeout(() => ScrollTrigger.refresh(), 100);
+        // // Refresh scroll triggers after image changes
+        // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
         console.error("❌ Failed to crop image:", error);
         const errorMessage =
@@ -877,15 +865,15 @@ export default function UploadPage() {
   // Effects
   // -------------------------------------------------------------------------
 
-  /**
-   * Refresh ScrollTrigger when image changes.
-   */
-  useEffect(() => {
-    if (originalImage) {
-      const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [originalImage]);
+  // /**
+  //  * Refresh ScrollTrigger when image changes.
+  //  */
+  // useEffect(() => {
+  //   if (originalImage) {
+  //     const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
+  //     return () => clearTimeout(timeoutId);
+  //   }
+  // }, [originalImage]);
 
   /**
    * Initialize with surprise period on mount.
@@ -894,16 +882,16 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
-  /**
-   * Reset errors and refresh ScrollTrigger on mount.
-   */
-  useEffect(() => {
-    setValidationErrors([]);
-    setFieldErrors({});
+  // /**
+  //  * Reset errors and refresh ScrollTrigger on mount.
+  //  */
+  // useEffect(() => {
+  //   setValidationErrors([]);
+  //   setFieldErrors({});
 
-    const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
-    return () => clearTimeout(timeoutId);
-  }, []);
+  //   const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
+  //   return () => clearTimeout(timeoutId);
+  // }, []);
 
   /**
    * Load UserJot feedback widget SDK.
@@ -1020,24 +1008,23 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-warm-beige">
-      <AnnouncementBanner />
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-3">
-            ReStrip
+        {/* Back Button */}
+        <div className="mb-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-soft-black hover:text-accent-red transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+        </div>
+
+        <div className="text-center mb-8">
+          <h1 className="font-display text-3xl font-bold text-soft-black mb-2">
+            Quick Send
           </h1>
-          <ShinyText
-            text="Photo strips that come back to you."
-            disabled={false}
-            speed={15}
-            className="font-display text-3xl md:text-4xl font-semibold text-soft-black mb-4"
-          />
-          <p className="font-body text-grey mb-6">
-            Upload your photo strip, pick a future period, and we'll send you a
-            surprise email then. That's it.
-          </p>
-          <AnnouncementPill />
         </div>
 
         {/* Upload Card */}
@@ -1180,23 +1167,6 @@ export default function UploadPage() {
                 />
               </a>
             </div>
-          </div>
-        </div>
-
-        {/* About Section */}
-        <div className="max-w-2xl mx-auto mt-6">
-          <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
-            <ScrollReveal
-              baseOpacity={0}
-              enableBlur={true}
-              baseRotation={0}
-              blurStrength={10}
-            >
-              We live in a world where memories are fleeting, photo strips pile
-              up, and feelings fade. ReStrip slows time down. You capture a
-              moment today and, months later, it comes back to make you smile.
-              ReStrip is a time machine for your happiest moments.
-            </ScrollReveal>
           </div>
         </div>
       </div>

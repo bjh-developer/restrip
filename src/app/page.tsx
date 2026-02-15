@@ -15,6 +15,19 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Camera, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
+import ScrollReveal from "../components/ScrollReveal";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import gsap from "gsap";
+
+// =============================================================================
+// GSAP Plugin Registration
+// =============================================================================
+
+try {
+  gsap.registerPlugin(ScrollTrigger);
+} catch {
+  // Plugin already registered - safe to ignore
+}
 
 export default function LandingPage() {
   const router = useRouter();
@@ -94,22 +107,30 @@ export default function LandingPage() {
                 </h2>
               </div>
               <p className="text-sm text-grey mb-4">
-                Sign in to save, view, and manage your encrypted memories.
+                Sign in to save and view your memories.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
-                {isSignedIn
-                  ? "Open gallery"
-                  : "Sign in"}
+                {isSignedIn ? "Open gallery" : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>
             </button>
           </div>
-
-          {/* Privacy note */}
-          <p className="mt-8 text-xs text-grey">
-            🔐 All images are encrypted before upload. Your memories stay
-            private.
-          </p>
+          {/* About Section */}
+          <div className="max-w-2xl mx-auto mt-6">
+            <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
+              <ScrollReveal
+                baseOpacity={0}
+                enableBlur={true}
+                baseRotation={0}
+                blurStrength={10}
+              >
+                We live in a world where memories are fleeting, photo strips
+                pile up, and feelings fade. ReStrip slows time down. You capture
+                a moment today and, months later, it comes back to make you
+                smile. ReStrip is a time machine for your happiest moments.
+              </ScrollReveal>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -117,14 +138,7 @@ export default function LandingPage() {
       <footer className="bg-soft-black text-warm-beige py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
-            <a
-              href="https://www.linkedin.com/in/bek-joon-hao/"
-              className="hover:underline transition-all hover:text-pastel-blue"
-            >
-              Joon Hao
-            </a>
-            .
+            &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
           </p>
           <div className="mt-3 flex justify-center space-x-4">
             <a
