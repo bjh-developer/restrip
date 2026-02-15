@@ -1013,7 +1013,7 @@ export default function GalleryPage() {
               }
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/50 transition"
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black"
           >
             View
           </button>
@@ -1024,7 +1024,7 @@ export default function GalleryPage() {
               handleDelete(contextMenu.snapId);
               setContextMenu(null);
             }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete
