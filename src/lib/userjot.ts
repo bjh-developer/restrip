@@ -17,7 +17,7 @@ export function loadUserJot(configId: string): () => void {
   if (!configId) return () => {};
 
   // 1. Set up the queue and proxy
-  const win = window as Record<string, unknown>;
+  const win = window as unknown as Record<string, unknown>;
   if (!win.$ujq) win.$ujq = [];
   if (!win.uj) {
     win.uj = new Proxy(
