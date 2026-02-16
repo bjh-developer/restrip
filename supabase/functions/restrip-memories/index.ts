@@ -125,8 +125,8 @@ async function sendEmailWithGmail(
                               <td style="padding: 28px 40px; border-top: 1px solid #EBEBEB; background-color: #F3E8D8;">
                                   <p style="margin: 0 0 12px 0; font-size: 13px; color: #6B6B6B; text-align: center;">ReStrip by Joon Hao • Photo strips that come back to you.</p>
                                   <p style="margin: 0; font-size: 12px; color: #6B6B6B; text-align: center;">
-                                      <a href="https://restrip.vercel.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
-                                      <a href="https://restrip.vercel.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
+                                      <a href="https://restrip.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
+                                      <a href="https://restrip.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
                                   </p>
                               </td>
                           </tr>
