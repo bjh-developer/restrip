@@ -16,12 +16,13 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Images, Plus } from "lucide-react";
+import { Images, Plus, BookOpen } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
 /** Navigation items for the protected area */
 const NAV_ITEMS = [
   { href: "/gallery", label: "Gallery", icon: Images },
+  { href: "/canvas", label: "Canvas", icon: BookOpen },
   { href: "/new", label: "New Memory", icon: Plus },
 ] as const;
 
@@ -32,8 +33,12 @@ export default function ProtectedLayout({
 }) {
   const pathname = usePathname();
 
+  const isCanvasEditor = !!pathname.match(/^\/canvas\/[^/]+$/);
+
   return (
-    <div className="min-h-screen bg-warm-beige flex flex-col">
+    <div className={`bg-warm-beige flex flex-col ${
+      isCanvasEditor ? "h-full overflow-hidden" : "min-h-screen"
+    }`}>
       {/* Navigation Bar */}
       <nav className="bg-white border-b border-mist-grey shadow-sm">
         <div className="container mx-auto px-4">
@@ -77,16 +82,18 @@ export default function ProtectedLayout({
       </nav>
 
       {/* Page Content */}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 min-h-0 flex flex-col">{children}</main>
 
-      {/* Footer */}
-      <footer className="bg-soft-black text-warm-beige py-6">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
-          </p>
-        </div>
-      </footer>
+      {/* Footer — hidden on full-screen canvas editor */}
+      {!isCanvasEditor && (
+        <footer className="bg-soft-black text-warm-beige py-6">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-sm">
+              &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
+            </p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" className="h-full">
         <head>
           <link rel="icon" href="/favicon.ico" sizes="any" />
           <meta
@@ -49,7 +49,7 @@ export default function RootLayout({
           />
         </head>
         <body
-          className={`${playfairDisplay.variable} ${inter.variable} ${caveat.variable} antialiased`}
+          className={`${playfairDisplay.variable} ${inter.variable} ${caveat.variable} antialiased h-full`}
         >
           {children}
           <Analytics />
