@@ -733,6 +733,12 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 | 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
 | 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
 | 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
+| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery rls indexes |
+| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
+| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
+| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
+| 14 | `supabase/migrations/014_canvas_books.sql` | Canvas books |
+| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
 
 **Verification queries:**
 
@@ -792,6 +798,8 @@ SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('passkey_credent
 32. HTTP Request Body: {"name":"Functions"}
 33. Click save cron job.
 
+### Step 7: Set up Clerk Auth
+Register an account with Clerk Auth and get both `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`, to be filled up in .env.local
 
 ### Step 6: Start the Crop Server (Optional)
 
