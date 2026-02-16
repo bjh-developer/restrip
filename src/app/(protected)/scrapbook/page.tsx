@@ -14,7 +14,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, BookOpen, Pencil, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, BookOpen, Pencil, X, Loader2, CheckCircle2, Circle } from "lucide-react";
 import type { Book } from "../../../lib/scrapbook-types";
 import { COVER_COLORS } from "../../../lib/scrapbook-types";
 import {
@@ -133,6 +133,11 @@ export default function CanvasPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
+  
+  // Delete / selection mode
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // Load books from API
   useEffect(() => {
@@ -164,23 +169,67 @@ export default function CanvasPage() {
     [editingBook],
   );
 
-  /** Delete a book with confirmation */
-  const handleDelete = useCallback(async (bookId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Delete this book and all its pages?")) return;
-    await deleteBookApi(bookId);
-    const refreshed = await fetchBooks();
-    setBooks(refreshed);
-  }, []);
+  /** Batch-delete selected books */
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Delete ${count} ${count === 1 ? "book" : "books"} and all their pages? This cannot be undone.`))
+      return;
 
-  /** Edit button handler */
-  const handleEdit = useCallback(
-    (book: Book, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setEditingBook(book);
-    },
-    [],
-  );
+    const ids = Array.from(selectedIds);
+    setDeletingIds(new Set(ids));
+
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        await deleteBookApi(id);
+        return id;
+      })
+    );
+
+    const deletedIds = new Set(
+      results
+        .filter((r) => r.status === "fulfilled")
+        .map((r) => (r as PromiseFulfilledResult<string>).value)
+    );
+
+    const failedResults = results
+      .map((r, index) => ({ result: r, id: ids[index] }))
+      .filter(({ result }) => result.status === "rejected");
+
+    const failedIds = new Set(failedResults.map(({ id }) => id));
+
+    // Remove successfully deleted books
+    setBooks((prev) => prev.filter((b) => !deletedIds.has(b.id)));
+    
+    // Keep only failed IDs selected for retry
+    setSelectedIds(failedIds);
+    
+    // Clear deleting status
+    setDeletingIds(new Set());
+    
+    // Only exit select mode if all succeeded
+    if (failedIds.size === 0) {
+      setSelectMode(false);
+    }
+
+    // Show error message if any deletions failed
+    if (failedIds.size > 0) {
+      alert(
+        `Failed to delete ${failedIds.size} ${failedIds.size === 1 ? "book" : "books"}. ` +
+        `The failed items remain selected for retry.`
+      );
+    }
+  }, [selectedIds]);
+
+  /** Toggle selection of a book */
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -194,6 +243,60 @@ export default function CanvasPage() {
             Create books, add pages, and decorate with your photo strips &amp; stickers.
           </p>
         </div>
+
+        {/* Delete mode controls */}
+        {!loading && books.length > 0 && (
+          <div className="flex items-center gap-2">
+            {/* Batch delete button (shows when items selected) */}
+            {selectMode && selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={handleBatchDelete}
+                disabled={deletingIds.size > 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {deletingIds.size > 0 ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete ({selectedIds.size})
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Delete mode toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectMode((prev) => !prev);
+                setSelectedIds(new Set());
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
+                selectMode
+                  ? "bg-red-100 text-red-700"
+                  : "bg-mist-grey text-soft-black hover:bg-mist-grey/80"
+              }`}
+              aria-label={selectMode ? "Cancel delete" : "Delete books"}
+            >
+              {selectMode ? (
+                <>
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cancel</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Books Grid */}
@@ -221,7 +324,13 @@ export default function CanvasPage() {
         {books.map((book) => (
           <div
             key={book.id}
-            onClick={() => router.push(`/scrapbook/${book.id}`)}
+            onClick={() => {
+              if (selectMode) {
+                toggleSelect(book.id);
+              } else {
+                router.push(`/scrapbook/${book.id}`);
+              }
+            }}
             className="group relative flex flex-col aspect-[3/4] rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 cursor-pointer"
             style={{ backgroundColor: book.coverColor }}
           >
@@ -244,27 +353,56 @@ export default function CanvasPage() {
               }}
             />
 
-            {/* Hover actions */}
-            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-              <button
-                type="button"
-                onClick={(e) => handleEdit(book, e)}
-                className="p-1.5 rounded-lg bg-white/80 hover:bg-white shadow-sm transition"
-              >
-                <Pencil className="w-3.5 h-3.5 text-soft-black" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => handleDelete(book.id, e)}
-                className="p-1.5 rounded-lg bg-white/80 hover:bg-red-50 shadow-sm transition"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-red-500" />
-              </button>
-            </div>
+            {/* Edit button (desktop hover only) */}
+            {!selectMode && (
+              <div className="absolute top-2 right-2 opacity-0 sm:group-hover:opacity-100 transition">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingBook(book);
+                  }}
+                  className="p-1.5 rounded-lg bg-white/90 hover:bg-white shadow-sm transition"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-soft-black" />
+                </button>
+              </div>
+            )}
+
+            {/* Selection checkmark (select mode) */}
+            {selectMode && (
+              <div className="absolute top-2 left-2 z-10">
+                {selectedIds.has(book.id) ? (
+                  <CheckCircle2 className="w-6 h-6 text-white drop-shadow-md" fill="rgba(59,130,246,0.9)" />
+                ) : (
+                  <Circle className="w-6 h-6 text-white/70 drop-shadow-md" />
+                )}
+              </div>
+            )}
+
+            {/* Deleting spinner overlay */}
+            {deletingIds.has(book.id) && (
+              <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-20">
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              </div>
+            )}
 
             {/* Date footer */}
-            <div className="px-3 py-2 bg-white/40 backdrop-blur-sm text-xs text-soft-black/60">
-              {new Date(book.updatedAt).toLocaleDateString()}
+            <div className="px-3 py-2 bg-white/40 backdrop-blur-sm text-xs text-soft-black/60 flex items-center justify-between">
+              <span>{new Date(book.updatedAt).toLocaleDateString()}</span>
+              {!selectMode && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingBook(book);
+                  }}
+                  className="sm:hidden p-1 rounded hover:bg-white/50 transition"
+                  aria-label="Edit book"
+                >
+                  <Pencil className="w-3 h-3 text-soft-black" />
+                </button>
+              )}
             </div>
           </div>
         ))}

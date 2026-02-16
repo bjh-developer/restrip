@@ -1175,7 +1175,7 @@ export default function CanvasEditorPage() {
             type="button"
             onClick={() => {
               saveCurrentPage();
-              router.push("/canvas");
+              router.push("/scrapbook");
             }}
             className="p-1.5 rounded-lg hover:bg-mist-grey/50 transition"
           >
