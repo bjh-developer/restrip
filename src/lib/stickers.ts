@@ -15,7 +15,7 @@ export interface StickerDef {
   /** Path to SVG file in /public */
   src: string;
   /** Category for grouping in picker */
-  category: "characters" | "shapes" | "tags" | "nature";
+  category: "characters" | "tags";
 }
 
 export const STICKER_PACK: StickerDef[] = [
