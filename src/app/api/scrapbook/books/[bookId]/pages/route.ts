@@ -1,10 +1,10 @@
 /**
  * Canvas Pages API — Add Page & Batch Save
  *
- * POST /api/canvas/books/[bookId]/pages          — add a new blank page
- * PUT  /api/canvas/books/[bookId]/pages          — batch save all pages (auto-save)
+ * POST /api/scrapbook/books/[bookId]/pages          — add a new blank page
+ * PUT  /api/scrapbook/books/[bookId]/pages          — batch save all pages (auto-save)
  *
- * @module api/canvas/books/[bookId]/pages
+ * @module api/scrapbook/books/[bookId]/pages
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -51,7 +51,7 @@ type RouteContext = { params: Promise<{ bookId: string }> };
 // -----------------------------------------------------------------------------
 async function verifyBookOwnership(bookId: string, userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
-    .from("canvas_books")
+    .from("scrapbook_book")
     .select("id, user_id")
     .eq("id", bookId)
     .single();
@@ -61,7 +61,7 @@ async function verifyBookOwnership(bookId: string, userId: string): Promise<bool
 }
 
 // -----------------------------------------------------------------------------
-// POST /api/canvas/books/[bookId]/pages — add new page
+// POST /api/scrapbook/books/[bookId]/pages — add new page
 // -----------------------------------------------------------------------------
 export async function POST(
   request: NextRequest,
@@ -83,7 +83,7 @@ export async function POST(
 
     // Get the next page number
     const { data: existingPages } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .select("page_number")
       .eq("book_id", bookId)
       .order("page_number", { ascending: false })
@@ -94,7 +94,7 @@ export async function POST(
       : 1;
 
     const { data: page, error: pageErr } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .insert({
         book_id: bookId,
         page_number: nextPageNumber,
@@ -111,7 +111,7 @@ export async function POST(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 
@@ -123,7 +123,7 @@ export async function POST(
 }
 
 // -----------------------------------------------------------------------------
-// PUT /api/canvas/books/[bookId]/pages — batch save all pages (auto-save)
+// PUT /api/scrapbook/books/[bookId]/pages — batch save all pages (auto-save)
 // -----------------------------------------------------------------------------
 export async function PUT(
   request: NextRequest,
@@ -160,7 +160,7 @@ export async function PUT(
       if (Object.keys(updates).length === 0) continue;
 
       const { error } = await supabaseAdmin
-        .from("canvas_pages")
+        .from("scrapbook_pages")
         .update(updates)
         .eq("id", pg.id)
         .eq("book_id", bookId); // ensure page belongs to this book
@@ -172,7 +172,7 @@ export async function PUT(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 

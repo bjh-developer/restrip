@@ -1,10 +1,10 @@
 /**
  * Canvas Books API — List & Create
  *
- * GET  /api/canvas/books      — list all books for the authenticated user
- * POST /api/canvas/books      — create a new book with one blank page
+ * GET  /api/scrapbook/books      — list all books for the authenticated user
+ * POST /api/scrapbook/books      — create a new book with one blank page
  *
- * @module api/canvas/books
+ * @module api/scrapbook/books
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -51,7 +51,7 @@ interface BookWithPages extends BookRow {
 }
 
 // -----------------------------------------------------------------------------
-// GET /api/canvas/books
+// GET /api/scrapbook/books
 // -----------------------------------------------------------------------------
 export async function GET(
   request: NextRequest,
@@ -67,7 +67,7 @@ export async function GET(
 
     // Fetch books
     const { data: books, error: booksErr } = await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .select("*")
       .eq("user_id", userId)
       .order("updated_at", { ascending: false });
@@ -84,7 +84,7 @@ export async function GET(
     // Fetch all pages for these books in a single query
     const bookIds = books.map((b: BookRow) => b.id);
     const { data: pages, error: pagesErr } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .select("*")
       .in("book_id", bookIds)
       .order("page_number", { ascending: true });
@@ -115,7 +115,7 @@ export async function GET(
 }
 
 // -----------------------------------------------------------------------------
-// POST /api/canvas/books
+// POST /api/scrapbook/books
 // -----------------------------------------------------------------------------
 export async function POST(
   request: NextRequest,
@@ -135,7 +135,7 @@ export async function POST(
 
     // Create the book
     const { data: book, error: bookErr } = await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .insert({ user_id: userId, title, cover_color: coverColor })
       .select()
       .single();
@@ -147,7 +147,7 @@ export async function POST(
 
     // Create one blank page
     const { data: page, error: pageErr } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .insert({
         book_id: book.id,
         page_number: 1,
@@ -160,7 +160,7 @@ export async function POST(
     if (pageErr || !page) {
       console.error("[Canvas Books API] Error creating initial page:", pageErr);
       // Clean up the book
-      await supabaseAdmin.from("canvas_books").delete().eq("id", book.id);
+      await supabaseAdmin.from("scrapbook_book").delete().eq("id", book.id);
       return NextResponse.json({ error: "Failed to create initial page" }, { status: 500 });
     }
 

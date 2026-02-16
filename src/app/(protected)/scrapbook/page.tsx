@@ -1,13 +1,13 @@
 /**
- * Canvas — Books Page
+ * Scrapbook — Books Page
  *
  * Lists all the user's scrapbooks in a grid. Users can create a
  * new book (with title + cover color) or click an existing one
  * to open the page editor.
  *
- * Data is persisted in Supabase via the Canvas API.
+ * Data is persisted in Supabase via the Scrapbook API.
  *
- * @module app/(protected)/canvas/page
+ * @module app/(protected)/scrapbook/page
  */
 
 "use client";
@@ -15,14 +15,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, BookOpen, Pencil, X, Loader2 } from "lucide-react";
-import type { Book } from "../../../lib/canvas-types";
-import { COVER_COLORS } from "../../../lib/canvas-types";
+import type { Book } from "../../../lib/scrapbook-types";
+import { COVER_COLORS } from "../../../lib/scrapbook-types";
 import {
   fetchBooks,
   createBookApi,
   deleteBookApi,
   updateBookApi,
-} from "../../../lib/canvas-api";
+} from "../../../lib/scrapbook-api";
 
 // =============================================================================
 // Create / Edit Book Modal
@@ -72,7 +72,7 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="My Scrapbook"
+          placeholder="My Scrapbooks"
           maxLength={50}
           className="w-full rounded-lg border border-mist-grey px-3 py-2 text-sm focus:border-blush-pink focus:ring-1 focus:ring-blush-pink outline-none transition mb-4"
           autoFocus
@@ -147,7 +147,7 @@ export default function CanvasPage() {
       const book = await createBookApi(title, color);
       if (!book) return;
       setModalOpen(false);
-      router.push(`/canvas/${book.id}`);
+      router.push(`/scrapbook/${book.id}`);
     },
     [router],
   );
@@ -221,7 +221,7 @@ export default function CanvasPage() {
         {books.map((book) => (
           <div
             key={book.id}
-            onClick={() => router.push(`/canvas/${book.id}`)}
+            onClick={() => router.push(`/scrapbook/${book.id}`)}
             className="group relative flex flex-col aspect-[3/4] rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 cursor-pointer"
             style={{ backgroundColor: book.coverColor }}
           >
@@ -269,16 +269,6 @@ export default function CanvasPage() {
           </div>
         ))}
       </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && books.length === 0 && (
-        <div className="text-center mt-12">
-          <BookOpen className="w-16 h-16 text-mist-grey mx-auto mb-4" />
-          <p className="text-grey text-sm">
-            No scrapbooks yet. Create your first one!
-          </p>
-        </div>
       )}
 
       {/* Modals */}

@@ -1,10 +1,10 @@
 /**
- * Canvas Types
+ * Scrapbook Types
  *
- * Shared type definitions for the scrapbook canvas feature.
+ * Shared type definitions for the scrapbook feature.
  * Used across the books list page, editor, and local storage layer.
  *
- * @module lib/canvas-types
+ * @module lib/scrapbook-types
  */
 
 /** A single element placed on a page (sticker, photostrip, or text) */

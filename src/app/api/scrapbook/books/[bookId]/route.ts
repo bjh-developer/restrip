@@ -1,11 +1,11 @@
 /**
  * Canvas Single Book API — Get, Update, Delete
  *
- * GET    /api/canvas/books/[bookId]  — get a single book with pages
- * PATCH  /api/canvas/books/[bookId]  — update book metadata (title, coverColor)
- * DELETE /api/canvas/books/[bookId]  — delete the book and all its pages
+ * GET    /api/scrapbook/books/[bookId]  — get a single book with pages
+ * PATCH  /api/scrapbook/books/[bookId]  — update book metadata (title, coverColor)
+ * DELETE /api/scrapbook/books/[bookId]  — delete the book and all its pages
  *
- * @module api/canvas/books/[bookId]
+ * @module api/scrapbook/books/[bookId]
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -64,7 +64,7 @@ type RouteContext = { params: Promise<{ bookId: string }> };
 // -----------------------------------------------------------------------------
 async function getOwnedBook(bookId: string, userId: string): Promise<BookRow | null> {
   const { data, error } = await supabaseAdmin
-    .from("canvas_books")
+    .from("scrapbook_book")
     .select("*")
     .eq("id", bookId)
     .single();
@@ -75,7 +75,7 @@ async function getOwnedBook(bookId: string, userId: string): Promise<BookRow | n
 }
 
 // -----------------------------------------------------------------------------
-// GET /api/canvas/books/[bookId]
+// GET /api/scrapbook/books/[bookId]
 // -----------------------------------------------------------------------------
 export async function GET(
   request: NextRequest,
@@ -97,7 +97,7 @@ export async function GET(
     }
 
     const { data: pages, error: pagesErr } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .select("*")
       .eq("book_id", bookId)
       .order("page_number", { ascending: true });
@@ -117,7 +117,7 @@ export async function GET(
 }
 
 // -----------------------------------------------------------------------------
-// PATCH /api/canvas/books/[bookId]
+// PATCH /api/scrapbook/books/[bookId]
 // -----------------------------------------------------------------------------
 export async function PATCH(
   request: NextRequest,
@@ -152,7 +152,7 @@ export async function PATCH(
     }
 
     const { data, error } = await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .update(updates)
       .eq("id", bookId)
       .select()
@@ -171,7 +171,7 @@ export async function PATCH(
 }
 
 // -----------------------------------------------------------------------------
-// DELETE /api/canvas/books/[bookId]
+// DELETE /api/scrapbook/books/[bookId]
 // -----------------------------------------------------------------------------
 export async function DELETE(
   request: NextRequest,
@@ -194,7 +194,7 @@ export async function DELETE(
 
     // Pages cascade-delete via FK constraint
     const { error } = await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .delete()
       .eq("id", bookId);
 

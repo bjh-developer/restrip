@@ -1,5 +1,5 @@
 /**
- * Canvas Editor Page
+ * Scrapbook Editor Page
  *
  * Fabric.js-powered scrapbook page editor. Users can:
  * - Add photostrips from their gallery
@@ -11,7 +11,7 @@
  *
  * State is auto-saved to localStorage on every change.
  *
- * @module app/(protected)/canvas/[bookId]/page
+ * @module app/(protected)/scrapbook/[bookId]/page
  */
 
 "use client";
@@ -38,14 +38,14 @@ import {
   ZoomOut,
   Maximize,
 } from "lucide-react";
-import type { Book, BookPage, PageElement, PageBackground } from "../../../../lib/canvas-types";
-import { BACKGROUND_COLORS } from "../../../../lib/canvas-types";
+import type { Book, BookPage, PageElement, PageBackground } from "../../../../lib/scrapbook-types";
+import { BACKGROUND_COLORS } from "../../../../lib/scrapbook-types";
 import {
   fetchBook,
   addPageApi,
   deletePageApi,
   savePagesApi,
-} from "../../../../lib/canvas-api";
+} from "../../../../lib/scrapbook-api";
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 
 // =============================================================================
@@ -836,13 +836,13 @@ export default function CanvasEditorPage() {
         const fabric = await import("fabric");
         const img = await fabric.FabricImage.fromURL(dataUrl);
 
-        // Scale to fit nicely on canvas (max 40% of canvas width)
-        const maxW = CANVAS_WIDTH * 0.4;
+        // Scale to fit nicely on canvas (max 20% of canvas width)
+        const maxW = CANVAS_WIDTH * 0.2;
         const scale = Math.min(maxW / (img.width ?? 200), 1);
 
         img.set({
-          left: transform?.left ?? CANVAS_WIDTH / 2 - ((img.width ?? 200) * scale) / 2,
-          top: transform?.top ?? CANVAS_HEIGHT / 2 - ((img.height ?? 300) * scale) / 2,
+          left: CANVAS_WIDTH / 2,
+          top: CANVAS_HEIGHT / 2,
           scaleX: transform?.scaleX ?? scale,
           scaleY: transform?.scaleY ?? scale,
           angle: transform?.rotation ?? 0,
@@ -901,8 +901,8 @@ export default function CanvasEditorPage() {
 
     const fabric = await import("fabric");
     const textbox = new fabric.Textbox("Your text here", {
-      left: CANVAS_WIDTH / 2 - 100,
-      top: CANVAS_HEIGHT / 2 - 20,
+      left: CANVAS_WIDTH / 2,
+      top: CANVAS_HEIGHT / 2,
       width: 200,
       fontSize: 24,
       fontFamily: "Arial",

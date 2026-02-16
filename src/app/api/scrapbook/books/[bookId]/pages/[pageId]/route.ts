@@ -1,9 +1,9 @@
 /**
  * Canvas Single Page API — Delete
  *
- * DELETE /api/canvas/books/[bookId]/pages/[pageId]  — delete a page
+ * DELETE /api/scrapbook/books/[bookId]/pages/[pageId]  — delete a page
  *
- * @module api/canvas/books/[bookId]/pages/[pageId]
+ * @module api/scrapbook/books/[bookId]/pages/[pageId]
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -30,7 +30,7 @@ const supabaseAdmin = createClient(
 type RouteContext = { params: Promise<{ bookId: string; pageId: string }> };
 
 // -----------------------------------------------------------------------------
-// DELETE /api/canvas/books/[bookId]/pages/[pageId]
+// DELETE /api/scrapbook/books/[bookId]/pages/[pageId]
 // -----------------------------------------------------------------------------
 export async function DELETE(
   request: NextRequest,
@@ -49,7 +49,7 @@ export async function DELETE(
 
     // Verify book ownership
     const { data: book } = await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .select("id, user_id")
       .eq("id", bookId)
       .single();
@@ -60,7 +60,7 @@ export async function DELETE(
 
     // Ensure at least 1 page remains
     const { count } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .select("id", { count: "exact", head: true })
       .eq("book_id", bookId);
 
@@ -70,7 +70,7 @@ export async function DELETE(
 
     // Delete the page
     const { error } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .delete()
       .eq("id", pageId)
       .eq("book_id", bookId);
@@ -82,7 +82,7 @@ export async function DELETE(
 
     // Re-number remaining pages
     const { data: remaining } = await supabaseAdmin
-      .from("canvas_pages")
+      .from("scrapbook_pages")
       .select("id")
       .eq("book_id", bookId)
       .order("page_number", { ascending: true });
@@ -90,7 +90,7 @@ export async function DELETE(
     if (remaining) {
       for (let i = 0; i < remaining.length; i++) {
         await supabaseAdmin
-          .from("canvas_pages")
+          .from("scrapbook_pages")
           .update({ page_number: i + 1 })
           .eq("id", remaining[i].id);
       }
@@ -98,7 +98,7 @@ export async function DELETE(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("canvas_books")
+      .from("scrapbook_book")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 

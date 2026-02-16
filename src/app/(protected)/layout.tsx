@@ -1,7 +1,7 @@
 /**
  * Protected Layout
  *
- * Wraps all authenticated routes (/gallery, /new) with:
+ * Wraps all authenticated routes (/gallery, /new, /scrapbook) with:
  * - Top navigation bar with logo, nav links, and user button
  * - Consistent page structure and footer
  *
@@ -22,7 +22,7 @@ import { UserButton } from "@clerk/nextjs";
 /** Navigation items for the protected area */
 const NAV_ITEMS = [
   { href: "/gallery", label: "Gallery", icon: Images },
-  { href: "/canvas", label: "Canvas", icon: BookOpen },
+  { href: "/scrapbook", label: "Scrapbook", icon: BookOpen },
   { href: "/new", label: "New Memory", icon: Plus },
 ] as const;
 
@@ -33,11 +33,11 @@ export default function ProtectedLayout({
 }) {
   const pathname = usePathname();
 
-  const isCanvasEditor = !!pathname.match(/^\/canvas\/[^/]+$/);
+  const isScrapbookEditor = !!pathname.match(/^\/scrapbook\/[^/]+$/);
 
   return (
     <div className={`bg-warm-beige flex flex-col ${
-      isCanvasEditor ? "h-full overflow-hidden" : "min-h-screen"
+      isScrapbookEditor ? "h-full overflow-hidden" : "min-h-screen"
     }`}>
       {/* Navigation Bar */}
       <nav className="bg-white border-b border-mist-grey shadow-sm">
@@ -84,8 +84,8 @@ export default function ProtectedLayout({
       {/* Page Content */}
       <main className="flex-1 min-h-0 flex flex-col">{children}</main>
 
-      {/* Footer — hidden on full-screen canvas editor */}
-      {!isCanvasEditor && (
+      {/* Footer — hidden on full-screen scrapbook editor */}
+      {!isScrapbookEditor && (
         <footer className="bg-soft-black text-warm-beige py-6">
           <div className="container mx-auto px-4 text-center">
             <p className="text-sm">

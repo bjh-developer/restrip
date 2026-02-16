@@ -1,15 +1,15 @@
 /**
- * Canvas API Storage
+ * Scrapbook API Storage
  *
  * API-backed persistence layer for scrapbook books.
  * Replaces the localStorage-based canvas-storage module.
  *
- * All functions are async and hit the /api/canvas/* endpoints.
+ * All functions are async and hit the /api/scrapbook/* endpoints.
  *
- * @module lib/canvas-api
+ * @module lib/scrapbook-api
  */
 
-import type { Book, BookPage, PageBackground, PageElement } from "./canvas-types";
+import type { Book, BookPage, PageBackground, PageElement } from "./scrapbook-types";
 
 // =============================================================================
 // Types mapping DB rows → client types
@@ -63,7 +63,7 @@ function mapPage(row: PageRow): BookPage {
 
 /** Fetch all books for the current user */
 export async function fetchBooks(): Promise<Book[]> {
-  const res = await fetch("/api/canvas/books");
+  const res = await fetch("/api/scrapbook/books");
   if (!res.ok) {
     console.error("[Canvas API] Failed to fetch books:", res.status);
     return [];
@@ -74,7 +74,7 @@ export async function fetchBooks(): Promise<Book[]> {
 
 /** Fetch a single book by ID */
 export async function fetchBook(bookId: string): Promise<Book | null> {
-  const res = await fetch(`/api/canvas/books/${bookId}`);
+  const res = await fetch(`/api/scrapbook/books/${bookId}`);
   if (!res.ok) return null;
   const data = await res.json();
   return data.book ? mapBook(data.book) : null;
@@ -82,7 +82,7 @@ export async function fetchBook(bookId: string): Promise<Book | null> {
 
 /** Create a new book */
 export async function createBookApi(title: string, coverColor: string): Promise<Book | null> {
-  const res = await fetch("/api/canvas/books", {
+  const res = await fetch("/api/scrapbook/books", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, coverColor }),
@@ -100,7 +100,7 @@ export async function updateBookApi(
   bookId: string,
   updates: { title?: string; coverColor?: string },
 ): Promise<Book | null> {
-  const res = await fetch(`/api/canvas/books/${bookId}`, {
+  const res = await fetch(`/api/scrapbook/books/${bookId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),
@@ -113,7 +113,7 @@ export async function updateBookApi(
 
 /** Delete a book */
 export async function deleteBookApi(bookId: string): Promise<boolean> {
-  const res = await fetch(`/api/canvas/books/${bookId}`, {
+  const res = await fetch(`/api/scrapbook/books/${bookId}`, {
     method: "DELETE",
   });
   return res.ok;
@@ -121,7 +121,7 @@ export async function deleteBookApi(bookId: string): Promise<boolean> {
 
 /** Add a new blank page to a book */
 export async function addPageApi(bookId: string): Promise<BookPage | null> {
-  const res = await fetch(`/api/canvas/books/${bookId}/pages`, {
+  const res = await fetch(`/api/scrapbook/books/${bookId}/pages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });
@@ -132,7 +132,7 @@ export async function addPageApi(bookId: string): Promise<BookPage | null> {
 
 /** Delete a page */
 export async function deletePageApi(bookId: string, pageId: string): Promise<boolean> {
-  const res = await fetch(`/api/canvas/books/${bookId}/pages/${pageId}`, {
+  const res = await fetch(`/api/scrapbook/books/${bookId}/pages/${pageId}`, {
     method: "DELETE",
   });
   return res.ok;
@@ -153,7 +153,7 @@ export async function savePagesApi(
     elements: p.elements,
   }));
 
-  const res = await fetch(`/api/canvas/books/${bookId}/pages`, {
+  const res = await fetch(`/api/scrapbook/books/${bookId}/pages`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pages: payload }),
