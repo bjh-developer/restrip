@@ -110,22 +110,30 @@ export async function GET(
     const offset = (page - 1) * pageSize;
 
     // Fetch total count for user's snaps
-    const { count, error: countError } = await supabaseAdmin
-      .from("snaps")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+    let totalCount: number | null = null;
+    try {
+      const { count, error: countError } = await supabaseAdmin
+        .from("snaps")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId);
 
-    if (countError) {
-      console.error("[Gallery API] Count error:", {
-        error: countError,
+      if (countError) {
+        console.error("[Gallery API] Count error (non-fatal, continuing):", {
+          error: countError,
+          userId,
+          message: countError.message,
+          details: countError.details,
+        });
+      } else {
+        totalCount = count;
+      }
+    } catch (countException) {
+      // Catch any network errors (ECONNRESET, etc.) and continue
+      console.error("[Gallery API] Count exception (non-fatal, continuing):", {
+        exception: countException,
         userId,
-        message: countError.message,
-        details: countError.details,
+        message: countException instanceof Error ? countException.message : String(countException),
       });
-      return NextResponse.json(
-        { error: "Failed to load gallery" },
-        { status: 500 },
-      );
     }
 
     // Fetch paginated snaps (metadata columns only — skip encrypted image data)
@@ -189,7 +197,7 @@ export async function GET(
 
     return NextResponse.json({
       snaps: snapsWithCaptions,
-      total: count ?? 0,
+      total: totalCount ?? 0,
       page,
       pageSize,
     });
