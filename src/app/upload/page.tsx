@@ -915,55 +915,78 @@ export default function UploadPage() {
 
     let widgetId: string | undefined;
 
+    // Function to render/re-render the Turnstile widget
+    const renderWidget = () => {
+      if (!window.turnstile) {
+        console.warn("Turnstile not loaded yet");
+        return;
+      }
+
+      const container = document.getElementById("turnstile-widget");
+      if (!container) {
+        console.error("Turnstile container not found");
+        return;
+      }
+
+      // Remove old widget if it exists
+      if (widgetId && window.turnstile) {
+        console.log("Removing old widget:", widgetId);
+        try {
+          window.turnstile.remove(widgetId);
+        } catch (e) {
+          console.warn("Failed to remove old widget:", e);
+        }
+      }
+
+      console.log("Initializing Turnstile widget...");
+      widgetId = window.turnstile.render(container, {
+        sitekey: siteKey,
+        callback: (token: string) => {
+          console.log("✅ Turnstile token received");
+          setTurnstileToken(token);
+        },
+        "error-callback": () => {
+          console.error("❌ Turnstile error");
+          setTurnstileToken(null);
+        },
+        "expired-callback": () => {
+          console.warn("⚠️ Turnstile token expired");
+          setTurnstileToken(null);
+        },
+        theme: "light",
+      });
+      console.log("Turnstile widget rendered with ID:", widgetId);
+      setTurnstileWidgetId(widgetId);
+    };
+
     // Define onload callback before loading script
     const callbackName = `onTurnstileLoad_${Date.now()}`;
-    (window as unknown as Record<string, unknown>)[callbackName] = () => {
-      if (window.turnstile) {
-        const container = document.getElementById("turnstile-widget");
-        if (!container) {
-          console.error("Turnstile container not found");
-          return;
-        }
+    (window as unknown as Record<string, unknown>)[callbackName] = renderWidget;
 
-        console.log("Initializing Turnstile widget...");
-        widgetId = window.turnstile.render(container, {
-          sitekey: siteKey,
-          callback: (token: string) => {
-            console.log("✅ Turnstile token received");
-            setTurnstileToken(token);
-          },
-          "error-callback": () => {
-            console.error("❌ Turnstile error");
-            setTurnstileToken(null);
-          },
-          "expired-callback": () => {
-            console.warn("⚠️ Turnstile token expired");
-            setTurnstileToken(null);
-          },
-          theme: "light",
-        });
-        console.log("Turnstile widget rendered with ID:", widgetId);
-        setTurnstileWidgetId(widgetId);
-      }
-    };
-
-    // Load Turnstile script with explicit rendering
-    const script = document.createElement("script");
-    script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
-    script.defer = true;
-    document.head.appendChild(script);
+    // Check if Turnstile is already loaded
+    if (window.turnstile) {
+      console.log("Turnstile already loaded, rendering widget");
+      renderWidget();
+    } else {
+      // Load Turnstile script with explicit rendering
+      const script = document.createElement("script");
+      script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
 
     return () => {
-      // Cleanup widget and script on unmount
+      // Cleanup widget on unmount
       if (widgetId && window.turnstile) {
-        window.turnstile.remove(widgetId);
+        try {
+          window.turnstile.remove(widgetId);
+        } catch (e) {
+          console.warn("Failed to remove widget on unmount:", e);
+        }
       }
       delete (window as unknown as Record<string, unknown>)[callbackName];
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
     };
-  }, []);
+  }, [isSuccess]);
 
   // -------------------------------------------------------------------------
   // Render
@@ -1008,13 +1031,9 @@ export default function UploadPage() {
             onClick={() => {
               setIsSuccess(false);
               setTelegramBotLink(null);
+              setTurnstileToken(null);
               resetForm();
-              // Reset Turnstile widget to generate a new token
-              if (turnstileWidgetId && window.turnstile) {
-                console.log("Resetting Turnstile widget for new form...");
-                window.turnstile.reset(turnstileWidgetId);
-                setTurnstileToken(null);
-              }
+              // Widget will be re-rendered by useEffect when isSuccess changes
             }}
             className="w-full px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
           >
