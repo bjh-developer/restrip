@@ -1009,6 +1009,12 @@ export default function UploadPage() {
               setIsSuccess(false);
               setTelegramBotLink(null);
               resetForm();
+              // Reset Turnstile widget to generate a new token
+              if (turnstileWidgetId && window.turnstile) {
+                console.log("Resetting Turnstile widget for new form...");
+                window.turnstile.reset(turnstileWidgetId);
+                setTurnstileToken(null);
+              }
             }}
             className="w-full px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
           >
