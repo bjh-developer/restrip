@@ -751,21 +751,7 @@ export default function UploadPage() {
       return;
     }
 
-    // Pre-open Telegram tab synchronously (before any async work)
-    // Safari blocks window.open() inside async callbacks, so we grab
-    // the reference now while still in the user-gesture context.
-    let telegramWindow: Window | null = null;
-    if (deliveryMethod === "telegram") {
-      const shouldOpenTelegram = window.confirm(
-        "🎉 Ready to create your memory!\n\n" +
-          "Click OK to open Telegram after upload.\n" +
-          "The bot will send your memory back.",
-      );
-      if (shouldOpenTelegram) {
-        telegramWindow = window.open("", "_blank");
-      }
-    }
-
+    // Start processing without pre-opening any tabs
     setValidationErrors([]);
     setIsProcessing(true);
 
@@ -834,17 +820,17 @@ export default function UploadPage() {
       const snapData = await createSnapResponse.json();
       console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
-      // Store telegram bot link if telegram delivery was selected
-      if (deliveryMethod === "telegram" && snapData.snap?.id) {
-        const botUsername =
-          process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
-        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}_${snapData.snap.telegram_link_token}`;
-        setTelegramBotLink(telegramLink);
+      // Show success page for both email and telegram
+      if (snapData.snap?.id) {
+        if (deliveryMethod === "telegram") {
+          const botUsername =
+            process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
+          const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}_${snapData.snap.telegram_link_token}`;
+          setTelegramBotLink(telegramLink);
+        }
         setIsSuccess(true);
       } else {
-        alert("🎉 Your memory has been scheduled for delivery!");
-        // Reset form for next upload
-        resetForm();
+        throw new Error("No snap ID returned");
       }
     } catch (error) {
       console.error("❌ Processing failed:", error);
@@ -997,7 +983,7 @@ export default function UploadPage() {
           {telegramBotLink ? (
             <>
               <p className="text-grey mb-4">
-                To receive your memory, please start the Telegram bot by clicking the button below.
+                Your memory will be delivered via Telegram. Start the bot below to confirm you will receive it.
               </p>
               <button
                 type="button"
@@ -1012,7 +998,11 @@ export default function UploadPage() {
                 Start Telegram Bot
               </button>
             </>
-          ) : null}
+          ) : (
+            <p className="text-grey mb-4">
+              Your memory will be delivered to your email address.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => {
