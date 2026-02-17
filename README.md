@@ -718,14 +718,14 @@ NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
 
 Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
 
-| Order | File | Purpose |
-|-------|------|---------|
-| 1 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery RLS and indexes |
-| 2 | `supabase/migrations/011_clerk_migration.sql` | Clerk authentication migration (core tables and policies) |
-| 3 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns exist |
-| 4 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token support |
-| 5 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables |
-| 6 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename canvas to scrapbook |
+| Step | Migration File | Purpose |
+|------|----------------|---------|
+| 1 | `010_gallery_rls_indexes.sql` | Gallery RLS and indexes |
+| 2 | `011_clerk_migration.sql` | Clerk authentication migration (core tables and policies) |
+| 3 | `012_ensure_encryption_columns.sql` | Ensure encryption columns exist |
+| 4 | `013_telegram_link_token.sql` | Telegram link token support |
+| 5 | `014_canvas_books.sql` | Scrapbook tables |
+| 6 | `015_rename_to_scrapbook.sql` | Rename canvas to scrapbook |
 
 **Note:** Migration 011 creates all core tables (snaps, storage buckets, RLS policies). The older migrations (001-009) are for the legacy passkey system and are not needed. Migration file numbers start at 010 to maintain continuity with the project's migration history.
 

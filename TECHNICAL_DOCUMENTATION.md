@@ -1131,16 +1131,18 @@ The codebase has migrated from client-side zero-knowledge encryption to server-s
 
 Run the current migrations in order in your Supabase SQL Editor:
 
-**Migration Files (current system):**
+Run the current migrations in order in your Supabase SQL Editor:
+
+| Step | Migration File | Purpose |
+|------|----------------|---------|
+| 1 | `010_gallery_rls_indexes.sql` | Gallery RLS policies and performance indexes |
+| 2 | `011_clerk_migration.sql` | Clerk authentication migration (creates core tables, removes passkey tables) |
+| 3 | `012_ensure_encryption_columns.sql` | Ensures encryption columns exist |
+| 4 | `013_telegram_link_token.sql` | Adds Telegram link token support |
+| 5 | `014_canvas_books.sql` | Creates scrapbook tables (canvas_books, canvas_pages) |
+| 6 | `015_rename_to_scrapbook.sql` | Renames canvas references to scrapbook |
 
 **Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
-
-10. `010_gallery_rls_indexes.sql` - Gallery RLS policies and performance indexes
-11. `011_clerk_migration.sql` - Clerk authentication migration (creates core tables, removes passkey tables)
-12. `012_ensure_encryption_columns.sql` - Ensures encryption columns exist
-13. `013_telegram_link_token.sql` - Adds Telegram link token support
-14. `014_canvas_books.sql` - Creates scrapbook tables (canvas_books, canvas_pages)
-15. `015_rename_to_scrapbook.sql` - Renames canvas references to scrapbook
 
 **Important:** Migration 011 creates all necessary core tables. Migrations 001-009 are legacy and not required.
 
