@@ -1129,58 +1129,116 @@ The codebase has migrated from client-side zero-knowledge encryption to server-s
 
 **All database migrations are located in `supabase/migrations/` folder.**
 
-Run the migrations in order in your Supabase SQL Editor:
+Run the current migrations in order in your Supabase SQL Editor:
 
-**Migration Files (in order):**
+**Migration Files (current system):**
 
-1. `001_passkey_auth.sql` - Creates core tables and RLS policies
-2. `002_add_prf_salt_to_credentials.sql` - Adds per-credential salt for WebAuthn isolation
-3. `003_delivery_status.sql` - Adds delivery status tracking
-4. `004_check_user_exists_rpc.sql` - Creates `check_user_exists()` RPC function
-5. `005_rpc_get_account_type.sql` - Creates `get_account_type()` RPC function
-6. `006_consolidate_snap_image_urls.sql` - Consolidates image URL columns
-7. `007_add_image_iv_to_snaps.sql` - Adds image_iv for decryption
-8. `008_telegram_bot_integration.sql` - Adds Telegram integration
-9. `009_add_key_wrapping.sql` - Adds key wrapping for cross-auth support
+10. `010_gallery_rls_indexes.sql` - Gallery RLS policies and performance indexes
+11. `011_clerk_migration.sql` - Clerk authentication migration (creates core tables, removes passkey tables)
+12. `012_ensure_encryption_columns.sql` - Ensures encryption columns exist
+13. `013_telegram_link_token.sql` - Adds Telegram link token support
+14. `014_canvas_books.sql` - Creates scrapbook tables (canvas_books, canvas_pages)
+15. `015_rename_to_scrapbook.sql` - Renames canvas references to scrapbook
+
+**Note:** Migrations 001-009 are legacy migrations for the old passkey authentication system and are not needed for new installations. Migration 011 creates all necessary core tables.
 
 **Tables Created:**
 
-- `passkey_credentials` - WebAuthn credential storage with wrapped encryption keys
 - `snaps` - User's encrypted memories with delivery metadata
-- `webauthn_challenges` - Temporary challenge storage for WebAuthn flows
+- `canvas_books` - Scrapbook albums
+- `canvas_pages` - Scrapbook pages with JSONB elements
 
 **Storage Bucket:**
 
-- `encrypted-images` - Private storage for encrypted images and cropped versions
+- `encrypted-images` - Storage for encrypted images
 
 ### Schema Explanation
 
-**passkey_credentials table:**
-
-- Stores WebAuthn public keys for passkey authentication
-- Each credential has a unique salt for PRF-based encryption key derivation
-- `wrapped_encryption_key` column stores the master encryption key wrapped with the passkey's PRF-derived KEK
-- Enables cross-compatible authentication with password method
-- Tracks device information and usage
-
 **snaps table:**
 
-- Stores encrypted photo strip memories
-- `storage_path` field references the encrypted image in Supabase Storage (consolidates previous dual URL fields)
-- `image_iv` and `caption_iv` store initialization vectors for decryption
-- `telegram_chat_id` field ready for Telegram bot integration (schema prepared, bot implementation in progress)
-- Tracks delivery schedule and status
+```sql
+CREATE TABLE public.snaps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,  -- Clerk user ID (TEXT, not UUID)
+    
+    -- Encrypted data
+    storage_path TEXT NOT NULL,  -- Supabase Storage path
+    image_iv TEXT NOT NULL,      -- IV for image decryption
+    caption TEXT,                -- Caption (encrypted at rest)
+    
+    -- Delivery metadata
+    delivery_method TEXT NOT NULL,
+    delivery_address TEXT NOT NULL,
+    telegram_chat_id BIGINT,
+    telegram_link_token TEXT,
+    scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    delivered BOOLEAN DEFAULT FALSE,
+    delivered_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-**webauthn_challenges table:**
+Key changes from legacy schema:
+- `user_id` changed from UUID to TEXT (Clerk user IDs)
+- Removed `encrypted_caption` and `caption_iv` columns
+- Added plain `caption` column (encrypted at rest in DB)
+- Added `telegram_link_token` for Telegram account linking
+- Simplified RLS (service role handles all, API validates auth)
 
-- Temporary storage for WebAuthn challenges
-- Expires after use for security
+**canvas_books table:**
 
-**Helper Functions:**
+```sql
+CREATE TABLE public.canvas_books (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,  -- Clerk user ID
+    title TEXT NOT NULL,
+    cover_color TEXT NOT NULL,  -- One of 10 preset colors
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-- `cleanup_expired_challenges()`: Clean up old challenges
-- `check_user_exists()`: Check if email is registered
-- `get_account_type()`: Get user's authentication method
+Stores scrapbook albums. Each user can have multiple books.
+
+**canvas_pages table:**
+
+```sql
+CREATE TABLE public.canvas_pages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    book_id UUID NOT NULL REFERENCES public.canvas_books(id) ON DELETE CASCADE,
+    page_number INTEGER NOT NULL,
+    elements JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_page_number UNIQUE (book_id, page_number)
+);
+```
+
+Stores individual pages in scrapbooks. `elements` is a JSONB array containing:
+- Image elements (with position, size, rotation)
+- Text elements (with content, styling, position)
+- Sticker elements (with type, position, size)
+
+**Row Level Security:**
+
+RLS policies are simplified in the Clerk migration:
+- Service role has full access
+- API routes validate Clerk authentication before database access
+- Database policies trust the service role (no user-level RLS)
+
+This approach simplifies the architecture while maintaining security through API-level authentication.
+
+### Storage Buckets
+
+**encrypted-images bucket:**
+
+- Stores encrypted photo strip images
+- Images encrypted server-side before storage
+- Path format: `{user_id}/{snap_id}/image.png`
+- RLS policies allow service role full access (API handles auth)
 
 ---
 
@@ -1642,34 +1700,123 @@ curl -X POST http://localhost:54321/functions/v1/restrip-memories \
 
 ## 11. API Routes Reference
 
-### Authentication Endpoints
+### Authentication
 
-| Endpoint                                 | Method | Purpose                                  |
-| ---------------------------------------- | ------ | ---------------------------------------- |
-| `/api/auth/passkey/register-options`     | POST   | Generate WebAuthn registration options   |
-| `/api/auth/passkey/register-verify`      | POST   | Verify WebAuthn registration response    |
-| `/api/auth/passkey/login-options`        | POST   | Generate WebAuthn authentication options |
-| `/api/auth/passkey/login-verify`         | POST   | Verify WebAuthn authentication response  |
-| `/api/auth/passkey/store-wrapped-key`    | POST   | Store wrapped master encryption key      |
-| `/api/auth/passkey/wrapped-key`          | GET    | Fetch wrapped key for credential         |
-| `/api/auth/check-email`                  | POST   | Check if email exists                    |
-| `/api/auth/check-account-type`           | POST   | Get user's authentication methods        |
-| `/api/auth/link-account`                 | POST   | Link password to passkey account         |
+Authentication is handled by **Clerk** - no custom authentication endpoints needed. Use Clerk's built-in components and hooks:
+
+- `<SignIn />` and `<SignUp />` components
+- `useUser()`, `useAuth()` hooks on client
+- `auth()` helper on server
 
 ### Image Processing
 
-| Endpoint          | Method | Purpose                         |
-| ----------------- | ------ | ------------------------------- |
-| `/api/crop-image` | POST   | Proxy to RunPod for AI cropping |
+| Endpoint          | Method | Purpose                                      |
+| ----------------- | ------ | -------------------------------------------- |
+| `/api/crop-image` | POST   | Proxy to RunPod/FastAPI for AI cropping     |
+
+**Request:**
+```json
+{
+  "image": "base64-encoded-image"
+}
+```
+
+**Response:**
+```json
+{
+  "croppedImage": "base64-encoded-cropped-image"
+}
+```
 
 ### Memory Management
 
-| Endpoint           | Method | Purpose                           |
-| ------------------ | ------ | --------------------------------- |
-| `/api/create-snap` | POST   | Create new encrypted memory       |
-| `/api/upload`      | POST   | Upload encrypted image to storage |
-| `/api/snaps/[id]`  | GET    | Get specific memory metadata      |
-| `/api/snaps/[id]`  | DELETE | Delete memory (planned)           |
+| Endpoint              | Method | Purpose                            |
+| --------------------- | ------ | ---------------------------------- |
+| `/api/create-snap`    | POST   | Create new memory                  |
+| `/api/upload`         | POST   | Upload image (anonymous)           |
+| `/api/upload/authenticated` | POST | Upload image (authenticated) |
+| `/api/snaps/[id]`     | GET    | Get specific memory metadata       |
+| `/api/snaps/[id]`     | DELETE | Delete memory                      |
+
+### Gallery
+
+| Endpoint          | Method | Purpose                           |
+| ----------------- | ------ | --------------------------------- |
+| `/api/gallery`    | GET    | List all user's memories (paginated) |
+| `/api/gallery/[id]` | GET  | Get specific memory details       |
+| `/api/images/[id]` | GET   | Serve image with caching          |
+
+**Gallery list response:**
+```json
+{
+  "snaps": [
+    {
+      "id": "uuid",
+      "caption": "decrypted caption",
+      "created_at": "timestamp",
+      "delivered": boolean
+    }
+  ],
+  "hasMore": boolean,
+  "nextCursor": "string"
+}
+```
+
+### Scrapbook
+
+| Endpoint                                        | Method | Purpose                     |
+| ----------------------------------------------- | ------ | --------------------------- |
+| `/api/scrapbook/books`                          | GET    | List user's scrapbooks      |
+| `/api/scrapbook/books`                          | POST   | Create new scrapbook        |
+| `/api/scrapbook/books/[bookId]`                 | GET    | Get scrapbook details       |
+| `/api/scrapbook/books/[bookId]`                 | PUT    | Update scrapbook            |
+| `/api/scrapbook/books/[bookId]`                 | DELETE | Delete scrapbook            |
+| `/api/scrapbook/books/[bookId]/pages`           | GET    | List pages in scrapbook     |
+| `/api/scrapbook/books/[bookId]/pages`           | POST   | Create new page             |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | GET    | Get page details            |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | PUT    | Update page elements        |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | DELETE | Delete page                 |
+
+**Page elements structure:**
+```json
+{
+  "elements": [
+    {
+      "type": "image",
+      "id": "unique-id",
+      "src": "image-url",
+      "x": 100,
+      "y": 100,
+      "width": 200,
+      "height": 300,
+      "rotation": 0
+    },
+    {
+      "type": "text",
+      "id": "unique-id",
+      "content": "text content",
+      "x": 50,
+      "y": 50,
+      "fontSize": 16,
+      "color": "#000000"
+    },
+    {
+      "type": "sticker",
+      "id": "unique-id",
+      "stickerType": "cloud",
+      "x": 150,
+      "y": 200,
+      "width": 100,
+      "height": 100
+    }
+  ]
+}
+```
+
+**All authenticated endpoints:**
+- Require Clerk session token in cookie
+- Return 401 if unauthorized
+- Validate user ownership of resources
 
 ---
 
@@ -1706,47 +1853,57 @@ From `src/components/ui/shadcn-io/`:
 
 From `src/components/`:
 
-- **PeriodPicker** - Date/period selection
+- **PeriodPicker** - Date/period selection for memory scheduling
 - **DeliveryMethodPicker** - Email/Telegram selection
 - **ScrollReveal** - GSAP scroll animation wrapper
 - **ShinyText** - Animated gradient text
-
-### Auth Components
-
-From `src/components/auth/`:
-
-- **PasskeyAuth** - Passkey registration/login
-- **EmailPasswordAuth** - Email/password auth
-- **PasswordLinkingModal** - Add password to passkey account
-- **AuthGate** - Protected route wrapper
-- **AccountLinking** - Link auth methods
+- **Masonry** - Gallery masonry layout for photos
+- **Providers** - Global context providers (ClerkProvider, etc.)
 
 ---
 
 ## 13. State Management
 
-### Global State (React Context)
+### Authentication State (Clerk)
 
-**AuthProvider** (`src/hooks/useAuth.tsx`)
+Clerk handles authentication state globally:
 
-Manages authentication state:
-
-- User object
-- Session
-- Auth method
-- Encryption key status
-- Sign in/out functions
-
-**Usage:**
+**Client-side usage:**
 
 ```typescript
+"use client";
+import { useUser, useAuth } from "@clerk/nextjs";
+
 function MyComponent() {
-  const { user, hasEncryptionKey } = useAuth();
+  const { user, isLoaded, isSignedIn } = useUser();
+  const { signOut } = useAuth();
 
-  if (!user) return <SignIn />;
-  if (!hasEncryptionKey) return <SetupEncryption />;
+  if (!isLoaded) return <div>Loading...</div>;
+  if (!isSignedIn) return <SignInButton />;
 
-  return <App />;
+  return (
+    <div>
+      <p>Hello, {user.firstName}!</p>
+      <button onClick={() => signOut()}>Sign Out</button>
+    </div>
+  );
+}
+```
+
+**Server-side usage:**
+
+```typescript
+import { auth, currentUser } from "@clerk/nextjs/server";
+
+export async function GET() {
+  const { userId } = auth();
+  const user = await currentUser();
+
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  return Response.json({ userId, email: user?.emailAddresses[0]?.emailAddress });
 }
 ```
 
@@ -1788,20 +1945,38 @@ if (!result.success) {
 }
 ```
 
-### Session Storage
+### Client-Side Caching
 
-**Encryption Key:**
+**Gallery Cache** (`src/lib/gallery-cache.ts`):
 
 ```typescript
-sessionStorage.setItem("restrip_encryption_key", keyBase64);
-sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
+// Cache gallery images to avoid re-fetching
+const cache = new Map<string, { data: any; timestamp: number }>();
+
+export function getCachedData(key: string) {
+  const cached = cache.get(key);
+  if (!cached) return null;
+  
+  // Check if cache is still valid (5 minutes)
+  const age = Date.now() - cached.timestamp;
+  if (age > 5 * 60 * 1000) {
+    cache.delete(key);
+    return null;
+  }
+  
+  return cached.data;
+}
+
+export function setCachedData(key: string, data: any) {
+  cache.set(key, { data, timestamp: Date.now() });
+}
 ```
 
 **Benefits:**
 
-- Persists across page refreshes
-- Cleared on tab close
-- Not shared between tabs
+- Reduces API calls
+- Improves perceived performance
+- Automatic cache invalidation
 
 ---
 
