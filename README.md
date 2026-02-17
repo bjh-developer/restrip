@@ -265,7 +265,9 @@ ReStrip implements a **zero-knowledge encryption** architecture where the server
 ## 📁 Project Structure
 
 ```
-rereel/
+restrip/
+├── public/                        # Static assets (images, icons)
+│   └── hero.jpg                   # Landing page hero image (4:3 aspect ratio)
 ├── src/
 │   ├── app/                         # Next.js App Router
 │   │   ├── (auth)/                 # Auth route group (/)
