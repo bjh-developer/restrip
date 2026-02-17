@@ -111,6 +111,8 @@ Edit `.env.local` with your configuration values. The example file contains all 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
 | `ENCRYPTION_SECRET` | Yes | Server-side encryption key (generate with `openssl rand -base64 32`) |
+| `RESEND_API_KEY` | Yes | Resend API key for email delivery |
+| `RESEND_FROM_EMAIL` | Yes | From email address (e.g., `ReStrip Memories <memories@restrip.app>`) |
 | `CROP_BACKEND` | No | `local` or `runpod` (default: `runpod`) |
 | `LOCAL_CROP_URL` | No | Local FastAPI crop server URL |
 | `RUNPOD_API_KEY` | No | RunPod API key for AI cropping |
@@ -198,7 +200,7 @@ Sign Up (Clerk) → Upload Photo → Auto-Crop (optional) → Add Caption → Sc
 
 1. **Upload**: Image → Server receives → Server-side encryption → Supabase Storage
 2. **Store**: Encrypted metadata → Supabase Database (snaps table)
-3. **Deliver**: Cron job → Edge Function → Decrypt (server) → Email/Telegram
+3. **Deliver**: Email via Resend API (immediate) / Telegram via Edge Function (cron)
 4. **View**: Fetch data → Server decrypts → Display in gallery or scrapbook
 
 ---
@@ -253,6 +255,7 @@ graph TB
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Clerk OAuth
+- **Email Delivery**: Resend API
 - **External Services**: RunPod/FastAPI (AI processing)
 
 #### Security
@@ -1550,27 +1553,57 @@ torchvision>=0.15.0
 
 ---
 
-## 10. Supabase Edge Functions (Delivery System)
+## 10. Email & Telegram Delivery System
 
-ReStrip uses Supabase Edge Functions to handle scheduled memory delivery. These serverless functions run on Deno and are triggered by a cron job.
+ReStrip uses **Resend API** for immediate email delivery and **Supabase Edge Functions** for Telegram delivery and scheduled checks.
 
-### Edge Functions Overview
+### Email Delivery (Resend API)
+
+**Implementation:** `src/lib/resend.ts`
+
+Email delivery is now handled immediately via Resend API when a snap is created:
+
+1. User creates a snap via `/api/create-snap` or `/api/upload/authenticated`
+2. Server encrypts the image and caption
+3. Server immediately sends email via Resend API with decrypted content
+4. Email is delivered with the memory image as an attachment
+
+**Key Features:**
+- ✅ Immediate delivery (no cron job needed)
+- ✅ React Email templates (`src/components/emails/MemoryEmail.tsx`)
+- ✅ Image attachments supported
+- ✅ Reliable delivery via Resend infrastructure
+
+**Required Environment Variables:**
+- `RESEND_API_KEY` - Your Resend API key
+- `RESEND_FROM_EMAIL` - From email address (e.g., `memories@restrip.app`)
+
+**Manual Retry Endpoint:**
+
+```typescript
+// POST /api/send-memory
+// Body: { snapId: string }
+```
+
+Can be used to manually trigger or retry email delivery for a specific snap.
+
+### Supabase Edge Functions Overview
 
 | Function | Location | Purpose |
 |----------|----------|---------|
-| `restrip-memories` | `supabase/functions/restrip-memories/` | Main delivery function - sends due memories via email or Telegram |
+| `restrip-memories` | `supabase/functions/restrip-memories/` | Scheduled memory checks (legacy function, now primarily for Telegram) |
 | `telegram-bot` | `supabase/functions/telegram-bot/` | Webhook handler for Telegram bot interactions |
 
 ### Memory Delivery Function (`restrip-memories`)
 
 **File:** `supabase/functions/restrip-memories/index.ts`
 
-This function:
-1. Queries the database for memories that are due for delivery
-2. Downloads encrypted images from Supabase Storage
-3. Decrypts images using the server-side encryption key
-4. Sends memories via the user's chosen delivery method (email or Telegram)
-5. Updates delivery status in the database
+This function now primarily handles:
+1. Telegram delivery for scheduled memories
+2. Fallback checks for any memories that need delivery
+3. Updates delivery status in the database
+
+**Note:** Email delivery has been moved to Resend API for immediate delivery.
 
 **Deployment:**
 
@@ -1595,16 +1628,10 @@ supabase functions deploy restrip-memories
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (admin access) |
 | `ENCRYPTION_SECRET` | Server-side decryption key (base64-encoded AES-256 key) |
-| `GMAIL_USER` | Gmail address for sending emails |
-| `GMAIL_APP_PASSWORD` | Gmail app password (not your regular password) |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather |
+| `BASE_URL` | Your application URL |
 
-**Setting Up Gmail for Email Delivery:**
-
-1. Go to [Google Account Security](https://myaccount.google.com/security)
-2. Enable 2-Factor Authentication (required)
-3. Go to **App passwords** and generate a new app password
-4. Use this app password for `GMAIL_APP_PASSWORD`
+**Note:** Email delivery secrets (Gmail credentials) are no longer needed as email is handled by Resend API.
 
 **Cron Job Setup:**
 
@@ -1741,11 +1768,22 @@ Authentication is handled by **Clerk** - no custom authentication endpoints need
 
 | Endpoint              | Method | Purpose                            |
 | --------------------- | ------ | ---------------------------------- |
-| `/api/create-snap`    | POST   | Create new memory                  |
+| `/api/create-snap`    | POST   | Create new memory (triggers immediate email) |
 | `/api/upload`         | POST   | Upload image (anonymous)           |
-| `/api/upload/authenticated` | POST | Upload image (authenticated) |
+| `/api/upload/authenticated` | POST | Upload image (authenticated, triggers immediate email) |
 | `/api/snaps/[id]`     | GET    | Get specific memory metadata       |
 | `/api/snaps/[id]`     | DELETE | Delete memory                      |
+| `/api/send-memory`    | POST   | Manual email delivery/retry        |
+
+**Send Memory Endpoint:**
+
+```typescript
+// POST /api/send-memory
+// Body: { snapId: string }
+// Response: { success: boolean, emailId?: string }
+```
+
+Used to manually trigger or retry email delivery for a specific snap.
 
 ### Gallery
 

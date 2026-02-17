@@ -53,7 +53,7 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 - ✅ **Period Picker** — Surprise me / Custom period / Specific date
 - ✅ **Caption Input** — Add notes for your future self
 - ✅ **Delivery Method** — Email or Telegram
-- ✅ **Working Delivery** — Via Email or Telegram, triggered by a Cron job on Supabase, running Supabase's Edge Functions
+- ✅ **Working Delivery** — Email via Resend API (immediate delivery), Telegram via Supabase Edge Functions
 - ✅ **Gallery View** — Browse and view all your delivered memories with smart caching
 - ✅ **Scrapbook Feature** — Create digital photo albums with drag-and-drop layouts, stickers, and text
 - ✅ **Memory Viewing** — Secure view interface for delivered memories
@@ -641,7 +641,14 @@ You'll need accounts for the following services:
 3. Navigate to **Settings > API** to find your project URL and keys
 4. **Run database migrations** (see Step 5)
 
-#### C. Photo Strip Crop Backend (Optional - choose one)
+#### C. Resend (Required for Email Delivery)
+
+1. Create a free account at [resend.com](https://resend.com/)
+2. Navigate to **API Keys** to create a new API key
+3. Configure your sending domain or use Resend's testing domain
+4. Set the from email address (e.g., `memories@yourdomain.com`)
+
+#### D. Photo Strip Crop Backend (Optional - choose one)
 
 **Option 1: Local Crop Server (Recommended for Development)**
 
@@ -655,7 +662,7 @@ You'll need accounts for the following services:
 2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
 3. Get your API key and endpoint ID from the RunPod dashboard
 
-#### D. Turnstile CAPTCHA (Optional but Recommended)
+#### E. Turnstile CAPTCHA (Optional but Recommended)
 
 1. Create an account at [cloudflare.com](https://www.cloudflare.com/)
 2. Go to Turnstile in the dashboard
@@ -696,6 +703,10 @@ RUNPOD_ENDPOINT_ID=your-endpoint-id
 # Encryption (Required)
 # Generate with: openssl rand -base64 32
 ENCRYPTION_SECRET=your-generated-secret
+
+# Resend Email Delivery (Required for email delivery)
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL=ReStrip Memories <memories@restrip.app>
 
 # Turnstile CAPTCHA (Optional but Recommended)
 TURNSTILE_SECRET_KEY=your-turnstile-secret
@@ -755,54 +766,41 @@ FROM pg_tables
 WHERE tablename IN ('snaps', 'canvas_books', 'canvas_pages');
 ```
 
-### Step 6: Set Up Supabase Edge Functions (Optional - for Delivery System)
+### Step 6: Set Up Supabase Edge Functions (Optional - for Telegram Delivery)
 
-**Setting up Supabase Edge Functions for email/telegram functionality:**
+**Note:** Email delivery now uses Resend API (immediate delivery). Supabase Edge Functions are only needed for Telegram delivery and scheduled checks.
+
+**Setting up Supabase Edge Functions for Telegram functionality:**
 
 1. In your Supabase project, go to Edge Functions > Deploy a new function > Via Editor
-2. Replace the code inside with the code in supabase/functions/restrip-memories/index.ts (included in repo)
-3. Rename the function name to "restrip-memories"
+2. Replace the code inside with the code in supabase/functions/telegram-bot/index.ts (included in repo)
+3. Rename the function name to "telegram-bot"
 4. Click "deploy function"
-5. Repeat steps 1-4 but with supabase/functions/telegram-bot/index.ts (included in repo)
    - **TAKE NOTE: for telegram-bot function, make sure to toggle OFF "Verify JWT with legacy secret" after you've deployed the function.**
 
-**Configure Email Delivery (Optional):**
-
-6. Create a new Gmail account for ReStrip testing purposes
-7. Go to https://myaccount.google.com/apppasswords to create a Google App Password
-8. In your Supabase project, go to Authentication > Email (under notifications) > SMTP Settings
-9. Toggle on Enable Custom SMTP
-10. Fill in:
-    - Sender email address: (your Gmail address)
-    - Sender name: ReStrip
-    - Host: smtp.gmail.com
-    - Port number: 465
-    - Minimum interval per user: 5 seconds
-    - Username: (your Gmail address)
-    - Password: (your Google App Password)
+5. Repeat steps 1-4 but with supabase/functions/restrip-memories/index.ts (for scheduled memory checks)
+   - Rename the function name to "restrip-memories"
 
 **Configure Telegram Bot (Optional):**
 
-11. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
-12. Get your bot token and username
-13. Set webhook: `curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<FUNCTION_URL>/<BOT_TOKEN>"`
-14. Verify: `curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"`
+6. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
+7. Get your bot token and username
+8. Set webhook: `curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<FUNCTION_URL>/<BOT_TOKEN>"`
+9. Verify: `curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"`
 
 **Configure Edge Function Secrets:**
 
-15. In your Supabase project, go to Edge Functions > Secrets
-16. Add the following secrets:
-    - `GMAIL_USER` → (your Gmail address)
-    - `GMAIL_APP_PASSWORD` → (your Google App Password)
+10. In your Supabase project, go to Edge Functions > Secrets
+11. Add the following secrets:
     - `BASE_URL` → (your app URL, e.g., http://localhost:3000)
     - `TELEGRAM_BOT_TOKEN` → (your bot token)
     - `TELEGRAM_WEBHOOK_SECRET` → (generate with `openssl rand -hex 32`)
     - `ENCRYPTION_SECRET` → (use the same one from .env.local)
 
-**Set Up Cron Job:**
+**Set Up Cron Job (Optional - for scheduled memory checks):**
 
-17. In your Supabase project, go to Integrations > Cron > Install Cron
-18. Create a new job:
+12. In your Supabase project, go to Integrations > Cron > Install Cron
+13. Create a new job:
     - Name: restrip_memories
     - Schedule: `*/5 * * * *` (every 5 minutes)
     - Type: Supabase Edge Functions
