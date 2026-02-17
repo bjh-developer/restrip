@@ -39,7 +39,7 @@ ReStrip is a **time-delayed memory delivery platform** that allows users to uplo
 
 ### Key Features
 
-- 🔐 **Secure Storage**: Server-side AES-256-GCM encryption for data at rest
+- 🔐 **Server-Side Encryption**: Server-side AES-256-GCM encryption for data at rest
 - 🔑 **Modern Authentication**: Clerk OAuth (Google, email, and more)
 - 🖼️ **Gallery View**: Browse and organize all your delivered memories
 - 📚 **Scrapbook**: Create digital photo albums with drag-and-drop layouts
@@ -60,8 +60,8 @@ ReStrip prioritizes:
 
 ### Project Status
 
-**Version**: 2.0 (Clerk Migration)  
-**Status**: Active Development - Core features complete, new features added (Gallery, Scrapbook)
+**Version**: 2.0 (Production)  
+**Status**: Production - Core features complete, new features added (Gallery, Scrapbook)
 
 ---
 
@@ -1142,7 +1142,11 @@ Run the current migrations in order in your Supabase SQL Editor:
 
 **Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
 
-**Important:** Migration 011 creates all necessary core tables. Migrations 001-009 are legacy and not required.
+- **Migration 010**: Sets up gallery-specific RLS policies and indexes
+- **Migration 011**: Creates all core tables (snaps, storage buckets, RLS policies) for the Clerk-based system
+- **Migrations 012-015**: Add additional features (Telegram linking, Scrapbook)
+
+**Important:** All migrations (010-015) should be run in order. Migration 011 is the primary migration that creates the core tables.
 
 **Tables Created:**
 

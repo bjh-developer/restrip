@@ -727,7 +727,7 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 | 5 | `014_canvas_books.sql` | Creates scrapbook tables |
 | 6 | `015_rename_to_scrapbook.sql` | Renames canvas references to scrapbook |
 
-**Note:** Migration 011 creates all core tables (snaps, storage buckets, RLS policies). The older migrations (001-009) are for the legacy passkey system and are not needed. Migration file numbers start at 010 to maintain continuity with the project's migration history.
+**Note:** Migration 011 creates all core tables (snaps, storage buckets, RLS policies). Migration 010 adds gallery-specific enhancements. All migrations 010-015 should be run in order. The older migrations (001-009) are for the legacy passkey system and are not needed. Migration file numbers start at 010 to maintain continuity with the project's migration history.
 
 **Verification queries:**
 
