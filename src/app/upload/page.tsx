@@ -472,6 +472,7 @@ export default function UploadPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | undefined>();
 
   // -------------------------------------------------------------------------
   // Refs for scroll-to-error functionality
@@ -852,6 +853,13 @@ export default function UploadPage() {
       setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
+      
+      // Reset Turnstile widget to generate a new token for next submission
+      if (turnstileWidgetId && window.turnstile) {
+        console.log("Resetting Turnstile widget...");
+        window.turnstile.reset(turnstileWidgetId);
+        setTurnstileToken(null);
+      }
     }
   };
 
@@ -949,6 +957,7 @@ export default function UploadPage() {
           theme: "light",
         });
         console.log("Turnstile widget rendered with ID:", widgetId);
+        setTurnstileWidgetId(widgetId);
       }
     };
 
