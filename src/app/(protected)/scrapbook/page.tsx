@@ -14,7 +14,16 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, BookOpen, Pencil, X, Loader2, CheckCircle2, Circle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  BookOpen,
+  Pencil,
+  X,
+  Loader2,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import type { Book } from "../../../lib/scrapbook-types";
 import { COVER_COLORS } from "../../../lib/scrapbook-types";
 import {
@@ -23,6 +32,7 @@ import {
   deleteBookApi,
   updateBookApi,
 } from "../../../lib/scrapbook-api";
+import { Skeleton } from "../../../../components/ui/skeleton";
 
 // =============================================================================
 // Create / Edit Book Modal
@@ -89,7 +99,9 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
               type="button"
               onClick={() => setColor(c)}
               className={`w-8 h-8 rounded-full border-2 transition ${
-                color === c ? "border-soft-black scale-110" : "border-transparent"
+                color === c
+                  ? "border-soft-black scale-110"
+                  : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
             />
@@ -133,7 +145,7 @@ export default function CanvasPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
-  
+
   // Delete / selection mode
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -173,7 +185,11 @@ export default function CanvasPage() {
   const handleBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    if (!confirm(`Delete ${count} ${count === 1 ? "book" : "books"} and all their pages? This cannot be undone.`))
+    if (
+      !confirm(
+        `Delete ${count} ${count === 1 ? "book" : "books"} and all their pages? This cannot be undone.`,
+      )
+    )
       return;
 
     const ids = Array.from(selectedIds);
@@ -183,13 +199,13 @@ export default function CanvasPage() {
       ids.map(async (id) => {
         await deleteBookApi(id);
         return id;
-      })
+      }),
     );
 
     const deletedIds = new Set(
       results
         .filter((r) => r.status === "fulfilled")
-        .map((r) => (r as PromiseFulfilledResult<string>).value)
+        .map((r) => (r as PromiseFulfilledResult<string>).value),
     );
 
     const failedResults = results
@@ -200,13 +216,13 @@ export default function CanvasPage() {
 
     // Remove successfully deleted books
     setBooks((prev) => prev.filter((b) => !deletedIds.has(b.id)));
-    
+
     // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
-    
+
     // Clear deleting status
     setDeletingIds(new Set());
-    
+
     // Only exit select mode if all succeeded
     if (failedIds.size === 0) {
       setSelectMode(false);
@@ -216,7 +232,7 @@ export default function CanvasPage() {
     if (failedIds.size > 0) {
       alert(
         `Failed to delete ${failedIds.size} ${failedIds.size === 1 ? "book" : "books"}. ` +
-        `The failed items remain selected for retry.`
+          `The failed items remain selected for retry.`,
       );
     }
   }, [selectedIds]);
@@ -240,7 +256,8 @@ export default function CanvasPage() {
             My Scrapbooks
           </h1>
           <p className="text-sm text-grey mt-1">
-            Create books, add pages, and decorate with your photo strips &amp; stickers.
+            Create books, add pages, and decorate with your photo strips &amp;
+            stickers.
           </p>
         </div>
 
@@ -301,112 +318,119 @@ export default function CanvasPage() {
 
       {/* Books Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-grey animate-spin" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+          ))}
         </div>
       ) : (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {/* New Book Card */}
-        <button
-          type="button"
-          onClick={() => setModalOpen(true)}
-          className="group flex flex-col items-center justify-center aspect-[3/4] rounded-xl border-2 border-dashed border-mist-grey hover:border-blush-pink bg-white/50 hover:bg-blush-pink/5 transition-all duration-200"
-        >
-          <div className="w-12 h-12 rounded-full bg-mist-grey/50 group-hover:bg-blush-pink/20 flex items-center justify-center transition mb-2">
-            <Plus className="w-6 h-6 text-grey group-hover:text-soft-black transition" />
-          </div>
-          <span className="text-sm font-medium text-grey group-hover:text-soft-black transition">
-            New Book
-          </span>
-        </button>
-
-        {/* Existing Books */}
-        {books.map((book) => (
-          <div
-            key={book.id}
-            onClick={() => {
-              if (selectMode) {
-                toggleSelect(book.id);
-              } else {
-                router.push(`/scrapbook/${book.id}`);
-              }
-            }}
-            className="group relative flex flex-col aspect-[3/4] rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 cursor-pointer"
-            style={{ backgroundColor: book.coverColor }}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {/* New Book Card */}
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="group flex flex-col items-center justify-center aspect-[3/4] rounded-xl border-2 border-dashed border-mist-grey hover:border-blush-pink bg-white/50 hover:bg-blush-pink/5 transition-all duration-200"
           >
-            {/* Book decoration */}
-            <div className="flex-1 flex flex-col items-center justify-center p-4">
-              <BookOpen className="w-10 h-10 text-soft-black/30 mb-2" />
-              <h3 className="font-display text-sm font-bold text-soft-black text-center line-clamp-2">
-                {book.title}
-              </h3>
-              <p className="text-xs text-soft-black/50 mt-1">
-                {book.pages.length} {book.pages.length === 1 ? "page" : "pages"}
-              </p>
+            <div className="w-12 h-12 rounded-full bg-mist-grey/50 group-hover:bg-blush-pink/20 flex items-center justify-center transition mb-2">
+              <Plus className="w-6 h-6 text-grey group-hover:text-soft-black transition" />
             </div>
+            <span className="text-sm font-medium text-grey group-hover:text-soft-black transition">
+              New Book
+            </span>
+          </button>
 
-            {/* Spine decoration */}
+          {/* Existing Books */}
+          {books.map((book) => (
             <div
-              className="absolute left-0 top-0 bottom-0 w-3 opacity-20"
-              style={{
-                background: "linear-gradient(90deg, rgba(0,0,0,0.15) 0%, transparent 100%)",
+              key={book.id}
+              onClick={() => {
+                if (selectMode) {
+                  toggleSelect(book.id);
+                } else {
+                  router.push(`/scrapbook/${book.id}`);
+                }
               }}
-            />
-
-            {/* Edit button (desktop hover only) */}
-            {!selectMode && (
-              <div className="absolute top-2 right-2 opacity-0 sm:group-hover:opacity-100 transition">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingBook(book);
-                  }}
-                  className="p-1.5 rounded-lg bg-white/90 hover:bg-white shadow-sm transition"
-                >
-                  <Pencil className="w-3.5 h-3.5 text-soft-black" />
-                </button>
+              className="group relative flex flex-col aspect-[3/4] rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 cursor-pointer"
+              style={{ backgroundColor: book.coverColor }}
+            >
+              {/* Book decoration */}
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
+                <BookOpen className="w-10 h-10 text-soft-black/30 mb-2" />
+                <h3 className="font-display text-sm font-bold text-soft-black text-center line-clamp-2">
+                  {book.title}
+                </h3>
+                <p className="text-xs text-soft-black/50 mt-1">
+                  {book.pages.length}{" "}
+                  {book.pages.length === 1 ? "page" : "pages"}
+                </p>
               </div>
-            )}
 
-            {/* Selection checkmark (select mode) */}
-            {selectMode && (
-              <div className="absolute top-2 left-2 z-10">
-                {selectedIds.has(book.id) ? (
-                  <CheckCircle2 className="w-6 h-6 text-white drop-shadow-md" fill="rgba(59,130,246,0.9)" />
-                ) : (
-                  <Circle className="w-6 h-6 text-white/70 drop-shadow-md" />
+              {/* Spine decoration */}
+              <div
+                className="absolute left-0 top-0 bottom-0 w-3 opacity-20"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(0,0,0,0.15) 0%, transparent 100%)",
+                }}
+              />
+
+              {/* Edit button (desktop hover only) */}
+              {!selectMode && (
+                <div className="absolute top-2 right-2 opacity-0 sm:group-hover:opacity-100 transition">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingBook(book);
+                    }}
+                    className="p-1.5 rounded-lg bg-white/90 hover:bg-white shadow-sm transition"
+                  >
+                    <Pencil className="w-3.5 h-3.5 text-soft-black" />
+                  </button>
+                </div>
+              )}
+
+              {/* Selection checkmark (select mode) */}
+              {selectMode && (
+                <div className="absolute top-2 left-2 z-10">
+                  {selectedIds.has(book.id) ? (
+                    <CheckCircle2
+                      className="w-6 h-6 text-white drop-shadow-md"
+                      fill="rgba(59,130,246,0.9)"
+                    />
+                  ) : (
+                    <Circle className="w-6 h-6 text-white/70 drop-shadow-md" />
+                  )}
+                </div>
+              )}
+
+              {/* Deleting spinner overlay */}
+              {deletingIds.has(book.id) && (
+                <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-20">
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                </div>
+              )}
+
+              {/* Date footer */}
+              <div className="px-3 py-2 bg-white/40 backdrop-blur-sm text-xs text-soft-black/60 flex items-center justify-between">
+                <span>{new Date(book.updatedAt).toLocaleDateString()}</span>
+                {!selectMode && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingBook(book);
+                    }}
+                    className="sm:hidden p-1 rounded hover:bg-white/50 transition"
+                    aria-label="Edit book"
+                  >
+                    <Pencil className="w-3 h-3 text-soft-black" />
+                  </button>
                 )}
               </div>
-            )}
-
-            {/* Deleting spinner overlay */}
-            {deletingIds.has(book.id) && (
-              <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-20">
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              </div>
-            )}
-
-            {/* Date footer */}
-            <div className="px-3 py-2 bg-white/40 backdrop-blur-sm text-xs text-soft-black/60 flex items-center justify-between">
-              <span>{new Date(book.updatedAt).toLocaleDateString()}</span>
-              {!selectMode && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingBook(book);
-                  }}
-                  className="sm:hidden p-1 rounded hover:bg-white/50 transition"
-                  aria-label="Edit book"
-                >
-                  <Pencil className="w-3 h-3 text-soft-black" />
-                </button>
-              )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
       )}
 
       {/* Modals */}
@@ -419,7 +443,11 @@ export default function CanvasPage() {
         open={!!editingBook}
         onClose={() => setEditingBook(null)}
         onSave={handleUpdate}
-        initial={editingBook ? { title: editingBook.title, coverColor: editingBook.coverColor } : undefined}
+        initial={
+          editingBook
+            ? { title: editingBook.title, coverColor: editingBook.coverColor }
+            : undefined
+        }
       />
     </div>
   );
