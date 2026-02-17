@@ -22,12 +22,6 @@ export default function PrivacyPage() {
         "Your photos will never be used to train AI models. We don't feed our machine learning with your memories.",
     },
     {
-      icon: Trash2,
-      title: "Temporary storage",
-      description:
-        "We only store your photo long enough to send your future surprise email. After that, it's gone.",
-    },
-    {
       icon: Shield,
       title: "No selling",
       description:
@@ -101,30 +95,6 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          {/* How Long We Keep It */}
-          <section>
-            <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
-              How long we keep it
-            </h2>
-            <div className="bg-warm-beige p-4 rounded-lg border border-mist-grey">
-              <p className="font-body text-soft-black font-semibold mb-2">
-                Your photo:
-              </p>
-              <p className="font-body text-grey mb-4">
-                Stored only until we send your email. After delivery, your photo
-                is permanently deleted.
-              </p>
-
-              <p className="font-body text-soft-black font-semibold mb-2">
-                Your email & caption:
-              </p>
-              <p className="font-body text-grey mb-4">
-                We keep minimal records for email delivery. You can request
-                deletion anytime.
-              </p>
-            </div>
-          </section>
-
           {/* Your Rights */}
           <section>
             <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
@@ -139,10 +109,6 @@ export default function PrivacyPage() {
               <li>
                 <strong>Request what we have</strong> — We'll send you all data
                 we store on you
-              </li>
-              <li>
-                <strong>Cancel a scheduled email</strong> — We'll delete it and
-                the photo
               </li>
             </ul>
           </section>
@@ -162,18 +128,6 @@ export default function PrivacyPage() {
               Contact Page
             </a>
           </section>
-        </div>
-
-        {/* TL;DR Box */}
-        <div className="mt-12 bg-pastel-blue bg-opacity-30 rounded-lg p-8 border-l-4 border-blush-pink">
-          <h3 className="font-display text-xl font-bold text-soft-black mb-3">
-            TL;DR
-          </h3>
-          <p className="font-body text-soft-black">
-            Your photos are yours. We don't sell them. We don't train AI on
-            them. We only store them long enough to send your surprise email.
-            That's our entire privacy policy.
-          </p>
         </div>
 
         {/* Last Updated */}
