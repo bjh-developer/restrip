@@ -179,9 +179,7 @@ export default function LandingPage() {
                     backgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                   }}> to you.</span>
-                  {/* Decorative underline - hidden on mobile */}
-                  <span className="absolute -bottom-1 left-0 w-full h-2 -rotate-1 -z-10 hidden sm:block" style={{ background: 'rgba(255, 201, 209, 0.3)' }} />
-                </span>
+                                  </span>
                 {/* Film grain texture overlay - behind text shadows */}
                 <span className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay" style={{
                   zIndex: -1,
