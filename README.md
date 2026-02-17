@@ -706,7 +706,7 @@ ENCRYPTION_SECRET=your-generated-secret
 
 # Resend Email Delivery (Required for email delivery)
 RESEND_API_KEY=your-resend-api-key
-RESEND_FROM_EMAIL=ReStrip Memories <memories@restrip.app>
+RESEND_FROM_EMAIL="ReStrip Memories <memories@restrip.app>"
 
 # Turnstile CAPTCHA (Optional but Recommended)
 TURNSTILE_SECRET_KEY=your-turnstile-secret
