@@ -226,11 +226,12 @@ serve(async (req) => {
     const MAX_MEMORIES_TO_SEND = 50;
 
     // Get photo strips that are due to be sent
-    // Include NULL delivery_status (for snaps created before column existed)
-    // NOTE: send_time filter disabled for beta testing — sends all pending snaps immediately
+    // Only fetch TELEGRAM snaps — email delivery is now handled by Next.js API
+    // route (/api/send-memory) using Resend SDK, triggered at snap creation time.
     const { data: dueStrips, error } = await supabase
       .from("snaps")
       .select("*")
+      .eq("delivery_method", "telegram")
       .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
       // .lte("send_time", now)  // TODO: Re-enable after beta testing
       .limit(MAX_MEMORIES_TO_SEND); // Rate limiting

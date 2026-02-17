@@ -702,7 +702,7 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-2">
               How to deliver
             </label>
-            <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} />
+            <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} hideEmailInput />
             {deliveryMethod === "email" && (
               <p className="mt-2 text-xs text-grey flex items-center gap-1">
                 Will be sent to: {user?.primaryEmailAddress?.emailAddress}

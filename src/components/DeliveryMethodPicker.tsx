@@ -40,6 +40,12 @@ interface DeliveryMethodPickerProps {
    * Used for form validation feedback.
    */
   error?: boolean;
+
+  /**
+   * When true, the email input field is hidden.
+   * Useful for authenticated pages where the user's email is already known.
+   */
+  hideEmailInput?: boolean;
 }
 
 /** Configuration for a delivery method option */
@@ -84,7 +90,7 @@ const DELIVERY_METHODS: readonly DeliveryMethodConfig[] = [
  * ```
  */
 export const DeliveryMethodPicker = React.memo(
-  ({ onSelect, error }: DeliveryMethodPickerProps) => {
+  ({ onSelect, error, hideEmailInput }: DeliveryMethodPickerProps) => {
     const [selected, setSelected] = useState<DeliveryMethod>("email");
     const [emailInput, setEmailInput] = useState<string>("");
 
@@ -144,6 +150,17 @@ export const DeliveryMethodPicker = React.memo(
 
         {/* Conditional Input Fields */}
         <div className="mt-4">
+          {/* Email Input */}
+          {selected === "email" && !hideEmailInput && (
+            <Input
+              type="email"
+              placeholder="Enter your email address"
+              value={emailInput}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              className={error ? "border-red-500" : ""}
+            />
+          )}
+
           {/* Telegram Info Box */}
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
