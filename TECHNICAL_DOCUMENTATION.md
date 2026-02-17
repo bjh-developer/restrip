@@ -35,12 +35,14 @@ This document provides comprehensive technical documentation for the ReStrip pro
 
 ### What is ReStrip?
 
-ReStrip is a **time-delayed memory delivery platform** that allows users to upload photo strips today and receive them back months later via email. The platform implements **zero-knowledge encryption**, meaning even the server cannot decrypt users' photos.
+ReStrip is a **time-delayed memory delivery platform** that allows users to upload photo strips today and receive them back months later via email or Telegram. The platform implements **server-side encryption** for secure data storage and uses **Clerk** for modern OAuth authentication.
 
 ### Key Features
 
-- 🔐 **Zero-Knowledge Encryption**: Photos encrypted client-side before upload
-- 🔑 **Modern Authentication**: Passkey (biometric) and password options
+- 🔐 **Secure Storage**: Server-side AES-256-GCM encryption for data at rest
+- 🔑 **Modern Authentication**: Clerk OAuth (Google, email, and more)
+- 🖼️ **Gallery View**: Browse and organize all your delivered memories
+- 📚 **Scrapbook**: Create digital photo albums with drag-and-drop layouts
 - 🤖 **AI Auto-Crop**: YOLO11-powered photo strip detection
 - 📅 **Flexible Scheduling**: Random surprise, custom period, or specific date
 - 🎨 **Beautiful UX**: Smooth animations and responsive design
@@ -50,16 +52,16 @@ ReStrip is a **time-delayed memory delivery platform** that allows users to uplo
 
 ReStrip prioritizes:
 
-1. **Privacy**: User data is sacred and encrypted
-2. **Security**: Modern standards (WebAuthn, AES-256-GCM)
+1. **Privacy**: User data is secured with encryption at rest
+2. **Security**: Modern standards (OAuth 2.0, AES-256-GCM)
 3. **User Experience**: Simple, delightful interactions
 4. **Developer Experience**: Clean code, TypeScript, modern tooling
 5. **Performance**: Fast, responsive, optimized
 
 ### Project Status
 
-**Version**: 1.0 (MVP)  
-**Status**: Finished - Core features and integration complete
+**Version**: 2.0 (Clerk Migration)  
+**Status**: Active Development - Core features complete, new features added (Gallery, Scrapbook)
 
 ---
 
@@ -70,7 +72,8 @@ ReStrip prioritizes:
 - **Node.js**: v18.0.0 or higher ([Download](https://nodejs.org/))
 - **npm**: v9.0.0 or higher (comes with Node.js)
 - **Git**: For version control
-- **Supabase Account**: For database and auth ([Sign up](https://supabase.com/))
+- **Clerk Account**: For authentication ([Sign up](https://clerk.com/))
+- **Supabase Account**: For database and storage ([Sign up](https://supabase.com/))
 - **RunPod Account** (optional): For AI image processing
 
 ### Installation Steps
@@ -102,33 +105,35 @@ Edit `.env.local` with your configuration values. The example file contains all 
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Yes | Clerk secret key (server-side only) |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
-| `RUNPOD_API_KEY` | Optional | RunPod API key for AI cropping |
-| `RUNPOD_ENDPOINT_ID` | Optional | RunPod endpoint ID |
-| `NEXT_PUBLIC_APP_URL` | Yes | Your application URL |
-| `ENCRYPTION_SECRET` | Optional | Server-side encryption key for delivery |
+| `ENCRYPTION_SECRET` | Yes | Server-side encryption key (generate with `openssl rand -base64 32`) |
+| `CROP_BACKEND` | No | `local` or `runpod` (default: `runpod`) |
+| `LOCAL_CROP_URL` | No | Local FastAPI crop server URL |
+| `RUNPOD_API_KEY` | No | RunPod API key for AI cropping |
+| `RUNPOD_ENDPOINT_ID` | No | RunPod endpoint ID |
+| `TURNSTILE_SECRET_KEY` | No | Cloudflare Turnstile secret key |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | No | Cloudflare Turnstile site key |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token |
+| `TELEGRAM_WEBHOOK_SECRET` | No | Telegram webhook secret |
 
 #### 4. Supabase Setup
 
 **Run Database Migrations:**
 
-Apply all migrations from `supabase/migrations/` in order in your Supabase SQL Editor:
+Apply migrations from `supabase/migrations/` in order in your Supabase SQL Editor:
 
-1. **001_passkey_auth.sql** - Core tables (passkey_credentials, snaps, webauthn_challenges, storage bucket, RLS policies)
-2. **002_add_prf_salt_to_credentials.sql** - Add salt column to passkey_credentials for WebAuthn isolation
-3. **003_delivery_status.sql** - Add delivery status tracking columns
-4. **004_check_user_exists_rpc.sql** - RPC function to check if user exists by email
-5. **005_rpc_get_account_type.sql** - RPC function for efficient account type lookup
-6. **006_consolidate_snap_image_urls.sql** - Consolidate image URL columns into storage_path
-7. **007_add_image_iv_to_snaps.sql** - Add image_iv column for decryption
-8. **008_telegram_bot_integration.sql** - Add telegram_chat_id column
-9. **009_add_key_wrapping.sql** - Add key wrapping support for cross-compatible authentication
+10. **010_gallery_rls_indexes.sql** - Gallery RLS policies and indexes
+11. **011_clerk_migration.sql** - Clerk authentication migration (core tables and policies)
+12. **012_ensure_encryption_columns.sql** - Ensure encryption columns exist
+13. **013_telegram_link_token.sql** - Telegram link token support
+14. **014_canvas_books.sql** - Scrapbook tables (canvas_books, canvas_pages)
+15. **015_rename_to_scrapbook.sql** - Rename canvas to scrapbook
 
-**Quick Setup:**
-
-Copy the migration files from `supabase/migrations/` into your Supabase project, or run each SQL file content in the SQL Editor sequentially.
+**Note:** Migration 011 creates all core tables needed for the current system. Migrations 001-009 are legacy migrations for the old passkey authentication system and are not needed.
 
 **Verification:**
 
@@ -136,13 +141,19 @@ After running migrations, verify with:
 
 ```sql
 -- Check tables exist
-SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';
+SELECT table_name FROM information_schema.tables 
+WHERE table_schema = 'public' 
+AND table_name IN ('snaps', 'canvas_books', 'canvas_pages');
 
--- Check passkey_credentials has all columns
-SELECT column_name FROM information_schema.columns WHERE table_name = 'passkey_credentials';
+-- Check snaps table structure
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'snaps';
 
--- Verify RLS is enabled on main tables
-SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('passkey_credentials', 'snaps');
+-- Verify RLS is enabled
+SELECT schemaname, tablename, rowsecurity 
+FROM pg_tables 
+WHERE tablename IN ('snaps', 'canvas_books', 'canvas_pages');
 ```
 
 #### 5. Run Development Server
@@ -167,34 +178,28 @@ Here's a quick mental map of how everything connects:
 
 **User Journey:**
 ```
-Sign Up → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt → Store → [Time Passes] → Deliver → Decrypt & View
+Sign Up (Clerk) → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt (server) → Store → [Time Passes] → Deliver → View
 ```
 
 **Key Files to Understand First:**
 
-Current version without authentication
-| File | Purpose | Priority |
-|------|---------|----------|
-| `src/app/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
-| `middleware.ts` | Route protection | ⭐⭐ |
-| `runpod/handler.py` | AI image cropping | ⭐ |
-
-Version with authentication
 | File | Purpose | Priority |
 |------|---------|----------|
 | `src/app/(protected)/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
-| `src/hooks/useAuth.tsx` | Authentication state management | ⭐⭐⭐ |
-| `src/lib/encryption.ts` | All encryption/decryption logic | ⭐⭐⭐ |
-| `src/app/api/auth/passkey/*` | WebAuthn server endpoints | ⭐⭐ |
-| `middleware.ts` | Route protection | ⭐⭐ |
+| `src/app/(protected)/gallery/page.tsx` | Gallery view for browsing memories | ⭐⭐⭐ |
+| `src/app/(protected)/scrapbook/[bookId]/page.tsx` | Scrapbook editor with drag-and-drop | ⭐⭐⭐ |
+| `src/proxy.ts` | Clerk middleware for route protection | ⭐⭐ |
+| `src/lib/simple-encryption.ts` | Server-side encryption utilities | ⭐⭐ |
+| `src/lib/rate-limit.ts` | API rate limiting | ⭐⭐ |
+| `src/lib/scrapbook-api.ts` | Scrapbook API client | ⭐⭐ |
 | `runpod/handler.py` | AI image cropping | ⭐ |
 
 **Data Flow Summary:**
 
-1. **Upload**: Image → Client-side encryption → Supabase Storage
+1. **Upload**: Image → Server receives → Server-side encryption → Supabase Storage
 2. **Store**: Encrypted metadata → Supabase Database (snaps table)
-3. **Deliver**: Cron job → Edge Function → Decrypt → Email/Telegram
-4. **View**: Fetch encrypted data → Client-side decryption → Display
+3. **Deliver**: Cron job → Edge Function → Decrypt (server) → Email/Telegram
+4. **View**: Fetch data → Server decrypts → Display in gallery or scrapbook
 
 ---
 
@@ -206,28 +211,31 @@ Version with authentication
 graph TB
     subgraph Client["CLIENT (Browser)"]
         UI["React UI<br/>Components"]
-        Auth["Auth Context<br/>(hooks)"]
-        Encrypt["Encryption<br/>Layer"]
-        UI --> Auth
-        Auth --> Encrypt
+        ClerkUI["Clerk Auth<br/>Components"]
+        Cache["Client Cache<br/>(Gallery)"]
+        UI --> ClerkUI
+        UI --> Cache
     end
 
     subgraph Server["NEXT.JS SERVER (Vercel)"]
         API["API Routes<br/>(/api/*)"]
-        Middleware["Middleware<br/>(Auth Gate)"]
+        Middleware["Clerk Middleware<br/>(Auth Gate)"]
+        Encrypt["Server Encryption<br/>Layer"]
         SSR["SSR Pages<br/>(Rendering)"]
+        Middleware --> API
+        API --> Encrypt
     end
 
     subgraph External["External Services"]
-        Supabase["Supabase<br/>Database + Auth"]
-        RunPod["RunPod<br/>Serverless (YOLO AI)"]
-        Storage["Storage<br/>(Future)"]
+        Clerk["Clerk<br/>Authentication"]
+        Supabase["Supabase<br/>Database + Storage"]
+        RunPod["RunPod/FastAPI<br/>YOLO AI Cropping"]
     end
 
     Client -->|HTTPS| Server
+    Server --> Clerk
     Server --> Supabase
     Server --> RunPod
-    Server --> Storage
 ```
 
 ### Technology Stack Layers
@@ -244,14 +252,15 @@ graph TB
 
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth + SimpleWebAuthn
-- **External Services**: RunPod (AI processing)
+- **Authentication**: Clerk OAuth
+- **External Services**: RunPod/FastAPI (AI processing)
 
 #### Security
 
-- **Encryption**: Web Crypto API (AES-256-GCM)
-- **Key Derivation**: HKDF (passkey) + PBKDF2 (password)
-- **Authentication**: WebAuthn/FIDO2 + Email/Password
+- **Encryption**: Web Crypto API (AES-256-GCM, server-side)
+- **Authentication**: OAuth 2.0 via Clerk
+- **Rate Limiting**: Custom rate limiter
+- **CAPTCHA**: Turnstile protection on uploads
 
 ### Request Flow Example
 
@@ -263,35 +272,42 @@ graph TB
 sequenceDiagram
     actor User
     participant Client as Client Browser
+    participant Clerk as Clerk Auth
     participant Server as Next.js API
-    participant RunPod as RunPod AI
+    participant AI as AI Crop Service
     participant Supabase as Supabase DB
 
-    User->>Client: 1. Select image in dropzone
-    Client->>Client: 2. Convert image to base64
-    Client->>Server: 3. POST /api/crop-image<br/>(base64 image)
-    Server->>RunPod: 4. Forward image for AI processing
-    RunPod->>RunPod: 5. YOLO11 detects & crops photo strip
-    RunPod-->>Server: 6. Return cropped image (base64)
-    Server-->>Client: 7. Return cropped image
-    Client->>Client: 8. Cache cropped image
+    User->>Client: 1. Authenticate with Clerk
+    Client->>Clerk: 2. OAuth flow
+    Clerk-->>Client: 3. Session token
 
-    User->>Client: 9. Fill form & click submit
-    Client->>Client: 10. Derive encryption key<br/>(passkey/password)
-    Client->>Client: 11. Encrypt image + caption<br/>(AES-256-GCM)
-    Client->>Server: 12. POST encrypted data
-    Server->>Supabase: 13. Store encrypted snap
-    Supabase-->>Server: 14. Confirm storage
-    Server->>Server: 15. Schedule delivery job
-    Server-->>Client: 16. Success response
-    Client-->>User: 17. Show success message
+    User->>Client: 4. Select image in dropzone
+    Client->>Client: 5. Convert image to base64
+    Client->>Server: 6. POST /api/crop-image<br/>(with session token)
+    Server->>Clerk: 7. Verify session token
+    Clerk-->>Server: 8. Token valid
+    Server->>AI: 9. Forward image for AI processing
+    AI->>AI: 10. YOLO11 detects & crops photo strip
+    AI-->>Server: 11. Return cropped image (base64)
+    Server-->>Client: 12. Return cropped image
+    Client->>Client: 13. Cache cropped image
+
+    User->>Client: 14. Fill form & click submit
+    Client->>Server: 15. POST /api/create-snap<br/>(with session token)
+    Server->>Clerk: 16. Verify session & get user ID
+    Server->>Server: 17. Encrypt image + caption<br/>(AES-256-GCM)
+    Server->>Supabase: 18. Store encrypted snap
+    Supabase-->>Server: 19. Confirm storage
+    Server->>Server: 20. Schedule delivery job
+    Server-->>Client: 21. Success response
+    Client-->>User: 22. Show success message
 ```
 
 **Key Steps:**
 
-- **Steps 1-7**: Image upload and AI auto-crop
-- **Steps 8-11**: Client-side encryption (zero-knowledge)
-- **Steps 12-17**: Secure storage and scheduling
+- **Steps 1-3**: Clerk authentication
+- **Steps 4-13**: Image upload and AI auto-crop
+- **Steps 14-22**: Server-side encryption and secure storage
 
 ### Memory Viewing Flow
 
@@ -301,45 +317,39 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Client as Client Browser
+    participant Clerk as Clerk Auth
     participant Server as Next.js API
     participant Supabase as Supabase DB/Storage
 
     User->>Client: 1. Click link in delivery email
-    Client->>Client: 2. Check if authenticated
+    Client->>Clerk: 2. Check authentication status
     
-    alt Not authenticated or key expired
-        Client->>User: 3. Redirect to /memory/[id]/auth
-        User->>Client: 4. Authenticate (passkey/password)
-        Client->>Client: 5. Derive KEK from auth method
-        Client->>Server: 6. Fetch wrapped master key
-        Server->>Supabase: 7. Query passkey_credentials or user_metadata
-        Supabase-->>Server: 8. Return wrapped key
-        Server-->>Client: 9. Return wrapped key
-        Client->>Client: 10. Unwrap master key with KEK
-        Client->>Client: 11. Store master key in sessionStorage
+    alt Not authenticated
+        Clerk->>Client: 3. Redirect to sign-in
+        User->>Clerk: 4. Authenticate via OAuth
+        Clerk-->>Client: 5. Session established
     end
 
-    Client->>Server: 12. GET /api/snaps/[id]
-    Server->>Supabase: 13. Query snaps table
-    Supabase-->>Server: 14. Return snap metadata
-    Server-->>Client: 15. Return encrypted metadata
-
-    Client->>Server: 16. Download encrypted image
-    Server->>Supabase: 17. storage.download(storage_path)
-    Supabase-->>Server: 18. Return encrypted image blob
-    Server-->>Client: 19. Return encrypted image
-
-    Client->>Client: 20. Decrypt image with master key + IV
-    Client->>Client: 21. Decrypt caption with master key + IV
-    Client-->>User: 22. Display decrypted memory
+    Client->>Server: 6. GET /api/gallery/[id]<br/>(with session token)
+    Server->>Clerk: 7. Verify session & get user ID
+    Server->>Supabase: 8. Query snaps table (user_id match)
+    Supabase-->>Server: 9. Return snap metadata
+    
+    Server->>Server: 10. Decrypt caption with server key
+    Server->>Supabase: 11. storage.download(storage_path)
+    Supabase-->>Server: 12. Return encrypted image blob
+    Server->>Server: 13. Decrypt image with server key + IV
+    
+    Server-->>Client: 14. Return decrypted data
+    Client-->>User: 15. Display memory in gallery
 ```
 
 **Key Steps:**
 
-- **Steps 1-11**: Authentication and key unwrapping (if needed)
-- **Steps 12-15**: Fetch encrypted snap metadata
-- **Steps 16-19**: Download encrypted image from storage
-- **Steps 20-22**: Client-side decryption and display
+- **Steps 1-5**: Clerk authentication (if needed)
+- **Steps 6-9**: Fetch snap metadata with auth verification
+- **Steps 10-13**: Server-side decryption
+- **Steps 14-15**: Display in gallery or scrapbook
 
 ---
 
@@ -833,389 +843,279 @@ export const config = {
 
 ## 6. Authentication System
 
-> **⚠️ Current Status:** Authentication is not currently required. Users can access the upload flow directly without signing in. Authentication features (passkey and email/password) are implemented but disabled for the current release. This section documents the authentication architecture for future reference.
-
 ### Overview
 
-ReStrip supports two authentication methods:
+ReStrip uses **Clerk** for authentication, providing a modern OAuth-based authentication system with support for multiple providers and secure session management.
 
-1. **Passkey (WebAuthn)** - Biometric authentication
-2. **Email/Password** - Traditional authentication
+### Clerk Authentication
 
-Both can be linked to the same account for redundancy.
+**Supported Methods:**
 
-### Passkey Authentication (WebAuthn)
+1. **Google OAuth** - Sign in with Google account
+2. **Email/Password** - Traditional email and password authentication
+3. **Other OAuth Providers** - Configurable in Clerk dashboard (GitHub, Discord, etc.)
 
 **How it works:**
 
-1. **Registration:**
-   - User provides email
-   - Supabase sends verification email
-   - User clicks verification link in email
-   - Server generates WebAuthn challenge
-   - Browser prompts for biometric (Face ID, fingerprint)
-   - Device creates cryptographic key pair
-   - Public key sent to server, private key stays on device
-   - PRF extension derives encryption key
-
-2. **Login:**
-   - User initiates login
-   - Server generates challenge
-   - Browser prompts for biometric
-   - Device signs challenge with private key
-   - Server verifies signature
-   - PRF generates same encryption key
+1. **Sign Up/Sign In:**
+   - User clicks "Sign In" button
+   - Clerk modal appears with authentication options
+   - User selects their preferred method (Google, email, etc.)
+   - Clerk handles the OAuth flow or credential verification
+   - Session token issued and stored in secure HTTP-only cookie
+   
+2. **Session Management:**
+   - Sessions automatically refreshed by Clerk
+   - Token verified on every API request
+   - `auth()` helper from `@clerk/nextjs/server` provides user ID
+   
+3. **Route Protection:**
+   - Clerk middleware (`src/proxy.ts`) protects routes
+   - Unauthorized users redirected to sign-in page
+   - Public routes explicitly allowed
 
 **Benefits:**
 
-- ✅ Phishing-resistant
-- ✅ No passwords to remember
-- ✅ Hardware-backed security
-- ✅ Fast and convenient
+- ✅ Modern OAuth 2.0 security
+- ✅ Built-in rate limiting and bot protection
+- ✅ No password management complexity
+- ✅ Social login support
+- ✅ Automatic token refresh
+- ✅ Easy user management dashboard
 
-**Browser Support:**
+### Implementation Details
 
-- Chrome/Edge 67+
-- Safari 16+
-- Firefox 119+
-
-### Email/Password Authentication
-
-**How it works:**
-
-1. **Sign Up:**
-   - User provides email and password
-   - Supabase sends verification email
-   - User clicks verification link in email
-   - Encryption key derived from password using PBKDF2
-
-2. **Sign In:**
-   - User enters email and password
-   - Supabase verifies credentials
-   - Encryption key derived from password
-
-**Key Derivation:**
+**Clerk Middleware (`src/proxy.ts`):**
 
 ```typescript
-async function deriveKeyFromPassword(password: string, salt: Uint8Array) {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  );
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt,
-      iterations: 600000, // OWASP 2024 recommendation
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"],
-  );
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/upload(.*)",
+]);
 
-  return key;
+export default clerkMiddleware((auth, request) => {
+  if (!isPublicRoute(request)) {
+    auth().protect();
+  }
+});
+
+export const config = {
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+};
+```
+
+**API Route Authentication:**
+
+```typescript
+import { auth } from "@clerk/nextjs/server";
+
+export async function POST(request: Request) {
+  const { userId } = auth();
+  
+  if (!userId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  // Use userId to query/store data
+  const snaps = await supabase
+    .from("snaps")
+    .select("*")
+    .eq("user_id", userId);
+    
+  return Response.json(snaps);
 }
 ```
 
-### Account Linking
-
-Users can add both authentication methods to one account:
-
-**Scenarios:**
-
-- Passkey user adds password backup
-- Password user upgrades to passkey
-
-**Implementation:**
+**Client-Side User Access:**
 
 ```typescript
-// Add password to passkey account
-await supabase.auth.updateUser({ password: newPassword });
+"use client";
+import { useUser } from "@clerk/nextjs";
 
-// Add passkey to password account
-// Use passkey registration flow (auto-links to existing user)
+export function UserProfile() {
+  const { user, isLoaded, isSignedIn } = useUser();
+  
+  if (!isLoaded) return <div>Loading...</div>;
+  if (!isSignedIn) return <div>Sign in required</div>;
+  
+  return <div>Hello, {user.firstName}!</div>;
+}
 ```
+
+### Migration from Passkey System
+
+The current codebase has migrated from a passkey/WebAuthn authentication system to Clerk. Key changes:
+
+- ❌ Removed: `passkey_credentials` table
+- ❌ Removed: `webauthn_challenges` table  
+- ❌ Removed: WebAuthn API endpoints (`/api/auth/passkey/*`)
+- ❌ Removed: Client-side authentication hooks (`useAuth`, `usePasskeySupport`)
+- ❌ Removed: Account linking system
+- ✅ Added: Clerk middleware for route protection
+- ✅ Updated: User ID changed from UUID to TEXT (Clerk user IDs)
+- ✅ Simplified: RLS policies now use service role (API handles auth)
 
 ---
 
 ## 7. Encryption System
 
-### Zero-Knowledge Encryption
+### Server-Side Encryption
 
-**What it means:**
+**Overview:**
 
-- Data encrypted on client before upload
-- Encryption key never leaves user's device
-- Server cannot decrypt data
-- True privacy by design
+ReStrip uses **server-side encryption** to protect user data at rest. Unlike the previous zero-knowledge approach, the server now manages encryption keys and handles encryption/decryption operations.
+
+**Why the change:**
+
+- Clerk authentication eliminates the need for client-side key management
+- Simplified architecture and better user experience
+- Server can safely manage encryption keys
+- Enables features like server-side image processing and caching
 
 ### Encryption Flow
 
 ```mermaid
 graph LR
-    A["User Data"] --> B["Encryption Key<br/>Derivation"]
-    B --> C["AES-256-GCM<br/>Encryption"]
-    C --> D["Upload to<br/>Server"]
-    D --> E["Server Storage<br/>(Encrypted at Rest)"]
-
+    A["User Data"] --> B["Upload to<br/>Server"]
+    B --> C["Server Encryption<br/>(AES-256-GCM)"]
+    C --> D["Supabase Storage<br/>(Encrypted at Rest)"]
+    
     style A fill:#fff2c9
     style B fill:#cfe7ff
     style C fill:#ffc9d1
-    style D fill:#f3e8d8
-    style E fill:#ebebeb
+    style D fill:#ebebeb
 ```
-
-### Key Derivation
-
-**From Passkey (PRF):**
-
-```typescript
-async function deriveKeyFromPRF(prfOutput: ArrayBuffer): Promise<CryptoKey> {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    prfOutput,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "HKDF",
-      hash: "SHA-256",
-      salt: new TextEncoder().encode("restrip-encryption-v1"),
-      info: new TextEncoder().encode("image-encryption"),
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"],
-  );
-
-  return key;
-}
-```
-
-**From Password (PBKDF2):**
-
-Uses 600,000 iterations (OWASP 2024 recommendation).
 
 ### Encryption Implementation
 
-**Encrypt Data:**
+**Key Management:**
+
+- Single server-side encryption key stored in `ENCRYPTION_SECRET` environment variable
+- Key should be generated using: `openssl rand -base64 32`
+- Key never exposed to client
+- Key rotations require re-encryption of existing data
+
+**Encrypt Data (`src/lib/simple-encryption.ts`):**
 
 ```typescript
-async function encryptData(data: ArrayBuffer, key: CryptoKey) {
-  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96 bits for AES-GCM
+import crypto from "crypto";
 
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    data,
-  );
+const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 12; // 96 bits for AES-GCM
 
+export function encrypt(text: string): { encrypted: string; iv: string } {
+  const key = Buffer.from(process.env.ENCRYPTION_SECRET!, "base64");
+  const iv = crypto.randomBytes(IV_LENGTH);
+  
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  let encrypted = cipher.update(text, "utf8", "base64");
+  encrypted += cipher.final("base64");
+  
+  const authTag = cipher.getAuthTag();
+  
   return {
-    encrypted: arrayBufferToBase64(encrypted),
-    iv: arrayBufferToBase64(iv.buffer),
+    encrypted: encrypted + authTag.toString("base64"),
+    iv: iv.toString("base64"),
   };
 }
-```
 
-**Decrypt Data:**
-
-```typescript
-async function decryptData(
-  encryptedBase64: string,
-  ivBase64: string,
-  key: CryptoKey,
-): Promise<ArrayBuffer> {
-  const encrypted = base64ToArrayBuffer(encryptedBase64);
-  const iv = base64ToArrayBuffer(ivBase64);
-
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: new Uint8Array(iv) },
-    key,
-    encrypted,
-  );
-
-  return decrypted;
+export function decrypt(encrypted: string, ivHex: string): string {
+  const key = Buffer.from(process.env.ENCRYPTION_SECRET!, "base64");
+  const iv = Buffer.from(ivHex, "base64");
+  
+  const authTagLength = 16; // 128 bits
+  const encryptedData = Buffer.from(encrypted, "base64");
+  const authTag = encryptedData.slice(-authTagLength);
+  const ciphertext = encryptedData.slice(0, -authTagLength);
+  
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  
+  let decrypted = decipher.update(ciphertext);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  
+  return decrypted.toString("utf8");
 }
 ```
 
-### Key Storage
-
-**Challenge**: Persist key across page refreshes while maintaining security
-
-**Solution**: Store in `sessionStorage` with 10-minute timeout
-
-**Security Tradeoffs:**
-
-- ⚠️ Vulnerable to XSS attacks
-- ✅ Cleared on tab close
-- ✅ 10-minute expiry
-- ✅ CSP headers reduce XSS risk
-
-**Implementation:**
+**Usage in API Routes:**
 
 ```typescript
-export async function setEncryptionKey(key: CryptoKey): Promise<void> {
-  encryptionKeyStore = key; // In-memory
+import { auth } from "@clerk/nextjs/server";
+import { encrypt, decrypt } from "@/lib/simple-encryption";
 
-  // Export and store in sessionStorage
-  const exportedKey = await crypto.subtle.exportKey("raw", key);
-  const keyBase64 = arrayBufferToBase64(exportedKey);
-  const timestamp = Date.now().toString();
-
-  sessionStorage.setItem("restrip_encryption_key", keyBase64);
-  sessionStorage.setItem("restrip_encryption_key_timestamp", timestamp);
-}
-
-export async function getEncryptionKey(): Promise<CryptoKey | null> {
-  // If key is in memory, return it
-  if (encryptionKeyStore) {
-    return encryptionKeyStore;
-  }
-
-  // Try to restore from sessionStorage
-  try {
-    const keyBase64 = sessionStorage.getItem(ENCRYPTION_KEY_STORAGE_KEY);
-    const timestampStr = sessionStorage.getItem(ENCRYPTION_KEY_TIMESTAMP_KEY);
-
-    if (!keyBase64 || !timestampStr) {
-      return null;
-    }
-
-    // Check if key has expired
-    const timestamp = parseInt(timestampStr, 10);
-    const age = Date.now() - timestamp;
-
-    if (age > KEY_EXPIRY_MS) {
-      console.warn(
-        "⚠️ Encryption key expired (10 min timeout). Please re-authenticate.",
-      );
-      clearEncryptionKey();
-      return null;
-    }
-
-    const keyBuffer = base64ToArrayBuffer(keyBase64);
-    const key = await crypto.subtle.importKey(
-      "raw",
-      keyBuffer,
-      { name: "AES-GCM", length: 256 },
-      true, // Make it extractable so it can be persisted again if needed
-      ["encrypt", "decrypt"],
-    );
-
-    encryptionKeyStore = key;
-    console.log("✅ Encryption key restored from sessionStorage");
-    return key;
-  } catch (error) {
-    console.error("Failed to restore encryption key:", error);
-    // Clear invalid stored key
-    clearEncryptionKey();
-    return null;
-  }
+export async function POST(request: Request) {
+  const { userId } = auth();
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  
+  const { caption, image } = await request.json();
+  
+  // Encrypt caption
+  const { encrypted: encryptedCaption, iv: captionIv } = encrypt(caption);
+  
+  // Encrypt image (if needed)
+  const { encrypted: encryptedImage, iv: imageIv } = encrypt(image);
+  
+  // Store encrypted data
+  await supabase.from("snaps").insert({
+    user_id: userId,
+    caption: encryptedCaption,
+    image_iv: imageIv,
+    storage_path: await uploadEncryptedImage(encryptedImage),
+  });
+  
+  return Response.json({ success: true });
 }
 ```
 
-### Key Wrapping System
+### Security Features
 
-**Problem**: Users who register with passkey and later add password (or vice versa) need to access their encrypted data with both authentication methods. Each method derives a different encryption key.
+✅ **AES-256-GCM**: Industry-standard authenticated encryption  
+✅ **Random IVs**: Each encryption uses a unique initialization vector  
+✅ **Authentication Tags**: Prevents tampering with encrypted data  
+✅ **Server-Side Only**: Encryption key never sent to client  
+✅ **Environment Variable**: Key stored securely, not in code
 
-**Solution**: Key wrapping enables cross-compatible authentication by storing a master encryption key that is wrapped (encrypted) with each authentication method's derived key.
+### Security Considerations
 
-**Architecture:**
+**Strengths:**
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                 First Authentication                    │
-│                                                         │
-│  1. User registers with passkey (or password)           │
-│  2. Derive Key Encryption Key (KEK) from auth method    │
-│  3. Generate random Master Encryption Key (MEK)         │
-│  4. Wrap MEK with KEK → Wrapped MEK                     │
-│  5. Store Wrapped MEK in database                       │
-│     - Passkey: passkey_credentials.wrapped_encryption_key│
-│     - Password: auth.users.user_metadata.wrapped_encryption_key│
-│  6. Use MEK for encrypting user data                    │
-└─────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────┐
-│              Adding Second Auth Method                  │
-│                                                         │
-│  1. User adds password (or passkey) to account          │
-│  2. Authenticate with existing method → unwrap MEK      │
-│  3. Derive new KEK from new auth method                 │
-│  4. Wrap MEK with new KEK → Second Wrapped MEK          │
-│  5. Store second Wrapped MEK in database                │
-│  6. Now both methods can unwrap the same MEK            │
-└─────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────┐
-│                Future Authentication                    │
-│                                                         │
-│  1. User logs in with either method                     │
-│  2. Derive KEK from chosen auth method                  │
-│  3. Fetch corresponding Wrapped MEK from database       │
-│  4. Unwrap MEK using KEK                                │
-│  5. Use MEK to decrypt user data                        │
-│  ✅ Same MEK works for all user's encrypted data        │
-└─────────────────────────────────────────────────────────┘
-```
+- Server can safely decrypt and process data when needed
+- Simplified key management (no client-side key derivation)
+- Enables server-side features (caching, processing, etc.)
+- Auth tag ensures data integrity
 
-**Implementation:**
+**Limitations:**
 
-```typescript
-// Step 1: Generate Master Encryption Key (first registration)
-const masterKey = await crypto.subtle.generateKey(
-  { name: "AES-GCM", length: 256 },
-  true, // extractable
-  ["encrypt", "decrypt"]
-);
+- Not zero-knowledge (server can decrypt data)
+- Requires trusting the server infrastructure
+- Key compromise affects all encrypted data
+- Key rotation requires re-encryption
 
-// Step 2: Wrap master key with KEK derived from auth method
-const kek = await deriveKekFromAuthMethod(); // From passkey PRF or password PBKDF2
-const wrappedKey = await crypto.subtle.wrapKey(
-  "raw",
-  masterKey,
-  kek,
-  "AES-KW" // AES Key Wrap algorithm (RFC 3394) - no IV required
-);
+**Best Practices:**
 
-// Step 3: Store wrapped key in database
-await storeWrappedKey(wrappedKey); // In passkey_credentials or user_metadata
+- Store `ENCRYPTION_SECRET` in secure environment variables (never in code)
+- Rotate encryption keys periodically
+- Use separate keys for different environments (dev, staging, prod)
+- Monitor access to encrypted data
+- Implement audit logging for decrypt operations
 
-// Later: Unwrap master key during authentication
-const kek = await deriveKekFromAuthMethod();
-const wrappedKeyFromDb = await fetchWrappedKey();
-const masterKey = await crypto.subtle.unwrapKey(
-  "raw",
-  wrappedKeyFromDb,
-  kek,
-  "AES-KW", // Same algorithm used for wrapping
-  { name: "AES-GCM", length: 256 }, // Unwrapped key will be AES-GCM for data encryption
-  true,
-  ["encrypt", "decrypt"]
-);
-```
+### Migration from Zero-Knowledge
 
-**Benefits:**
+The codebase has migrated from client-side zero-knowledge encryption to server-side encryption:
 
-- ✅ Seamless cross-auth compatibility
-- ✅ Single master key for all user data
-- ✅ No data re-encryption needed when adding auth methods
-- ✅ Zero-knowledge architecture maintained (server never sees unwrapped MEK)
-
-**API Endpoints:**
-
-- `POST /api/auth/passkey/store-wrapped-key` - Store wrapped key after passkey registration
-- `GET /api/auth/passkey/wrapped-key?credentialId=...` - Fetch wrapped key during login
+- ❌ Removed: `src/lib/encryption.ts` (client-side encryption utilities)
+- ❌ Removed: Key derivation from passkeys (PRF)
+- ❌ Removed: Password-based key derivation (PBKDF2)
+- ❌ Removed: Key wrapping system
+- ❌ Removed: Client-side key storage (sessionStorage)
+- ✅ Added: `src/lib/simple-encryption.ts` (server-side encryption)
+- ✅ Simplified: Single encryption key for all data
+- ✅ Updated: Database schema (removed client-side encryption columns)
 
 ---
 
