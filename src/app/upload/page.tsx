@@ -18,10 +18,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRightIcon, Brush, CircleAlert } from "lucide-react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import gsap from "gsap";
+import { ArrowUpRightIcon, Brush, CircleAlert, Check, ArrowLeft } from "lucide-react";
+// import { ScrollTrigger } from "gsap/ScrollTrigger";
 import imageCompression from "browser-image-compression";
+import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,8 +30,6 @@ import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../components/DeliveryMethodPicker";
-import ScrollReveal from "../../components/ScrollReveal";
-import ShinyText from "../../components/ShinyText";
 import {
   Announcement,
   AnnouncementTag,
@@ -51,6 +49,7 @@ import {
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
+import { loadUserJot } from "../../lib/userjot";
 
 // =============================================================================
 // Constants
@@ -85,16 +84,6 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
-
-// =============================================================================
-// GSAP Plugin Registration
-// =============================================================================
-
-try {
-  gsap.registerPlugin(ScrollTrigger);
-} catch {
-  // Plugin already registered - safe to ignore
-}
 
 // =============================================================================
 // Types
@@ -465,6 +454,8 @@ export default function UploadPage() {
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
 
   // Image state
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
@@ -480,6 +471,7 @@ export default function UploadPage() {
   const [resetKey, setResetKey] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // -------------------------------------------------------------------------
   // Refs for scroll-to-error functionality
@@ -561,8 +553,8 @@ export default function UploadPage() {
         setCroppedImage(croppedResult);
         console.log("✅ Image cropped successfully");
 
-        // Refresh scroll triggers after image changes
-        setTimeout(() => ScrollTrigger.refresh(), 100);
+        // // Refresh scroll triggers after image changes
+        // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
         console.error("❌ Failed to crop image:", error);
         const errorMessage =
@@ -752,6 +744,21 @@ export default function UploadPage() {
       return;
     }
 
+    // Pre-open Telegram tab synchronously (before any async work)
+    // Safari blocks window.open() inside async callbacks, so we grab
+    // the reference now while still in the user-gesture context.
+    let telegramWindow: Window | null = null;
+    if (deliveryMethod === "telegram") {
+      const shouldOpenTelegram = window.confirm(
+        "🎉 Ready to create your memory!\n\n" +
+          "Click OK to open Telegram after upload.\n" +
+          "The bot will send your memory back.",
+      );
+      if (shouldOpenTelegram) {
+        telegramWindow = window.open("", "_blank");
+      }
+    }
+
     setValidationErrors([]);
     setIsProcessing(true);
 
@@ -777,6 +784,7 @@ export default function UploadPage() {
         body: JSON.stringify({
           image: compressedImage,
           caption: caption,
+          turnstileToken: turnstileToken,
         }),
       });
 
@@ -807,6 +815,7 @@ export default function UploadPage() {
           deliveryMethod,
           deliveryAddress,
           periodType: selectedPeriod,
+          turnstileToken: turnstileToken,
         }),
       });
 
@@ -818,29 +827,18 @@ export default function UploadPage() {
       const snapData = await createSnapResponse.json();
       console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
-      // Step 4: Show success confirmation
+      // Store telegram bot link if telegram delivery was selected
       if (deliveryMethod === "telegram" && snapData.snap?.id) {
         const botUsername =
           process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
-        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
-
-        const shouldOpenTelegram = window.confirm(
-          "🎉 Memory scheduled!\n\n" +
-            "Click OK to open Telegram and start the bot.\n" +
-            "The bot will send your memory back on the scheduled date.\n\n" +
-            `Telegram username: @${botUsername}`,
-        );
-
-        if (shouldOpenTelegram) {
-          // Use location.href for better iOS Safari compatibility
-          window.location.href = telegramLink;
-        }
+        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}_${snapData.snap.telegram_link_token}`;
+        setTelegramBotLink(telegramLink);
+        setIsSuccess(true);
       } else {
         alert("🎉 Your memory has been scheduled for delivery!");
+        // Reset form for next upload
+        resetForm();
       }
-
-      // Step 5: Reset form for next upload
-      resetForm();
     } catch (error) {
       console.error("❌ Processing failed:", error);
       const errorMessage =
@@ -867,15 +865,15 @@ export default function UploadPage() {
   // Effects
   // -------------------------------------------------------------------------
 
-  /**
-   * Refresh ScrollTrigger when image changes.
-   */
-  useEffect(() => {
-    if (originalImage) {
-      const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [originalImage]);
+  // /**
+  //  * Refresh ScrollTrigger when image changes.
+  //  */
+  // useEffect(() => {
+  //   if (originalImage) {
+  //     const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
+  //     return () => clearTimeout(timeoutId);
+  //   }
+  // }, [originalImage]);
 
   /**
    * Initialize with surprise period on mount.
@@ -884,74 +882,149 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
-  /**
-   * Reset errors and refresh ScrollTrigger on mount.
-   */
-  useEffect(() => {
-    setValidationErrors([]);
-    setFieldErrors({});
+  // /**
+  //  * Reset errors and refresh ScrollTrigger on mount.
+  //  */
+  // useEffect(() => {
+  //   setValidationErrors([]);
+  //   setFieldErrors({});
 
-    const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
-    return () => clearTimeout(timeoutId);
-  }, []);
+  //   const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
+  //   return () => clearTimeout(timeoutId);
+  // }, []);
 
   /**
    * Load UserJot feedback widget SDK.
    */
   useEffect(() => {
-    // Load UserJot SDK loader
-    const loaderScript = document.createElement("script");
-    loaderScript.innerHTML = `
-      window.$ujq = window.$ujq || [];
-      window.uj = window.uj || new Proxy({}, {
-        get: (_, p) => (...a) => window.$ujq.push([p, ...a])
-      });
-      document.head.appendChild(
-        Object.assign(document.createElement('script'), {
-          src: 'https://cdn.userjot.com/sdk/v2/uj.js',
-          type: 'module',
-          async: true
-        })
-      );
-    `;
-    document.head.appendChild(loaderScript);
+    return loadUserJot(USERJOT_CONFIG_ID);
+  }, []);
 
-    // Initialize UserJot widget
-    const initScript = document.createElement("script");
-    initScript.innerHTML = `
-      window.uj.init('${USERJOT_CONFIG_ID}', {
-        widget: true,
-        position: 'right',
-        theme: 'auto'
-      });
-    `;
-    document.head.appendChild(initScript);
+  /**
+   * Load Cloudflare Turnstile CAPTCHA script and initialize widget.
+   * Uses explicit rendering for SPA compatibility.
+   * @see https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
+   */
+  useEffect(() => {
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    
+    if (!siteKey) {
+      console.warn("Turnstile site key not configured");
+      return;
+    }
+
+    let widgetId: string | undefined;
+
+    // Define onload callback before loading script
+    const callbackName = `onTurnstileLoad_${Date.now()}`;
+    (window as unknown as Record<string, unknown>)[callbackName] = () => {
+      if (window.turnstile) {
+        const container = document.getElementById("turnstile-widget");
+        if (!container) return;
+
+        widgetId = window.turnstile.render(container, {
+          sitekey: siteKey,
+          callback: (token: string) => {
+            setTurnstileToken(token);
+          },
+          "error-callback": () => {
+            setTurnstileToken(null);
+          },
+          "expired-callback": () => {
+            setTurnstileToken(null);
+          },
+          theme: "light",
+        });
+      }
+    };
+
+    // Load Turnstile script with explicit rendering
+    const script = document.createElement("script");
+    script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+    script.defer = true;
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup widget and script on unmount
+      if (widgetId && window.turnstile) {
+        window.turnstile.remove(widgetId);
+      }
+      delete (window as unknown as Record<string, unknown>)[callbackName];
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
   }, []);
 
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
 
+  // Show success screen if submission was successful
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-warm-beige flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+            Memory Scheduled! 🎉
+          </h1>
+          {telegramBotLink ? (
+            <>
+              <p className="text-grey mb-4">
+                To receive your memory, please start the Telegram bot by clicking the button below.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(telegramBotLink, "_blank", "noopener,noreferrer");
+                }}
+                className="w-full mb-4 px-4 py-3 bg-[#229ED9] text-white rounded-lg hover:bg-[#1e8bc3] transition text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.14.121.099.154.232.17.326.016.094.036.308.02.475z" />
+                </svg>
+                Start Telegram Bot
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSuccess(false);
+              setTelegramBotLink(null);
+              resetForm();
+            }}
+            className="w-full px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
+          >
+            Create Another Memory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-warm-beige">
-      <AnnouncementBanner />
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-3">
-            ReStrip
+        {/* Back Button */}
+        <div className="mb-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-soft-black hover:text-accent-red transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+        </div>
+
+        <div className="text-center mb-8">
+          <h1 className="font-display text-3xl font-bold text-soft-black mb-2">
+            Quick Send
           </h1>
-          <ShinyText
-            text="Photo strips that come back to you."
-            disabled={false}
-            speed={15}
-            className="font-display text-3xl md:text-4xl font-semibold text-soft-black mb-4"
-          />
-          <p className="font-body text-grey mb-6">
-            Upload your photo strip, pick a future period, and we'll send you a
-            surprise email then. That's it.
-          </p>
-          <AnnouncementPill />
         </div>
 
         {/* Upload Card */}
@@ -1062,10 +1135,15 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* Turnstile CAPTCHA Widget */}
+            <div className="mt-6 flex justify-center">
+              <div id="turnstile-widget"></div>
+            </div>
+
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing}
+              disabled={isProcessing || !turnstileToken}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing
@@ -1091,37 +1169,13 @@ export default function UploadPage() {
             </div>
           </div>
         </div>
-
-        {/* About Section */}
-        <div className="max-w-2xl mx-auto mt-6">
-          <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
-            <ScrollReveal
-              baseOpacity={0}
-              enableBlur={true}
-              baseRotation={0}
-              blurStrength={10}
-            >
-              We live in a world where memories are fleeting, photo strips pile
-              up, and feelings fade. ReStrip slows time down. You capture a
-              moment today and, months later, it comes back to make you smile.
-              ReStrip is a time machine for your happiest moments.
-            </ScrollReveal>
-          </div>
-        </div>
       </div>
 
       {/* Footer Section */}
       <footer className="bg-soft-black text-warm-beige py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
-            <a
-              href="https://www.linkedin.com/in/bek-joon-hao/"
-              className="hover:underline transition-all hover:text-pastel-blue"
-            >
-              Joon Hao
-            </a>
-            .
+            &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
           </p>
           <div className="mt-4 flex justify-center space-x-4">
             <a

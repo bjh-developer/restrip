@@ -1,4 +1,3 @@
-// supabase/functions/send-strips/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
@@ -74,18 +73,27 @@ async function sendEmailWithGmail(
   imageBase64: string,
   caption: string,
 ) {
-  // Create SMTP client per email to avoid connection issues
+  const resendApiKey = Deno.env.get("GMAIL_APP_PASSWORD");
+  const fromEmail = Deno.env.get("GMAIL_USER") || "onboarding@resend.dev";
+
+  if (!resendApiKey) {
+    throw new Error("GMAIL_APP_PASSWORD (Resend API key) not configured");
+  }
+
+  // Create SMTP client with Resend configuration
   const smtpClient = new SMTPClient({
     connection: {
-      hostname: "smtp.gmail.com",
+      hostname: "smtp.resend.com",
       port: 465,
       tls: true,
       auth: {
-        username: Deno.env.get("GMAIL_USER")!,
-        password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+        username: "resend",
+        password: resendApiKey,
       },
     },
   });
+
+  let connected = false;
 
   try {
     const emailHtml = minifyHtml(`
@@ -117,8 +125,8 @@ async function sendEmailWithGmail(
                               <td style="padding: 28px 40px; border-top: 1px solid #EBEBEB; background-color: #F3E8D8;">
                                   <p style="margin: 0 0 12px 0; font-size: 13px; color: #6B6B6B; text-align: center;">ReStrip by Joon Hao • Photo strips that come back to you.</p>
                                   <p style="margin: 0; font-size: 12px; color: #6B6B6B; text-align: center;">
-                                      <a href="https://restrip.vercel.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
-                                      <a href="https://restrip.vercel.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
+                                      <a href="https://restrip.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
+                                      <a href="https://restrip.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
                                   </p>
                               </td>
                           </tr>
@@ -131,7 +139,7 @@ async function sendEmailWithGmail(
     `);
 
     await smtpClient.send({
-      from: Deno.env.get("GMAIL_USER")!,
+      from: fromEmail,
       to: to,
       subject: "📸 A memory from your past!",
       html: emailHtml,
@@ -145,10 +153,20 @@ async function sendEmailWithGmail(
       ],
     });
 
+    connected = true;
     console.log(`✅ Sent email with image to ${to}`);
+  } catch (error) {
+    console.error("SMTP error:", error);
+    throw error;
   } finally {
-    // Always close the connection after sending
-    await smtpClient.close();
+    // Only close if connection was established
+    if (connected) {
+      try {
+        await smtpClient.close();
+      } catch (closeError) {
+        console.warn("Warning: Could not close SMTP connection:", closeError);
+      }
+    }
   }
 }
 
@@ -208,11 +226,14 @@ serve(async (req) => {
     const MAX_MEMORIES_TO_SEND = 50;
 
     // Get photo strips that are due to be sent
+    // Only fetch TELEGRAM snaps — email delivery is now handled by Next.js API
+    // route (/api/send-memory) using Resend SDK, triggered at snap creation time.
     const { data: dueStrips, error } = await supabase
       .from("snaps")
       .select("*")
-      .or("delivery_status.eq.pending,delivery_status.eq.failed")
-      // .lte("send_time", now)
+      .eq("delivery_method", "telegram")
+      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      // .lte("send_time", now)  // TODO: Re-enable after beta testing
       .limit(MAX_MEMORIES_TO_SEND); // Rate limiting
 
     if (error) throw error;
@@ -222,11 +243,16 @@ serve(async (req) => {
     // Send each photo strip
     for (const strip of dueStrips || []) {
       try {
+        // =====================================================================
+        // ALL SNAPS: Decrypt server-side and send image directly
+        // Server-side encryption allows us to decrypt and send images
+        // =====================================================================
+        
         // Download encrypted image from storage
         const { data: imageData, error: downloadError } = await supabase.storage
           .from("encrypted-images")
           .download(strip.storage_path);
-        
+
         if (downloadError) {
           throw new Error(`Failed to download image: ${downloadError.message}`);
         }
@@ -234,7 +260,7 @@ serve(async (req) => {
         // Read the encrypted image data as ArrayBuffer, then convert to base64
         const imageBuffer = await imageData.arrayBuffer();
         const encryptedImageBase64 = arrayBufferToBase64(imageBuffer);
-        
+
         // Decrypt the image
         const decryptedImageBytes = await decryptImage(
           encryptedImageBase64,
@@ -252,11 +278,8 @@ serve(async (req) => {
           );
         }
 
-        // Convert to base64 for email attachment
-        const imageBase64 = arrayBufferToBase64(decryptedImageBytes.buffer);
-
+        // Send via the appropriate delivery method
         if (strip.delivery_method === "telegram") {
-          // Telegram delivery
           if (!strip.telegram_chat_id) {
             throw new Error("User has not started the bot yet");
           }
@@ -272,6 +295,9 @@ serve(async (req) => {
             `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
           );
         } else {
+          // Convert to base64 for email attachment
+          const imageBase64 = arrayBufferToBase64(decryptedImageBytes.buffer);
+          
           await sendEmailWithGmail(
             strip.delivery_address,
             strip.id,
@@ -282,7 +308,7 @@ serve(async (req) => {
           console.log(`✅ Sent strip ${strip.id} with image to ${strip.delivery_address}`);
         }
 
-        // Mark as sent (works for both methods)
+        // Mark as sent
         await supabase
           .from("snaps")
           .update({

@@ -40,6 +40,12 @@ interface DeliveryMethodPickerProps {
    * Used for form validation feedback.
    */
   error?: boolean;
+
+  /**
+   * When true, the email input field is hidden.
+   * Useful for authenticated pages where the user's email is already known.
+   */
+  hideEmailInput?: boolean;
 }
 
 /** Configuration for a delivery method option */
@@ -84,7 +90,7 @@ const DELIVERY_METHODS: readonly DeliveryMethodConfig[] = [
  * ```
  */
 export const DeliveryMethodPicker = React.memo(
-  ({ onSelect, error }: DeliveryMethodPickerProps) => {
+  ({ onSelect, error, hideEmailInput }: DeliveryMethodPickerProps) => {
     const [selected, setSelected] = useState<DeliveryMethod>("email");
     const [emailInput, setEmailInput] = useState<string>("");
 
@@ -145,31 +151,20 @@ export const DeliveryMethodPicker = React.memo(
         {/* Conditional Input Fields */}
         <div className="mt-4">
           {/* Email Input */}
-          {selected === "email" && (
-            <div className="space-y-2">
-              <Input
-                type="email"
-                placeholder="Enter your email address"
-                value={emailInput}
-                onChange={(e) => handleEmailChange(e.target.value)}
-                className={
-                  error
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                    : ""
-                }
-                aria-invalid={error}
-                aria-describedby="email-helper-text"
-              />
-              <p id="email-helper-text" className="text-sm text-gray-500">
-                We'll send your memory to this email address
-              </p>
-            </div>
+          {selected === "email" && !hideEmailInput && (
+            <Input
+              type="email"
+              placeholder="Enter your email address"
+              value={emailInput}
+              onChange={(e) => handleEmailChange(e.target.value)}
+              className={error ? "border-red-500" : ""}
+            />
           )}
 
           {/* Telegram Info Box */}
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-600">
+              <p className="text-sm text-blue-600 text-center">
                 ✅ You'll be prompted to start our Telegram bot next
               </p>
             </div>
