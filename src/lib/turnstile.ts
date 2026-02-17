@@ -59,8 +59,7 @@ export async function verifyTurnstileToken(
 
     const response = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: new URLSearchParams(body),
     });
 
     const data = (await response.json()) as TurnstileVerifyResponse;
