@@ -1131,12 +1131,10 @@ The codebase has migrated from client-side zero-knowledge encryption to server-s
 
 Run the current migrations in order in your Supabase SQL Editor:
 
-Run the current migrations in order in your Supabase SQL Editor:
-
 | Step | Migration File | Purpose |
 |------|----------------|---------|
-| 1 | `010_gallery_rls_indexes.sql` | Gallery RLS policies and performance indexes |
-| 2 | `011_clerk_migration.sql` | Clerk authentication migration (creates core tables, removes passkey tables) |
+| 1 | `010_gallery_rls_indexes.sql` | Adds Gallery RLS policies and performance indexes |
+| 2 | `011_clerk_migration.sql` | Migrates to Clerk authentication (creates core tables, removes passkey tables) |
 | 3 | `012_ensure_encryption_columns.sql` | Ensures encryption columns exist |
 | 4 | `013_telegram_link_token.sql` | Adds Telegram link token support |
 | 5 | `014_canvas_books.sql` | Creates scrapbook tables (canvas_books, canvas_pages) |
