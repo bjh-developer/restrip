@@ -1133,6 +1133,8 @@ Run the current migrations in order in your Supabase SQL Editor:
 
 **Migration Files (current system):**
 
+**Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
+
 10. `010_gallery_rls_indexes.sql` - Gallery RLS policies and performance indexes
 11. `011_clerk_migration.sql` - Clerk authentication migration (creates core tables, removes passkey tables)
 12. `012_ensure_encryption_columns.sql` - Ensures encryption columns exist
@@ -1140,7 +1142,7 @@ Run the current migrations in order in your Supabase SQL Editor:
 14. `014_canvas_books.sql` - Creates scrapbook tables (canvas_books, canvas_pages)
 15. `015_rename_to_scrapbook.sql` - Renames canvas references to scrapbook
 
-**Note:** Migrations 001-009 are legacy migrations for the old passkey authentication system and are not needed for new installations. Migration 011 creates all necessary core tables.
+**Important:** Migration 011 creates all necessary core tables. Migrations 001-009 are legacy and not required.
 
 **Tables Created:**
 
@@ -1154,12 +1156,14 @@ Run the current migrations in order in your Supabase SQL Editor:
 
 ### Schema Explanation
 
+**Important Note:** All tables now use `user_id TEXT` (Clerk user IDs) instead of UUID. This is a key change from the legacy passkey system where user IDs were UUIDs from Supabase Auth.
+
 **snaps table:**
 
 ```sql
 CREATE TABLE public.snaps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,  -- Clerk user ID (TEXT, not UUID)
+    user_id TEXT NOT NULL,  -- Clerk user ID
     
     -- Encrypted data
     storage_path TEXT NOT NULL,  -- Supabase Storage path
@@ -1182,7 +1186,6 @@ CREATE TABLE public.snaps (
 ```
 
 Key changes from legacy schema:
-- `user_id` changed from UUID to TEXT (Clerk user IDs)
 - Removed `encrypted_caption` and `caption_iv` columns
 - Added plain `caption` column (encrypted at rest in DB)
 - Added `telegram_link_token` for Telegram account linking
@@ -1193,7 +1196,7 @@ Key changes from legacy schema:
 ```sql
 CREATE TABLE public.canvas_books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,  -- Clerk user ID
+    user_id TEXT NOT NULL,
     title TEXT NOT NULL,
     cover_color TEXT NOT NULL,  -- One of 10 preset colors
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

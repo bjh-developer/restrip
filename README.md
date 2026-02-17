@@ -720,14 +720,14 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 
 | Order | File | Purpose |
 |-------|------|---------|
-| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery RLS and indexes |
-| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk authentication migration (core tables and policies) |
-| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns exist |
-| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token support |
-| 14 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables |
-| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename canvas to scrapbook |
+| 1 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery RLS and indexes |
+| 2 | `supabase/migrations/011_clerk_migration.sql` | Clerk authentication migration (core tables and policies) |
+| 3 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns exist |
+| 4 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token support |
+| 5 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables |
+| 6 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename canvas to scrapbook |
 
-**Note:** Migration 011 creates all core tables (snaps, storage buckets, RLS policies). The older migrations (001-009) are for the legacy passkey system and are not needed.
+**Note:** Migration 011 creates all core tables (snaps, storage buckets, RLS policies). The older migrations (001-009) are for the legacy passkey system and are not needed. Migration file numbers start at 010 to maintain continuity with the project's migration history.
 
 **Verification queries:**
 
