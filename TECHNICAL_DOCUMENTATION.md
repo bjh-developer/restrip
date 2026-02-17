@@ -1142,11 +1142,13 @@ Run the current migrations in order in your Supabase SQL Editor:
 
 **Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
 
-- **Migration 010**: Sets up gallery-specific RLS policies and indexes
+**⚠️ Important:** Do not run legacy migrations (001-009) on new installations as they create incompatible table structures. If you have an existing database with legacy migrations, contact the team for migration guidance.
+
+- **Migration 010**: Sets up gallery-specific RLS policies and indexes (required for gallery feature)
 - **Migration 011**: Creates all core tables (snaps, storage buckets, RLS policies) for the Clerk-based system
 - **Migrations 012-015**: Add additional features (Telegram linking, Scrapbook)
 
-**Important:** All migrations (010-015) should be run in order. Migration 011 is the primary migration that creates the core tables.
+**All migrations 010-015 must be run in order for full functionality.**
 
 **Tables Created:**
 
