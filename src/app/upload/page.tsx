@@ -744,6 +744,12 @@ export default function UploadPage() {
       return;
     }
 
+    // Validate Turnstile CAPTCHA token
+    if (!turnstileToken) {
+      alert("⚠️ Please complete the CAPTCHA verification before submitting.");
+      return;
+    }
+
     // Pre-open Telegram tab synchronously (before any async work)
     // Safari blocks window.open() inside async callbacks, so we grab
     // the reference now while still in the user-gesture context.
@@ -920,21 +926,29 @@ export default function UploadPage() {
     (window as unknown as Record<string, unknown>)[callbackName] = () => {
       if (window.turnstile) {
         const container = document.getElementById("turnstile-widget");
-        if (!container) return;
+        if (!container) {
+          console.error("Turnstile container not found");
+          return;
+        }
 
+        console.log("Initializing Turnstile widget...");
         widgetId = window.turnstile.render(container, {
           sitekey: siteKey,
           callback: (token: string) => {
+            console.log("✅ Turnstile token received");
             setTurnstileToken(token);
           },
           "error-callback": () => {
+            console.error("❌ Turnstile error");
             setTurnstileToken(null);
           },
           "expired-callback": () => {
+            console.warn("⚠️ Turnstile token expired");
             setTurnstileToken(null);
           },
           theme: "light",
         });
+        console.log("Turnstile widget rendered with ID:", widgetId);
       }
     };
 

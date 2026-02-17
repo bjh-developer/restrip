@@ -44,6 +44,7 @@ export async function verifyTurnstileToken(
   }
 
   if (!token) {
+    console.error("[Turnstile] No token provided");
     return false;
   }
 
@@ -57,12 +58,22 @@ export async function verifyTurnstileToken(
       body.remoteip = remoteIp;
     }
 
+    console.log("[Turnstile] Verifying token...", { hasIp: !!remoteIp });
+
     const response = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
       body: new URLSearchParams(body),
     });
 
     const data = (await response.json()) as TurnstileVerifyResponse;
+    
+    console.log("[Turnstile] Verification response:", {
+      success: data.success,
+      errorCodes: data["error-codes"],
+      hostname: data.hostname,
+      challenge_ts: data.challenge_ts,
+    });
+
     return data.success === true;
   } catch (error) {
     console.error("[Turnstile] Verification error:", error);
