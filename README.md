@@ -720,19 +720,21 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 
 | Step | Migration File | Purpose |
 |------|----------------|---------|
-| 1 | `010_gallery_rls_indexes.sql` | Adds Gallery RLS policies and indexes |
-| 2 | `011_clerk_migration.sql` | Migrates to Clerk authentication (creates core tables and policies) |
-| 3 | `012_ensure_encryption_columns.sql` | Ensures encryption columns exist |
-| 4 | `013_telegram_link_token.sql` | Adds Telegram link token support |
-| 5 | `014_canvas_books.sql` | Creates scrapbook tables |
-| 6 | `015_rename_to_scrapbook.sql` | Renames canvas references to scrapbook |
-
-**Note:** All migrations 010-015 are required and must be run in order:
-- Migration 010 adds gallery-specific RLS policies and indexes (required for gallery feature)
-- Migration 011 creates core tables (snaps, storage buckets, base RLS policies)
-- Migrations 012-015 add additional features (Telegram, Scrapbook)
-
-The older migrations (001-009) are for the legacy passkey system and should not be run on new installations (they create incompatible table structures). Migration file numbers start at 010 to maintain continuity with the project's migration history.
+| 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
+| 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
+| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
+| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
+| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
+| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
+| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
+| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
+| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
+| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery rls indexes |
+| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
+| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
+| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
+| 14 | `supabase/migrations/014_canvas_books.sql` | Canvas books |
+| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
 
 **Verification queries:**
 
