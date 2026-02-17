@@ -822,7 +822,7 @@ export default function UploadPage() {
           deliveryMethod,
           deliveryAddress,
           periodType: selectedPeriod,
-          turnstileToken: turnstileToken,
+          // Don't send turnstileToken - already verified in /api/upload
         }),
       });
 

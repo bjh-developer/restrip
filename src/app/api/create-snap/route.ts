@@ -182,25 +182,31 @@ export async function POST(
     const body = (await request.json()) as Partial<CreateSnapRequestBody>;
 
     // CAPTCHA verification (Cloudflare Turnstile)
-    console.log("[create-snap] Verifying Turnstile token...", {
-      hasToken: !!body.turnstileToken,
-      clientIp,
-      origin: request.headers.get("origin"),
-    });
-    
-    const turnstileValid = await verifyTurnstileToken(
-      body.turnstileToken ?? "",
-      clientIp,
-    );
-    
-    console.log("[create-snap] Turnstile verification result:", turnstileValid);
-    
-    if (!turnstileValid) {
-      console.error("[create-snap] CAPTCHA verification failed for IP:", clientIp);
-      return NextResponse.json(
-        { error: "CAPTCHA verification failed. Please try again." },
-        { status: 403 },
+    // Only verify if token is provided (anonymous direct calls)
+    // Skip if called internally from /api/upload (token already verified)
+    if (body.turnstileToken) {
+      console.log("[create-snap] Verifying Turnstile token...", {
+        hasToken: !!body.turnstileToken,
+        clientIp,
+        origin: request.headers.get("origin"),
+      });
+      
+      const turnstileValid = await verifyTurnstileToken(
+        body.turnstileToken,
+        clientIp,
       );
+      
+      console.log("[create-snap] Turnstile verification result:", turnstileValid);
+      
+      if (!turnstileValid) {
+        console.error("[create-snap] CAPTCHA verification failed for IP:", clientIp);
+        return NextResponse.json(
+          { error: "CAPTCHA verification failed. Please try again." },
+          { status: 403 },
+        );
+      }
+    } else {
+      console.log("[create-snap] No Turnstile token provided, assuming internal call");
     }
 
     // Validate required fields
