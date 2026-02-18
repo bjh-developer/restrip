@@ -31,6 +31,21 @@ export const metadata: Metadata = {
   title: "ReStrip - Photo booth strips that come back to you",
   description:
     "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+  openGraph: {
+    title: "ReStrip - Photo booth strips that come back to you",
+    description:
+      "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+    url: "https://www.restrip.app",
+    siteName: "ReStrip",
+    images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ReStrip - Photo booth strips that come back to you",
+    description:
+      "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+    images: ["https://www.restrip.app/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
@@ -47,16 +62,12 @@ export default function RootLayout({
             name="google-site-verification"
             content="nO-YAzyQoB0NZ75BCn7gL3M8SK8u-hPG52ShKXrfshY"
           />
-          <meta property="og:image" content="https://www.restrip.app/og-image.jpg"></meta>
-          <meta property="og:site_name" content="ReStrip"></meta>
-          <meta property="og:title" content="ReStrip - Photo booth strips that come back to you"></meta>
-          <meta property="og:description" content="ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments." />
-          <meta property="og:url" content="https://www.restrip.app"></meta>
-          <meta property="twitter:image" content="https://www.restrip.app/og-image.jpg"></meta>
-          <meta property="twitter:title" content="ReStrip - Photo booth strips that come back to you"></meta>
-          <meta property="twitter:description" content="ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments."></meta>
         </head>
-        <script src="https://analytics.ahrefs.com/analytics.js" data-key="bvLONNN9gpGp6wB1c+Aakw" async></script>
+        <script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="bvLONNN9gpGp6wB1c+Aakw"
+          async
+        ></script>
         <body
           className={`${playfairDisplay.variable} ${inter.variable} ${caveat.variable} antialiased h-full`}
         >
