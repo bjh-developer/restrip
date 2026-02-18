@@ -1,2 +1,9 @@
 User-agent: *
-Disallow:
+Disallow: /sign-in/
+Disallow: /sign-up/
+Disallow: /gallery/
+Disallow: /scrapbook/
+Disallow: /new/
+Disallow: /?*
+
+Sitemap: https://www.restrip.app/sitemap.xml
