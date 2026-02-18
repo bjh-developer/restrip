@@ -746,6 +746,7 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 | 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
 | 14 | `supabase/migrations/014_canvas_books.sql` | Canvas books |
 | 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
+| 16 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
 
 **Verification queries:**
 

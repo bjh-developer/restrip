@@ -1142,6 +1142,7 @@ Run the current migrations in order in your Supabase SQL Editor:
 | 4 | `013_telegram_link_token.sql` | Adds Telegram link token support |
 | 5 | `014_canvas_books.sql` | Creates scrapbook tables (canvas_books, canvas_pages) |
 | 6 | `015_rename_to_scrapbook.sql` | Renames canvas references to scrapbook |
+| 7 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
 
 **Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
 
