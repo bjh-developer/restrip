@@ -62,12 +62,12 @@ export default function RootLayout({
             name="google-site-verification"
             content="nO-YAzyQoB0NZ75BCn7gL3M8SK8u-hPG52ShKXrfshY"
           />
+          <script
+            src="https://analytics.ahrefs.com/analytics.js"
+            data-key="bvLONNN9gpGp6wB1c+Aakw"
+            async
+          ></script>
         </head>
-        <script
-          src="https://analytics.ahrefs.com/analytics.js"
-          data-key="bvLONNN9gpGp6wB1c+Aakw"
-          async
-        ></script>
         <body
           className={`${playfairDisplay.variable} ${inter.variable} ${caveat.variable} antialiased h-full`}
         >
