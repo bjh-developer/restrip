@@ -1204,11 +1204,20 @@ export default function UploadPage() {
               disabled={isProcessing || !turnstileToken}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing
-                ? "One day, you'll open this and smile :)"
-                : !turnstileToken
-                  ? "Completing CAPTCHA..."
-                  : "Deliver to the Future!"}
+              {isProcessing ? (
+                <>
+                  <Spinner
+                    variant="pinwheel"
+                    size={16}
+                    className="text-warm-beige"
+                  />
+                  One day, you'll open this and smile...
+                </>
+              ) : !turnstileToken ? (
+                "Completing CAPTCHA..."
+              ) : (
+                "Deliver to the Future!"
+              )}
             </button>
 
             {/* Buy Me a Coffee Button */}
