@@ -28,7 +28,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "ReStrip - Photo strips that come back to you",
+  title: "ReStrip - Photo booth strips that come back to you",
   description:
     "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
 };
@@ -49,11 +49,11 @@ export default function RootLayout({
           />
           <meta property="og:image" content="https://www.restrip.app/og-image.jpg"></meta>
           <meta property="og:site_name" content="ReStrip"></meta>
-          <meta property="og:title" content="ReStrip - Photo strips that come back to you"></meta>
+          <meta property="og:title" content="ReStrip - Photo booth strips that come back to you"></meta>
           <meta property="og:description" content="ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments." />
           <meta property="og:url" content="https://www.restrip.app"></meta>
           <meta property="twitter:image" content="https://www.restrip.app/og-image.jpg"></meta>
-          <meta property="twitter:title" content="ReStrip - Photo strips that come back to you"></meta>
+          <meta property="twitter:title" content="ReStrip - Photo booth strips that come back to you"></meta>
           <meta property="twitter:description" content="ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments."></meta>
         </head>
         <script src="https://analytics.ahrefs.com/analytics.js" data-key="bvLONNN9gpGp6wB1c+Aakw" async></script>
