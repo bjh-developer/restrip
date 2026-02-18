@@ -18,7 +18,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRightIcon, Brush, CircleAlert, Check, ArrowLeft } from "lucide-react";
+import { Brush, CircleAlert, Check, ArrowLeft } from "lucide-react";
 // import { ScrollTrigger } from "gsap/ScrollTrigger";
 import imageCompression from "browser-image-compression";
 import Link from "next/link";
@@ -267,6 +267,21 @@ function generateSurpriseDate(): Date {
 // =============================================================================
 
 /**
+ * Beta testing announcement pill.
+ */
+const AnnouncementPill = React.memo(() => (
+  <Announcement className="bg-sky-100 text-sky-700" themed>
+    <AnnouncementTag>Info</AnnouncementTag>
+    <AnnouncementTitle>
+      Beta testing in progress, all memories
+      <br />
+      will be sent within 5 minutes
+    </AnnouncementTitle>
+  </Announcement>
+));
+AnnouncementPill.displayName = "AnnouncementPill";
+
+/**
  * Image upload component with drag-and-drop support.
  *
  * Displays a dropzone for image upload and shows a preview of the
@@ -364,22 +379,6 @@ const AnnouncementBanner = React.memo(() => (
 AnnouncementBanner.displayName = "AnnouncementBanner";
 
 /**
- * Beta testing announcement pill.
- */
-const AnnouncementPill = React.memo(() => (
-  <Announcement className="bg-sky-100 text-sky-700" themed>
-    <AnnouncementTag>Info</AnnouncementTag>
-    <AnnouncementTitle>
-      Beta testing in progress, all memories
-      <br />
-      will be sent within 5 minutes
-      <ArrowUpRightIcon className="shrink-0 opacity-70" size={16} />
-    </AnnouncementTitle>
-  </Announcement>
-));
-AnnouncementPill.displayName = "AnnouncementPill";
-
-/**
  * Toggle switch for enabling/disabling auto-crop feature.
  *
  * Auto-crop uses a YOLO model to detect and extract photo strips
@@ -449,7 +448,9 @@ export default function UploadPage() {
     useState<PeriodOption>("surprise");
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
-  const [scheduledSendTime, setScheduledSendTime] = useState<Date | undefined>();
+  const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -472,7 +473,9 @@ export default function UploadPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | undefined>();
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<
+    string | undefined
+  >();
 
   // -------------------------------------------------------------------------
   // Refs for scroll-to-error functionality
@@ -701,13 +704,25 @@ export default function UploadPage() {
   const scrollToFirstError = (errors: FieldErrors): void => {
     setTimeout(() => {
       if (errors.image && imageRef.current) {
-        imageRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        imageRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.caption && captionRef.current) {
-        captionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        captionRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.period && periodRef.current) {
-        periodRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        periodRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       } else if (errors.deliveryAddress && deliveryRef.current) {
-        deliveryRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        deliveryRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }, 100);
   };
@@ -786,12 +801,8 @@ export default function UploadPage() {
         throw new Error(errorData.error ?? "Failed to upload image");
       }
 
-      const {
-        storagePath,
-        encryptedCaption,
-        captionIv,
-        imageIv,
-      } = await uploadResponse.json();
+      const { storagePath, encryptedCaption, captionIv, imageIv } =
+        await uploadResponse.json();
       console.log("✅ Encrypted and stored at:", storagePath);
 
       // Step 3: Save metadata to database
@@ -839,7 +850,7 @@ export default function UploadPage() {
       setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
-      
+
       // Reset Turnstile widget to generate a new token for next submission
       if (turnstileWidgetId && window.turnstile) {
         console.log("Resetting Turnstile widget...");
@@ -907,7 +918,7 @@ export default function UploadPage() {
    */
   useEffect(() => {
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    
+
     if (!siteKey) {
       console.warn("Turnstile site key not configured");
       return;
@@ -1001,12 +1012,13 @@ export default function UploadPage() {
             <Check className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
-            Memory Scheduled! 🎉
+            All Set! 🎉
           </h1>
           {telegramBotLink ? (
             <>
               <p className="text-grey mb-4">
-                Your memory will be delivered via Telegram. Start the bot below to confirm you will receive it.
+                Your memory will be delivered via Telegram in time to come. Start the bot below
+                to confirm you will receive it.
               </p>
               <button
                 type="button"
@@ -1015,7 +1027,11 @@ export default function UploadPage() {
                 }}
                 className="w-full mb-4 px-4 py-3 bg-[#229ED9] text-white rounded-lg hover:bg-[#1e8bc3] transition text-sm font-semibold flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.14.121.099.154.232.17.326.016.094.036.308.02.475z" />
                 </svg>
                 Start Telegram Bot
@@ -1023,7 +1039,7 @@ export default function UploadPage() {
             </>
           ) : (
             <p className="text-grey mb-4">
-              Your memory will be delivered to your email address.
+              Your memory will be delivered to your email address in time to come.
             </p>
           )}
           <button
@@ -1105,7 +1121,7 @@ export default function UploadPage() {
             </div>
             <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
               <Textarea
-                placeholder="Type caption here for your photo strip."
+                placeholder="Write a message to your future self..."
                 value={caption}
                 onChange={(e) => {
                   setCaption(e.target.value);
@@ -1147,8 +1163,11 @@ export default function UploadPage() {
               <h3 className="font-display text-xl font-bold text-soft-black mt-6">
                 4. where to send your memory
               </h3>
+              <div className="mt-2">
+                <AnnouncementPill />
+              </div>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={deliveryRef}>
+            <div className="mt-4 flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker
                 onSelect={handleDeliveryMethodSelect}
                 error={!!fieldErrors.deliveryAddress}
@@ -1185,7 +1204,7 @@ export default function UploadPage() {
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing
-                ? "Encrypting & Delivering..."
+                ? "One day, you'll open this and smile :)"
                 : "Deliver to the Future!"}
             </button>
 
@@ -1210,19 +1229,22 @@ export default function UploadPage() {
       </div>
 
       {/* Footer Section */}
-      <footer className="bg-soft-black text-warm-beige py-8">
+      <footer className="bg-soft-black text-warm-beige py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
             &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
           </p>
-          <div className="mt-4 flex justify-center space-x-4">
+          <div className="mt-3 flex justify-center space-x-4">
             <a
               href="/privacy-policy"
-              className="text-warm-beige hover:underline"
+              className="text-warm-beige hover:underline text-xs"
             >
               Privacy Policy
             </a>
-            <a href="/contact" className="text-warm-beige hover:underline">
+            <a
+              href="/contact"
+              className="text-warm-beige hover:underline text-xs"
+            >
               Contact Us
             </a>
           </div>

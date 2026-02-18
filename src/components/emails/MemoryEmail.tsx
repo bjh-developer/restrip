@@ -114,7 +114,7 @@ export function MemoryEmail({ caption }: MemoryEmailProps) {
                           textAlign: "center" as const,
                         }}
                       >
-                        Your photo is attached to this email 📎
+                        Your photo strip is attached to this email
                       </p>
                     </td>
                   </tr>
@@ -136,7 +136,7 @@ export function MemoryEmail({ caption }: MemoryEmailProps) {
                           textAlign: "center" as const,
                         }}
                       >
-                        ReStrip by Joon Hao &bull; Photo strips that come back
+                        ReStrip &bull; Photo strips that come back
                         to you.
                       </p>
                       <p

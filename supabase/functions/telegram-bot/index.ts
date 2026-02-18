@@ -81,7 +81,7 @@ bot.command("start", async (ctx) => {
 
     await ctx.reply(
       "✅ Successfully linked!\n\n" +
-        "📸 You'll receive a surprise here in this chat soon!"
+        "You'll receive a surprise here soon!"
     );
   } catch (err) {
     console.error("Exception in start handler:", err);

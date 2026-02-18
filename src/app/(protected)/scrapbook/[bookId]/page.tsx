@@ -841,8 +841,8 @@ export default function CanvasEditorPage() {
         const scale = Math.min(maxW / (img.width ?? 200), 1);
 
         img.set({
-          left: CANVAS_WIDTH / 2,
-          top: CANVAS_HEIGHT / 2,
+          left: transform?.left ?? CANVAS_WIDTH / 2,
+          top: transform?.top ?? CANVAS_HEIGHT / 2,
           scaleX: transform?.scaleX ?? scale,
           scaleY: transform?.scaleY ?? scale,
           angle: transform?.rotation ?? 0,

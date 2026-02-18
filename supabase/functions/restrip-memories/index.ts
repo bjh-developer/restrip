@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { encode as base64Encode, decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
-function minifyHtml(html: string): string {
-  return html
-    .replace(/\n/g, "") // Remove newlines
-    .replace(/[\t ]+</g, "<") // Remove spaces/tabs before tags
-    .replace(/>[\t ]+/g, ">") // Remove spaces/tabs after tags
-    .replace(/[\t ]+/g, " ") // Replace multiple spaces with single space
-    .trim();
-}
+// =============================================================================
+// NOTE: Email delivery via Supabase Edge Function has been DEPRECATED
+// Email delivery is now handled by Resend SDK via Next.js API routes:
+// - /api/send-memory (immediate delivery, called at snap creation)
+// - src/lib/resend.ts (shared email logic with React Email templates)
+// 
+// This Edge Function now ONLY handles TELEGRAM delivery via scheduled cron.
+// =============================================================================
 
 // ===== Decryption utilities =====
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -67,109 +66,6 @@ async function decryptImage(
   return new Uint8Array(decrypted);
 }
 
-async function sendEmailWithGmail(
-  to: string,
-  snapId: string,
-  imageBase64: string,
-  caption: string,
-) {
-  const resendApiKey = Deno.env.get("GMAIL_APP_PASSWORD");
-  const fromEmail = Deno.env.get("GMAIL_USER") || "onboarding@resend.dev";
-
-  if (!resendApiKey) {
-    throw new Error("GMAIL_APP_PASSWORD (Resend API key) not configured");
-  }
-
-  // Create SMTP client with Resend configuration
-  const smtpClient = new SMTPClient({
-    connection: {
-      hostname: "smtp.resend.com",
-      port: 465,
-      tls: true,
-      auth: {
-        username: "resend",
-        password: resendApiKey,
-      },
-    },
-  });
-
-  let connected = false;
-
-  try {
-    const emailHtml = minifyHtml(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; background-color: #F3E8D8;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F3E8D8;">
-              <tr>
-                  <td align="center" style="padding: 40px 20px;">
-                      <table width="100%" maxwidth="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(28, 28, 28, 0.08);">
-                          <tr>
-                              <td align="center" style="padding: 40px 24px; background-color: #1C1C1C;">
-                                  <div style="font-size: 32px; font-weight: 700; color: #F3E8D8; letter-spacing: -0.5px;">ReStrip</div>
-                                  <div style="font-size: 14px; color: #EBEBEB; margin-top: 6px; font-weight: 300; letter-spacing: 0.5px;">Photo strips that come back to you.</div>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td style="padding: 48px 40px;">
-                                  <p style="margin: 0 0 24px 0; font-size: 18px; color: #1C1C1C; line-height: 1.5; font-weight: 500;">A memory from your past! 🤗</p>
-                                  ${caption ? `<p style="margin: 0 0 28px 0; font-size: 16px; color: #6B6B6B; line-height: 1.7; font-style: italic;">"${caption}"</p>` : ''}
-                                  <p style="margin: 24px 0 0 0; font-size: 14px; color: #6B6B6B; text-align: center;">Your photo is attached to this email 📎</p>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td style="padding: 28px 40px; border-top: 1px solid #EBEBEB; background-color: #F3E8D8;">
-                                  <p style="margin: 0 0 12px 0; font-size: 13px; color: #6B6B6B; text-align: center;">ReStrip by Joon Hao • Photo strips that come back to you.</p>
-                                  <p style="margin: 0; font-size: 12px; color: #6B6B6B; text-align: center;">
-                                      <a href="https://restrip.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
-                                      <a href="https://restrip.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
-                                  </p>
-                              </td>
-                          </tr>
-                      </table>
-                  </td>
-              </tr>
-          </table>
-      </body>
-      </html>
-    `);
-
-    await smtpClient.send({
-      from: fromEmail,
-      to: to,
-      subject: "📸 A memory from your past!",
-      html: emailHtml,
-      attachments: [
-        {
-          filename: "memory.png",
-          content: imageBase64,
-          encoding: "base64",
-          contentType: "image/png",
-        },
-      ],
-    });
-
-    connected = true;
-    console.log(`✅ Sent email with image to ${to}`);
-  } catch (error) {
-    console.error("SMTP error:", error);
-    throw error;
-  } finally {
-    // Only close if connection was established
-    if (connected) {
-      try {
-        await smtpClient.close();
-      } catch (closeError) {
-        console.warn("Warning: Could not close SMTP connection:", closeError);
-      }
-    }
-  }
-}
-
 async function sendTelegramPhoto(
   chatId: number,
   snapId: string,
@@ -183,8 +79,8 @@ async function sendTelegramPhoto(
 
   // Build caption with optional user caption
   const telegramCaption = caption 
-    ? `📸 A memory from your past!\n\n"${caption}"`
-    : `📸 A memory from your past!`;
+    ? `A memory from your past! 🤗\n\n"${caption}"`
+    : `A memory from your past! 🤗`;
 
   // Create form data to send photo as file
   const formData = new FormData();
@@ -225,9 +121,13 @@ serve(async (req) => {
     const now = new Date().toISOString();
     const MAX_MEMORIES_TO_SEND = 50;
 
-    // Get photo strips that are due to be sent
-    // Only fetch TELEGRAM snaps — email delivery is now handled by Next.js API
-    // route (/api/send-memory) using Resend SDK, triggered at snap creation time.
+    // ==========================================================================
+    // TELEGRAM-ONLY DELIVERY
+    // 
+    // This Edge Function now ONLY handles Telegram delivery. Email delivery
+    // has been moved to Next.js API routes using Resend SDK for immediate
+    // delivery at snap creation time (see /api/send-memory and src/lib/resend.ts).
+    // ==========================================================================
     const { data: dueStrips, error } = await supabase
       .from("snaps")
       .select("*")
@@ -278,35 +178,21 @@ serve(async (req) => {
           );
         }
 
-        // Send via the appropriate delivery method
-        if (strip.delivery_method === "telegram") {
-          if (!strip.telegram_chat_id) {
-            throw new Error("User has not started the bot yet");
-          }
-
-          await sendTelegramPhoto(
-            strip.telegram_chat_id,
-            strip.id,
-            decryptedImageBytes,
-            decryptedCaption,
-          );
-
-          console.log(
-            `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
-          );
-        } else {
-          // Convert to base64 for email attachment
-          const imageBase64 = arrayBufferToBase64(decryptedImageBytes.buffer);
-          
-          await sendEmailWithGmail(
-            strip.delivery_address,
-            strip.id,
-            imageBase64,
-            decryptedCaption,
-          );
-
-          console.log(`✅ Sent strip ${strip.id} with image to ${strip.delivery_address}`);
+        // Send via Telegram (only delivery method handled by this Edge Function)
+        if (!strip.telegram_chat_id) {
+          throw new Error("User has not started the bot yet");
         }
+
+        await sendTelegramPhoto(
+          strip.telegram_chat_id,
+          strip.id,
+          decryptedImageBytes,
+          decryptedCaption,
+        );
+
+        console.log(
+          `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
+        );
 
         // Mark as sent
         await supabase

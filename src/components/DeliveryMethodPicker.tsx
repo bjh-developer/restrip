@@ -62,12 +62,12 @@ interface DeliveryMethodConfig {
 const DELIVERY_METHODS: readonly DeliveryMethodConfig[] = [
   {
     id: "email",
-    label: "Email 📧",
+    label: "Email",
     description: "Receive your memory via email",
   },
   {
     id: "telegram",
-    label: "Telegram 💬",
+    label: "Telegram",
     description: "Receive your memory via Telegram",
   },
 ] as const;
@@ -165,7 +165,7 @@ export const DeliveryMethodPicker = React.memo(
           {selected === "telegram" && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-600 text-center">
-                ✅ You'll be prompted to start our Telegram bot next
+                You'll be prompted to start our Telegram bot next!
               </p>
             </div>
           )}

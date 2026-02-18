@@ -17,18 +17,26 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRightIcon, Brush, CircleAlert, Check } from "lucide-react";
+import { BadgeInfo, Brush, CircleAlert, Check } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { PeriodPicker, type PeriodOption } from "../../../components/PeriodPicker";
+import {
+  PeriodPicker,
+  type PeriodOption,
+} from "../../../components/PeriodPicker";
 import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../../components/DeliveryMethodPicker";
+import {
+  Announcement,
+  AnnouncementTag,
+  AnnouncementTitle,
+} from "../../../components/ui/shadcn-io/announcement";
 import {
   Dropzone,
   DropzoneContent,
@@ -108,17 +116,17 @@ function base64ToBlob(base64: string): Blob | null {
       console.error("Invalid base64: missing comma separator");
       return null;
     }
-    
+
     const mimeMatch = parts[0].match(/:(.*?);/);
     const mime = mimeMatch?.[1] ?? "image/jpeg";
-    
+
     const base64Data = parts[1];
     // Validate base64 format
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64Data)) {
       console.error("Invalid base64: contains illegal characters");
       return null;
     }
-    
+
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
@@ -205,6 +213,21 @@ function generateSurpriseDate(): Date {
 // Sub-components
 // =============================================================================
 
+/**
+ * Beta testing announcement pill.
+ */
+const AnnouncementPill = React.memo(() => (
+  <Announcement className="bg-sky-100 text-sky-700" themed>
+    <AnnouncementTag>Info</AnnouncementTag>
+    <AnnouncementTitle>
+      Beta testing in progress, all memories
+      <br />
+      will be sent within 5 minutes
+    </AnnouncementTitle>
+  </Announcement>
+));
+AnnouncementPill.displayName = "AnnouncementPill";
+
 /** Image upload with drag-and-drop */
 const UploadImage = React.memo(
   ({
@@ -247,7 +270,9 @@ const UploadImage = React.memo(
         onError={console.error}
         src={files}
         multiple={false}
-        className={error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""}
+        className={
+          error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
+        }
       >
         <DropzoneEmptyState />
         <DropzoneContent>
@@ -325,8 +350,11 @@ export default function NewMemoryPage() {
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [caption, setCaption] = useState("");
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("surprise");
-  const [scheduledSendTime, setScheduledSendTime] = useState<Date | undefined>();
+  const [selectedPeriod, setSelectedPeriod] =
+    useState<PeriodOption>("surprise");
+  const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
   const [customDate, setCustomDate] = useState<Date | undefined>();
   const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
@@ -471,7 +499,8 @@ export default function NewMemoryPage() {
       return;
     }
 
-    const imageToSubmit = autoCropEnabled && croppedImage ? croppedImage : originalImage;
+    const imageToSubmit =
+      autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
     // Validate
     const validation = SnapSchema.safeParse({
@@ -508,7 +537,8 @@ export default function NewMemoryPage() {
           caption,
           scheduledSendTime: scheduledSendTime!.toISOString(),
           deliveryMethod,
-          deliveryAddress: deliveryMethod === "email" ? userEmail : deliveryAddress,
+          deliveryAddress:
+            deliveryMethod === "email" ? userEmail : deliveryAddress,
           periodType: selectedPeriod,
         }),
       });
@@ -554,7 +584,7 @@ export default function NewMemoryPage() {
             <Check className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
-            Memory Created! 🎉
+            All Set! 🎉
           </h1>
           <p className="text-grey mb-2">
             Your photo strip has been saved to your gallery.
@@ -562,7 +592,8 @@ export default function NewMemoryPage() {
           {telegramBotLink ? (
             <>
               <p className="text-grey mb-4">
-                To receive your memory, please start the Telegram bot by clicking the button below.
+                To receive your memory, please start the Telegram bot by
+                clicking the button below.
               </p>
               <button
                 type="button"
@@ -571,7 +602,11 @@ export default function NewMemoryPage() {
                 }}
                 className="w-full mb-4 px-4 py-3 bg-[#229ED9] text-white rounded-lg hover:bg-[#1e8bc3] transition text-sm font-semibold flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.14.121.099.154.232.17.326.016.094.036.308.02.475z" />
                 </svg>
                 Start Telegram Bot
@@ -615,7 +650,8 @@ export default function NewMemoryPage() {
   // Form render
   // =========================================================================
 
-  const displayImage = autoCropEnabled && croppedImage ? croppedImage : originalImage;
+  const displayImage =
+    autoCropEnabled && croppedImage ? croppedImage : originalImage;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -685,14 +721,17 @@ export default function NewMemoryPage() {
 
           {/* Period Picker */}
           <div>
-            <label className="block text-sm font-medium text-soft-black mb-2">
+            <label className="block text-sm font-medium text-soft-black mb-1">
               When to deliver
             </label>
+            <p className="mb-2 text-xs text-sky-500 flex items-center gap-1">
+              <BadgeInfo className="w-3 h-3" /> Beta testing in progress, all
+              memories will be sent within 5 minutes.
+            </p>
             <PeriodPicker onSelect={handlePeriodSelect} />
             {fieldErrors.period && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
                 <CircleAlert className="w-3 h-3" />
-                {fieldErrors.period}
               </p>
             )}
           </div>
@@ -702,9 +741,12 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-2">
               How to deliver
             </label>
-            <DeliveryMethodPicker onSelect={handleDeliveryMethodSelect} hideEmailInput />
+            <DeliveryMethodPicker
+              onSelect={handleDeliveryMethodSelect}
+              hideEmailInput
+            />
             {deliveryMethod === "email" && (
-              <p className="mt-2 text-xs text-grey flex items-center gap-1">
+              <p className="text-xs text-grey flex items-center gap-1">
                 Will be sent to: {user?.primaryEmailAddress?.emailAddress}
               </p>
             )}
@@ -718,8 +760,12 @@ export default function NewMemoryPage() {
           >
             {isSubmitting ? (
               <>
-                <Spinner variant="pinwheel" size={16} className="text-warm-beige" />
-                Encrypting & Uploading...
+                <Spinner
+                  variant="pinwheel"
+                  size={16}
+                  className="text-warm-beige"
+                />
+                One day, you'll open this and smile...
               </>
             ) : (
               "Create Memory"
@@ -730,7 +776,7 @@ export default function NewMemoryPage() {
           {validationErrors.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs text-red-600 text-center">
-                Please fix the highlighted fields above.
+                Oops—that didn't work. Please fix the errors above and try again.
               </p>
             </div>
           )}

@@ -11,13 +11,23 @@
 "use client";
 
 import React from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Camera, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
 import ScrollReveal from "../components/ScrollReveal";
+import {
+  Announcement,
+  AnnouncementTag,
+  AnnouncementTitle,
+} from "../components/ui/shadcn-io/announcement";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
+import { loadUserJot } from "../lib/userjot";
+
+/** UserJot widget configuration ID */
+const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
 
 // =============================================================================
 // GSAP Plugin Registration
@@ -29,9 +39,35 @@ try {
   // Plugin already registered - safe to ignore
 }
 
+// =============================================================================
+// Sub-Components
+// =============================================================================
+
+/**
+ * Beta testing announcement pill.
+ */
+const AnnouncementPill = React.memo(() => (
+  <Announcement className="bg-sky-100 text-sky-700" themed>
+    <AnnouncementTag>Info</AnnouncementTag>
+    <AnnouncementTitle>
+      Beta testing in progress, all memories
+      <br />
+      will be sent within 5 minutes
+    </AnnouncementTitle>
+  </Announcement>
+));
+AnnouncementPill.displayName = "AnnouncementPill";
+
 export default function LandingPage() {
   const router = useRouter();
   const { user, isSignedIn } = useUser();
+
+  /**
+   * Load UserJot feedback widget SDK.
+   */
+  useEffect(() => {
+    return loadUserJot(USERJOT_CONFIG_ID);
+  }, []);
 
   /** Navigate to the anonymous quick-send upload flow */
   const handleQuickSend = () => {
@@ -62,10 +98,13 @@ export default function LandingPage() {
             speed={15}
             className="font-display text-2xl md:text-3xl font-semibold text-soft-black mb-4"
           />
-          <p className="font-body text-grey mb-12 max-w-md mx-auto">
+          <p className="font-body text-grey mb-4 max-w-md mx-auto">
             Upload a photo strip, pick a future period, and we&apos;ll send you
-            a surprise reminder. That&apos;s it.
+            a surprise. That&apos;s it.
           </p>
+          <div className="mb-12">
+            <AnnouncementPill />
+          </div>
 
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
