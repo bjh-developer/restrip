@@ -20,8 +20,14 @@ import {
   encryptData,
   getServerEncryptionKey,
 } from "../../../lib/simple-encryption";
-import { checkRateLimit, getClientIp, rateLimitResponse, UPLOAD_LIMIT } from "../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  UPLOAD_LIMIT,
+} from "../../../lib/rate-limit";
 import { verifyTurnstileToken } from "../../../lib/turnstile";
+import { randomBytes } from "crypto";
 
 /** Maximum request body size: 10 MB */
 const MAX_BODY_SIZE = 10 * 1024 * 1024;
@@ -59,7 +65,10 @@ const ANONYMOUS_FOLDER = "anonymous";
  * Supabase admin client instance.
  * Uses service role key for elevated storage access.
  */
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -88,9 +97,10 @@ function generateUniqueFilePath(): string {
  * @param body - Parsed request body
  * @returns Object with validation result and optional error message
  */
-function validateRequestBody(
-  body: Partial<UploadRequestBody>,
-): { valid: boolean; error?: string } {
+function validateRequestBody(body: Partial<UploadRequestBody>): {
+  valid: boolean;
+  error?: string;
+} {
   if (!body.image || typeof body.image !== "string") {
     return { valid: false, error: "Missing or invalid image field" };
   }
@@ -148,7 +158,9 @@ export async function POST(
     }
 
     // Body size check
-    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
     if (contentLength > MAX_BODY_SIZE) {
       return NextResponse.json(
         { error: "Request body too large (max 10 MB)" },
@@ -169,6 +181,15 @@ export async function POST(
         { status: 403 },
       );
     }
+
+    const uploadNonce = randomBytes(16).toString("hex");
+    const nonceExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+    await supabaseAdmin.from("upload_nonces").insert({
+      nonce: uploadNonce,
+      client_ip: clientIp,
+      expires_at: new Date(nonceExpiry).toISOString(),
+      used: false,
+    });
 
     // Validate required fields
     const validation = validateRequestBody(body);
@@ -231,6 +252,7 @@ export async function POST(
         encryptedCaption,
         captionIv,
         imageIv,
+        uploadNonce,
       },
       { status: 200 },
     );

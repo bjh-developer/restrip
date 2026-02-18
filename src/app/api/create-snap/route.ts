@@ -11,7 +11,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { checkRateLimit, getClientIp, rateLimitResponse, UPLOAD_LIMIT } from "../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  UPLOAD_LIMIT,
+} from "../../../lib/rate-limit";
 import { verifyTurnstileToken } from "../../../lib/turnstile";
 import { sendMemoryEmail } from "../../../lib/resend";
 
@@ -38,6 +43,7 @@ interface CreateSnapRequestBody {
   deliveryAddress?: string;
   periodType: string;
   turnstileToken?: string;
+  uploadNonce?: string;
 }
 
 /** Shape of a snap record in the database */
@@ -84,7 +90,10 @@ const REQUIRED_FIELDS: readonly (keyof CreateSnapRequestBody)[] = [
  * Supabase admin client with elevated permissions.
  * Uses service role key for direct database access.
  */
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -99,9 +108,10 @@ const supabaseAdmin: SupabaseClient = createClient(
  * @param body - Parsed request body
  * @returns Object with validation result and missing fields if any
  */
-function validateRequiredFields(
-  body: Partial<CreateSnapRequestBody>,
-): { valid: boolean; missing?: string[] } {
+function validateRequiredFields(body: Partial<CreateSnapRequestBody>): {
+  valid: boolean;
+  missing?: string[];
+} {
   const missing = REQUIRED_FIELDS.filter((field) => !body[field]);
 
   if (missing.length > 0) {
@@ -120,6 +130,33 @@ function validateRequiredFields(
 function parseScheduledTime(dateString: string): Date | null {
   const date = new Date(dateString);
   return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Verify and consume the nonce to prevent replay attacks.
+ *
+ * @param nonce - The unique nonce generated during upload
+ * @param clientIp - The IP address of the client making the request
+ * @returns Whether the nonce is valid and has been consumed
+ *
+ * The nonce must match an unused record in the database for the same IP and must not be expired.
+ * If valid, it will be marked as used to prevent reuse.
+ */
+async function verifyAndConsumeNonce(
+  nonce: string,
+  clientIp: string,
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("upload_nonces")
+    .update({ used: true })
+    .eq("nonce", nonce)
+    .eq("client_ip", clientIp)
+    .eq("used", false)
+    .gt("expires_at", new Date().toISOString())
+    .select()
+    .single();
+
+  return !error && !!data;
 }
 
 /**
@@ -171,7 +208,9 @@ export async function POST(
     }
 
     // Body size check
-    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
     if (contentLength > MAX_BODY_SIZE) {
       return NextResponse.json(
         { error: "Request body too large" },
@@ -180,33 +219,32 @@ export async function POST(
     }
 
     const body = (await request.json()) as Partial<CreateSnapRequestBody>;
+    const {
+      storagePath,
+      encryptedCaption,
+      captionIv,
+      imageIv,
+      scheduledSendTime,
+      deliveryMethod,
+      deliveryAddress,
+      periodType,
+      uploadNonce,
+    } = body as CreateSnapRequestBody;
 
-    // CAPTCHA verification (Cloudflare Turnstile)
-    // Only verify if token is provided (anonymous direct calls)
-    // Skip if called internally from /api/upload (token already verified)
-    if (body.turnstileToken) {
-      console.log("[create-snap] Verifying Turnstile token...", {
-        hasToken: !!body.turnstileToken,
-        clientIp,
-        origin: request.headers.get("origin"),
-      });
-      
-      const turnstileValid = await verifyTurnstileToken(
-        body.turnstileToken,
-        clientIp,
+    // Nonce verification (Cloudflare Turnstile)
+    if (!uploadNonce) {
+      return NextResponse.json(
+        { error: "Missing upload verification token" },
+        { status: 403 },
       );
-      
-      console.log("[create-snap] Turnstile verification result:", turnstileValid);
-      
-      if (!turnstileValid) {
-        console.error("[create-snap] CAPTCHA verification failed for IP:", clientIp);
-        return NextResponse.json(
-          { error: "CAPTCHA verification failed. Please try again." },
-          { status: 403 },
-        );
-      }
-    } else {
-      console.log("[create-snap] No Turnstile token provided, assuming internal call");
+    }
+
+    const nonceValid = await verifyAndConsumeNonce(uploadNonce, clientIp);
+    if (!nonceValid) {
+      return NextResponse.json(
+        { error: "Invalid or expired upload token. Please start over." },
+        { status: 403 },
+      );
     }
 
     // Validate required fields
@@ -217,17 +255,6 @@ export async function POST(
         { status: 400 },
       );
     }
-
-    const {
-      storagePath,
-      encryptedCaption,
-      captionIv,
-      imageIv,
-      scheduledSendTime,
-      deliveryMethod,
-      deliveryAddress,
-      periodType,
-    } = body as CreateSnapRequestBody;
 
     // Validate email address for email delivery
     if (deliveryMethod === "email") {
@@ -256,9 +283,8 @@ export async function POST(
 
     // Generate a link token for telegram delivery to prevent IDOR
     // 8 bytes = 16 hex chars (keeps deep link under Telegram's 64-char limit)
-    const telegramLinkToken = deliveryMethod === "telegram"
-      ? randomBytes(8).toString("hex")
-      : null;
+    const telegramLinkToken =
+      deliveryMethod === "telegram" ? randomBytes(8).toString("hex") : null;
 
     // Insert snap record into database
     const { data, error: dbError } = await supabaseAdmin
@@ -274,7 +300,9 @@ export async function POST(
         delivery_method: deliveryMethod,
         delivery_address: deliveryAddress ?? "",
         period_type: periodType,
-        ...(telegramLinkToken ? { telegram_link_token: telegramLinkToken } : {}),
+        ...(telegramLinkToken
+          ? { telegram_link_token: telegramLinkToken }
+          : {}),
       })
       .select()
       .single();
@@ -301,10 +329,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json(
-      { snap: data as SnapRecord },
-      { status: 200 },
-    );
+    return NextResponse.json({ snap: data as SnapRecord }, { status: 200 });
   } catch (error) {
     console.error("Create snap handler error:", error);
 

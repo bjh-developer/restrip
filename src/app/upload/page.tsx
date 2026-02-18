@@ -801,7 +801,7 @@ export default function UploadPage() {
         throw new Error(errorData.error ?? "Failed to upload image");
       }
 
-      const { storagePath, encryptedCaption, captionIv, imageIv } =
+      const { storagePath, encryptedCaption, captionIv, imageIv, uploadNonce } =
         await uploadResponse.json();
       console.log("✅ Encrypted and stored at:", storagePath);
 
@@ -819,7 +819,7 @@ export default function UploadPage() {
           deliveryMethod,
           deliveryAddress,
           periodType: selectedPeriod,
-          // Don't send turnstileToken - already verified in /api/upload
+          uploadNonce,
         }),
       });
 
@@ -1017,8 +1017,8 @@ export default function UploadPage() {
           {telegramBotLink ? (
             <>
               <p className="text-grey mb-4">
-                Your memory will be delivered via Telegram in time to come. Start the bot below
-                to confirm you will receive it.
+                Your memory will be delivered via Telegram in time to come.
+                Start the bot below to confirm you will receive it.
               </p>
               <button
                 type="button"
@@ -1039,7 +1039,8 @@ export default function UploadPage() {
             </>
           ) : (
             <p className="text-grey mb-4">
-              Your memory will be delivered to your email address in time to come.
+              Your memory will be delivered to your email address in time to
+              come.
             </p>
           )}
           <button
@@ -1205,7 +1206,9 @@ export default function UploadPage() {
             >
               {isProcessing
                 ? "One day, you'll open this and smile :)"
-                : "Deliver to the Future!"}
+                : !turnstileToken
+                  ? "Completing CAPTCHA..."
+                  : "Deliver to the Future!"}
             </button>
 
             {/* Buy Me a Coffee Button */}
