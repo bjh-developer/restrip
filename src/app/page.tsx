@@ -122,7 +122,7 @@ export default function LandingPage() {
                 </h2>
               </div>
               <p className="text-sm text-grey mb-4">
-                Send a photo strip memory without signing in. Fast and simple.
+                Upload your photo strip, pick a future period, and we'll send you a surprise. No account needed.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 Get started
@@ -141,11 +141,11 @@ export default function LandingPage() {
                   <Images className="w-5 h-5 text-soft-black" />
                 </div>
                 <h2 className="font-display text-lg font-semibold text-soft-black">
-                  My Gallery
+                  My Home
                 </h2>
               </div>
               <p className="text-sm text-grey mb-4">
-                Sign in to save and view your memories.
+                Sign in for gallery and scrapbook, safekeeping your memories.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 {isSignedIn ? "Open gallery" : "Sign in"}
