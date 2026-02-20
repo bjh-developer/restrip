@@ -99,8 +99,7 @@ export default function LandingPage() {
             className="font-display text-2xl md:text-3xl font-semibold text-soft-black mb-4"
           />
           <p className="font-body text-grey mb-4 max-w-md mx-auto">
-            Upload a photo strip, pick a future period, and we&apos;ll send you
-            a surprise. That&apos;s it.
+            A time machine, home and scrapbook for your photo booth strips.
           </p>
           <div className="mb-12">
             <AnnouncementPill />
