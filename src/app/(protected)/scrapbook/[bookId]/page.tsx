@@ -80,23 +80,7 @@ const FONT_OPTIONS = [
   { label: "Anton", value: "Anton" },
   { label: "Lora", value: "Lora" },
   { label: "Shrikhand", value: "Shrikhand" },
-];
-
-/** Google Fonts that need to be loaded remotely */
-const GOOGLE_FONT_NAMES = [
-  "Inter",
-  "Playfair Display",
-  "Caveat",
-  "Dancing Script",
-  "Pacifico",
-  "Oswald",
-  "Roboto Mono",
-  "Arimo",
-  "Montserrat",
-  "League Spartan",
-  "Anton",
-  "Lora",
-  "Shrikhand",
+  { label: "Pinyon Script", value: "Pinyon Script" },
 ];
 
 // =============================================================================
