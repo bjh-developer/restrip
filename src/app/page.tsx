@@ -217,12 +217,6 @@ export default function LandingPage() {
                 <CtaCard key={config.title} config={config} />
               ))}
             </div>
-
-            {/* Privacy note */}
-            <p className="mt-3 text-center text-xs text-grey">
-              🔐 All images are encrypted before upload. Your memories stay
-              private.
-            </p>
           </div>
         </main>
       </div>
