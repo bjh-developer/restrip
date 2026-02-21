@@ -38,7 +38,12 @@ import {
   ZoomOut,
   Maximize,
 } from "lucide-react";
-import type { Book, BookPage, PageElement, PageBackground } from "../../../../lib/scrapbook-types";
+import type {
+  Book,
+  BookPage,
+  PageElement,
+  PageBackground,
+} from "../../../../lib/scrapbook-types";
 import { BACKGROUND_COLORS } from "../../../../lib/scrapbook-types";
 import {
   fetchBook,
@@ -47,6 +52,7 @@ import {
   savePagesApi,
 } from "../../../../lib/scrapbook-api";
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
+import { fontClassNames } from "../../../../lib/fonts";
 
 // =============================================================================
 // Constants
@@ -58,6 +64,132 @@ const CANVAS_HEIGHT = 842;
 
 /** Auto-save debounce delay in ms */
 const AUTO_SAVE_DELAY = 800;
+
+/** Available fonts for the text tool */
+const FONT_OPTIONS = [
+  { label: "Inter", value: "Inter" },
+  { label: "Playfair Display", value: "Playfair Display" },
+  { label: "Caveat", value: "Caveat" },
+  { label: "Dancing Script", value: "Dancing Script" },
+  { label: "Pacifico", value: "Pacifico" },
+  { label: "Oswald", value: "Oswald" },
+  { label: "Roboto Mono", value: "Roboto Mono" },
+  { label: "Arimo", value: "Arimo" },
+  { label: "Montserrat", value: "Montserrat" },
+  { label: "League Spartan", value: "League Spartan" },
+  { label: "Anton", value: "Anton" },
+  { label: "Lora", value: "Lora" },
+  { label: "Shrikhand", value: "Shrikhand" },
+];
+
+/** Google Fonts that need to be loaded remotely */
+const GOOGLE_FONT_NAMES = [
+  "Inter",
+  "Playfair Display",
+  "Caveat",
+  "Dancing Script",
+  "Pacifico",
+  "Oswald",
+  "Roboto Mono",
+  "Arimo",
+  "Montserrat",
+  "League Spartan",
+  "Anton",
+  "Lora",
+  "Shrikhand",
+];
+
+// =============================================================================
+// Font Picker Component
+// =============================================================================
+
+interface FontPickerProps {
+  value: string;
+  onChange: (font: string) => void;
+}
+
+function FontPicker({ value, onChange }: FontPickerProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger button — renders the active font in itself */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-mist-grey text-soft-black hover:border-blush-pink focus:outline-none focus:ring-1 focus:ring-blush-pink transition bg-white min-w-[130px] justify-between"
+        title="Font"
+      >
+        <span style={{ fontFamily: value }}>{value}</span>
+        <svg
+          className="w-3 h-3 text-grey shrink-0"
+          viewBox="0 0 12 12"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M2 4l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {/* Dropdown list */}
+      {open && (
+        <div className="absolute top-full mt-1 left-0 z-50 w-48 bg-white border border-mist-grey rounded-xl shadow-xl overflow-hidden py-1">
+          {FONT_OPTIONS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => {
+                onChange(f.value);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blush-pink/10 transition flex items-center justify-between gap-2 ${
+                value === f.value ? "bg-blush-pink/20" : ""
+              }`}
+              style={{ fontFamily: f.value }}
+            >
+              <span>{f.label}</span>
+              {value === f.value && (
+                <svg
+                  className="w-3.5 h-3.5 text-blush-pink shrink-0"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 7l3.5 3.5L12 3"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // =============================================================================
 // Utility: generate unique ID
@@ -175,7 +307,9 @@ function GalleryPicker({ open, onClose, onSelect }: GalleryPickerProps) {
                 )}
                 {snap.caption && (
                   <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1">
-                    <p className="text-[10px] text-white truncate">{snap.caption}</p>
+                    <p className="text-[10px] text-white truncate">
+                      {snap.caption}
+                    </p>
                   </div>
                 )}
               </button>
@@ -203,7 +337,8 @@ interface StickerPickerProps {
 }
 
 function StickerPicker({ open, onClose, onSelect }: StickerPickerProps) {
-  const [category, setCategory] = useState<StickerDef["category"]>("characters");
+  const [category, setCategory] =
+    useState<StickerDef["category"]>("characters");
 
   if (!open) return null;
 
@@ -281,7 +416,12 @@ interface BackgroundPickerProps {
   onChange: (bg: PageBackground) => void;
 }
 
-function BackgroundPicker({ open, onClose, current, onChange }: BackgroundPickerProps) {
+function BackgroundPicker({
+  open,
+  onClose,
+  current,
+  onChange,
+}: BackgroundPickerProps) {
   if (!open) return null;
 
   return (
@@ -341,9 +481,15 @@ interface ExportPickerProps {
   onExport: (pageIndices: number[]) => void;
 }
 
-function ExportPicker({ open, onClose, pages, thumbnails, onExport }: ExportPickerProps) {
+function ExportPicker({
+  open,
+  onClose,
+  pages,
+  thumbnails,
+  onExport,
+}: ExportPickerProps) {
   const [selectedPages, setSelectedPages] = useState<Set<number>>(
-    () => new Set(pages.map((_, i) => i))
+    () => new Set(pages.map((_, i) => i)),
   );
   const [exporting, setExporting] = useState(false);
 
@@ -466,7 +612,8 @@ function ExportPicker({ open, onClose, pages, thumbnails, onExport }: ExportPick
         {/* Export button */}
         <div className="flex items-center justify-between pt-3 border-t border-mist-grey">
           <p className="text-sm text-grey">
-            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"} selected
+            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"}{" "}
+            selected
           </p>
           <button
             type="button"
@@ -504,7 +651,9 @@ export default function CanvasEditorPage() {
   // Book state
   const [book, setBook] = useState<Book | null>(null);
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
-  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "idle">("idle");
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "idle">(
+    "idle",
+  );
 
   // Fabric.js refs
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -528,6 +677,10 @@ export default function CanvasEditorPage() {
 
   // Selection state for delete button
   const [selectionHasObject, setSelectionHasObject] = useState(false);
+
+  // Font picker state (active when a textbox is selected)
+  const [selectedIsText, setSelectedIsText] = useState(false);
+  const [activeFont, setActiveFont] = useState("Inter");
 
   // Zoom level (1.0 = fit-to-container)
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -559,7 +712,9 @@ export default function CanvasEditorPage() {
       }
       setBook(b);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [bookId, router]);
 
   // ============= Initialize Fabric.js =============
@@ -590,9 +745,29 @@ export default function CanvasEditorPage() {
       canvas.on("object:removed", onChange);
 
       // Listen for selection changes
-      canvas.on("selection:created", () => setSelectionHasObject(true));
-      canvas.on("selection:updated", () => setSelectionHasObject(true));
-      canvas.on("selection:cleared", () => setSelectionHasObject(false));
+      const updateSelectionState = (
+        obj: import("fabric").FabricObject | undefined,
+      ) => {
+        setSelectionHasObject(true);
+        if (obj && obj.type === "textbox") {
+          setSelectedIsText(true);
+          setActiveFont(
+            (obj as import("fabric").Textbox).fontFamily ?? "Inter",
+          );
+        } else {
+          setSelectedIsText(false);
+        }
+      };
+      canvas.on("selection:created", (e) =>
+        updateSelectionState(e.selected?.[0]),
+      );
+      canvas.on("selection:updated", (e) =>
+        updateSelectionState(e.selected?.[0]),
+      );
+      canvas.on("selection:cleared", () => {
+        setSelectionHasObject(false);
+        setSelectedIsText(false);
+      });
 
       // Load all pages to generate thumbnails, ending on page 0
       // Temporarily disable auto-save events while generating thumbnails
@@ -641,7 +816,7 @@ export default function CanvasEditorPage() {
   const scheduleSave = useCallback(() => {
     // Don't save if we're currently loading a page
     if (isLoadingPageRef.current) return;
-    
+
     setSaveStatus("saving");
     saveTimerRef.current = setTimeout(() => {
       saveCurrentPageRef.current();
@@ -670,12 +845,15 @@ export default function CanvasEditorPage() {
 
     const elements: PageElement[] = [];
     canvas.getObjects().forEach((obj, idx) => {
-      const customData = (obj as unknown as Record<string, unknown>).__customData as {
-        id: string;
-        type: PageElement["type"];
-        snapId?: string;
-        stickerKey?: string;
-      } | undefined;
+      const customData = (obj as unknown as Record<string, unknown>)
+        .__customData as
+        | {
+            id: string;
+            type: PageElement["type"];
+            snapId?: string;
+            stickerKey?: string;
+          }
+        | undefined;
 
       if (!customData) return;
 
@@ -684,7 +862,10 @@ export default function CanvasEditorPage() {
         type: customData.type,
         snapId: customData.snapId,
         stickerKey: customData.stickerKey,
-        textContent: customData.type === "text" ? (obj as import("fabric").Textbox).text ?? "" : undefined,
+        textContent:
+          customData.type === "text"
+            ? ((obj as import("fabric").Textbox).text ?? "")
+            : undefined,
         left: obj.left ?? 0,
         top: obj.top ?? 0,
         width: obj.width ?? 0,
@@ -693,9 +874,18 @@ export default function CanvasEditorPage() {
         scaleX: obj.scaleX ?? 1,
         scaleY: obj.scaleY ?? 1,
         zIndex: idx,
-        fontSize: customData.type === "text" ? (obj as import("fabric").Textbox).fontSize ?? 24 : undefined,
-        fontFamily: customData.type === "text" ? (obj as import("fabric").Textbox).fontFamily ?? "Arial" : undefined,
-        fontColor: customData.type === "text" ? String((obj as import("fabric").Textbox).fill ?? "#000000") : undefined,
+        fontSize:
+          customData.type === "text"
+            ? ((obj as import("fabric").Textbox).fontSize ?? 24)
+            : undefined,
+        fontFamily:
+          customData.type === "text"
+            ? ((obj as import("fabric").Textbox).fontFamily ?? "Inter")
+            : undefined,
+        fontColor:
+          customData.type === "text"
+            ? String((obj as import("fabric").Textbox).fill ?? "#000000")
+            : undefined,
       };
       elements.push(el);
     });
@@ -769,7 +959,7 @@ export default function CanvasEditorPage() {
               top: el.top,
               width: el.width || 200,
               fontSize: el.fontSize || 24,
-              fontFamily: el.fontFamily || "Arial",
+              fontFamily: el.fontFamily || "Inter",
               fill: el.fontColor || "#000000",
               scaleX: el.scaleX,
               scaleY: el.scaleY,
@@ -795,7 +985,10 @@ export default function CanvasEditorPage() {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             canvas.renderAll();
-            const thumbUrl = canvas.toDataURL({ format: "png", multiplier: 0.15 });
+            const thumbUrl = canvas.toDataURL({
+              format: "png",
+              multiplier: 0.15,
+            });
             setThumbnails((prev) => ({ ...prev, [page.id]: thumbUrl }));
             // Clear loading flag after page is fully loaded
             isLoadingPageRef.current = false;
@@ -865,33 +1058,48 @@ export default function CanvasEditorPage() {
   );
 
   // ============= Add sticker =============
-  const handleAddSticker = useCallback(
-    async (sticker: StickerDef) => {
+  const handleAddSticker = useCallback(async (sticker: StickerDef) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const fabric = await import("fabric");
+    const img = await fabric.FabricImage.fromURL(sticker.src);
+
+    const scale = 0.2;
+    img.set({
+      left: CANVAS_WIDTH / 2,
+      top: CANVAS_HEIGHT / 2,
+      scaleX: scale,
+      scaleY: scale,
+    });
+
+    (img as unknown as Record<string, unknown>).__customData = {
+      id: uid(),
+      type: "sticker",
+      stickerKey: sticker.key,
+    };
+
+    canvas.add(img);
+    canvas.setActiveObject(img);
+    canvas.renderAll();
+  }, []);
+
+  // ============= Font change =============
+  const handleFontChange = useCallback(
+    async (font: string) => {
       const canvas = fabricCanvasRef.current;
       if (!canvas) return;
+      const active = canvas.getActiveObject();
+      if (!active || active.type !== "textbox") return;
 
-      const fabric = await import("fabric");
-      const img = await fabric.FabricImage.fromURL(sticker.src);
+      await document.fonts.load(`16px "${font}"`);
 
-      const scale = 0.2;
-      img.set({
-        left: CANVAS_WIDTH / 2,
-        top: CANVAS_HEIGHT / 2,
-        scaleX: scale,
-        scaleY: scale,
-      });
-
-      (img as unknown as Record<string, unknown>).__customData = {
-        id: uid(),
-        type: "sticker",
-        stickerKey: sticker.key,
-      };
-
-      canvas.add(img);
-      canvas.setActiveObject(img);
-      canvas.renderAll();
+      (active as import("fabric").Textbox).set({ fontFamily: font });
+      canvas.requestRenderAll();
+      setActiveFont(font);
+      scheduleSave();
     },
-    [],
+    [scheduleSave],
   );
 
   // ============= Add text =============
@@ -900,12 +1108,16 @@ export default function CanvasEditorPage() {
     if (!canvas) return;
 
     const fabric = await import("fabric");
+
+    // Make sure the current font is loaded
+    await document.fonts.load(`16px "${activeFont}"`);
+
     const textbox = new fabric.Textbox("Your text here", {
       left: CANVAS_WIDTH / 2,
       top: CANVAS_HEIGHT / 2,
       width: 200,
       fontSize: 24,
-      fontFamily: "Arial",
+      fontFamily: activeFont,
       fill: "#1C1C1C",
       textAlign: "center",
     });
@@ -918,7 +1130,7 @@ export default function CanvasEditorPage() {
     canvas.add(textbox);
     canvas.setActiveObject(textbox);
     canvas.renderAll();
-  }, []);
+  }, [activeFont]);
 
   // ============= Delete selected object =============
   const handleDelete = useCallback(() => {
@@ -941,7 +1153,12 @@ export default function CanvasEditorPage() {
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
         const active = canvas.getActiveObject();
-        if (active && active.type === "textbox" && (active as import("fabric").Textbox).isEditing) return;
+        if (
+          active &&
+          active.type === "textbox" &&
+          (active as import("fabric").Textbox).isEditing
+        )
+          return;
         handleDelete();
       }
     };
@@ -953,7 +1170,7 @@ export default function CanvasEditorPage() {
   const goToPage = useCallback(
     async (idx: number) => {
       if (!book || idx < 0 || idx >= book.pages.length) return;
-      
+
       setCurrentPageIdx(idx);
       // loadPageToCanvas generates the thumbnail internally after all images load
       await loadPageToCanvas(book.pages[idx]);
@@ -1018,53 +1235,56 @@ export default function CanvasEditorPage() {
   );
 
   // ============= Export pages as images =============
-  const handleExport = useCallback(async (pageIndices?: number[]) => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !book) return;
+  const handleExport = useCallback(
+    async (pageIndices?: number[]) => {
+      const canvas = fabricCanvasRef.current;
+      if (!canvas || !book) return;
 
-    // Save current page first
-    saveCurrentPage();
+      // Save current page first
+      saveCurrentPage();
 
-    // Use local book state (already up to date)
-    const freshBook = book;
+      // Use local book state (already up to date)
+      const freshBook = book;
 
-    // Determine which pages to export
-    const indicesToExport = pageIndices ?? freshBook.pages.map((_, i) => i);
+      // Determine which pages to export
+      const indicesToExport = pageIndices ?? freshBook.pages.map((_, i) => i);
 
-    // Export selected pages
-    for (const i of indicesToExport) {
-      const page = freshBook.pages[i];
-      if (!page) continue;
-      
-      // Always load the page to ensure correct content
-      await loadPageToCanvas(page);
-      // Wait for rendering
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Export selected pages
+      for (const i of indicesToExport) {
+        const page = freshBook.pages[i];
+        if (!page) continue;
 
-      canvas.discardActiveObject();
-      canvas.renderAll();
+        // Always load the page to ensure correct content
+        await loadPageToCanvas(page);
+        // Wait for rendering
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const dataUrl = canvas.toDataURL({
-        format: "png",
-        multiplier: 2,
-      });
+        canvas.discardActiveObject();
+        canvas.renderAll();
 
-      const link = document.createElement("a");
-      link.download = `${freshBook.title}-page-${i + 1}.png`;
-      link.href = dataUrl;
-      link.click();
+        const dataUrl = canvas.toDataURL({
+          format: "png",
+          multiplier: 2,
+        });
 
-      // Add delay between downloads
-      if (i !== indicesToExport[indicesToExport.length - 1]) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const link = document.createElement("a");
+        link.download = `${freshBook.title}-page-${i + 1}.png`;
+        link.href = dataUrl;
+        link.click();
+
+        // Add delay between downloads
+        if (i !== indicesToExport[indicesToExport.length - 1]) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
       }
-    }
 
-    // Restore current page
-    if (freshBook.pages[currentPageIdx]) {
-      await loadPageToCanvas(freshBook.pages[currentPageIdx]);
-    }
-  }, [book, currentPageIdx, saveCurrentPage, loadPageToCanvas]);
+      // Restore current page
+      if (freshBook.pages[currentPageIdx]) {
+        await loadPageToCanvas(freshBook.pages[currentPageIdx]);
+      }
+    },
+    [book, currentPageIdx, saveCurrentPage, loadPageToCanvas],
+  );
 
   // ============= Zoom helpers =============
   const ZOOM_MIN = 0.25;
@@ -1090,7 +1310,9 @@ export default function CanvasEditorPage() {
       const container = canvasContainerRef.current;
       if (!container) return;
       const base = getBaseScale();
-      const canvasWrapper = container.querySelector(".canvas-wrapper") as HTMLElement;
+      const canvasWrapper = container.querySelector(
+        ".canvas-wrapper",
+      ) as HTMLElement;
       if (canvasWrapper) {
         canvasWrapper.style.transform = `scale(${base * zoom})`;
         canvasWrapper.style.transformOrigin = "top center";
@@ -1166,7 +1388,9 @@ export default function CanvasEditorPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div
+      className={`flex flex-col flex-1 min-h-0 overflow-hidden ${fontClassNames}`}
+    >
       {/* Top Toolbar */}
       <div className="bg-white border-b border-mist-grey px-4 py-2 flex items-center justify-between">
         {/* Left: Back + Title */}
@@ -1186,7 +1410,9 @@ export default function CanvasEditorPage() {
           </h1>
           <div className="w-16 flex items-center justify-start">
             {saveStatus === "saving" && (
-              <span className="text-xs text-grey whitespace-nowrap">Saving...</span>
+              <span className="text-xs text-grey whitespace-nowrap">
+                Saving...
+              </span>
             )}
             {saveStatus === "saved" && (
               <span className="text-xs text-green-600 flex items-center gap-1 whitespace-nowrap">
@@ -1235,6 +1461,9 @@ export default function CanvasEditorPage() {
             <Palette className="w-4 h-4" />
             <span className="hidden sm:inline">Background</span>
           </button>
+          {selectedIsText && (
+            <FontPicker value={activeFont} onChange={handleFontChange} />
+          )}
           {selectionHasObject && (
             <button
               type="button"
@@ -1271,7 +1500,9 @@ export default function CanvasEditorPage() {
           }`}
         >
           <div className="flex items-center justify-between px-3 py-2 border-b border-mist-grey">
-            <span className="text-xs font-medium text-soft-black whitespace-nowrap">Pages</span>
+            <span className="text-xs font-medium text-soft-black whitespace-nowrap">
+              Pages
+            </span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -1368,7 +1599,10 @@ export default function CanvasEditorPage() {
           ref={canvasContainerRef}
           className="flex-1 min-h-0 bg-mist-grey/30 flex items-start sm:items-center justify-center overflow-hidden p-2 sm:p-6 relative"
         >
-          <div className="canvas-wrapper shadow-xl rounded-sm" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
+          <div
+            className="canvas-wrapper shadow-xl rounded-sm"
+            style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+          >
             <canvas ref={canvasElRef} />
           </div>
 
