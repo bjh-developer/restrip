@@ -164,28 +164,8 @@ export default function LandingPage() {
           <div className="max-w-2xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-10 items-center">
             {/* Left: Text Content */}
             <div className="text-left order-2 lg:order-1">
-              <h1 className="font-display text-[46px] sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter leading-tight mb-3 md:mb-4 relative" style={{
-                filter: 'drop-shadow(0.5px 0.5px 0px #FEFCF8)',
-              }}>
-                <span className="relative inline-block" style={{ zIndex: 1 }}>
-                  <span style={{
-                    background: 'linear-gradient(135deg, #1C1C1C 0%, #2D2D2D 50%, #1C1C1C 100%)',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}>Photo strips that </span><span className="italic mx-1 sm:mx-0" style={{ color: '#E8A5B0' }}>come back</span><span style={{
-                    background: 'linear-gradient(135deg, #1C1C1C 0%, #2D2D2D 50%, #1C1C1C 100%)',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}> to you.</span>
-                                  </span>
-                {/* Film grain texture overlay - behind text shadows */}
-                <span className="absolute inset-0 pointer-events-none opacity-5 mix-blend-overlay" style={{
-                  zIndex: -1,
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-                  backgroundSize: 'cover',
-                }} />
+              <h1 className="font-display text-[46px] sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter leading-[1.15] text-soft-black mb-3 md:mb-4">
+                Your past self just sent a <span className="italic text-[#E8A5B0]">gift</span>
               </h1>
               <p className="font-body text-sm sm:text-base md:text-lg text-grey max-w-md mb-4">
                 Upload a photo strip, pick a future period, and we'll send you a surprise reminder. That's it.
