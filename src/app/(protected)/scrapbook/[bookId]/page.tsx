@@ -312,6 +312,7 @@ function GalleryPicker({ open, onClose, onSelect }: GalleryPickerProps) {
 const STICKER_CATEGORIES = [
   { key: "characters" as const, label: "Characters" },
   { key: "tags" as const, label: "Tags" },
+  { key: "Shapes & Decorations" as const, label: "Shapes & Decorations" },
 ];
 
 interface StickerPickerProps {
