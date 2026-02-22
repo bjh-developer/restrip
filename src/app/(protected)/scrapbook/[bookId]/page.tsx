@@ -683,6 +683,9 @@ export default function CanvasEditorPage() {
   // Flag to prevent auto-save during page loading
   const isLoadingPageRef = useRef(false);
 
+  // Loading overlay — true while any loadPageToCanvas call is in flight
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
   // Current page shorthand
   const currentPage: BookPage | undefined = book?.pages[currentPageIdx];
 
@@ -909,6 +912,7 @@ export default function CanvasEditorPage() {
 
       // Set loading flag to prevent auto-save during page load
       isLoadingPageRef.current = true;
+      setIsPageLoading(true);
 
       // Clear canvas
       canvas.clear();
@@ -977,6 +981,7 @@ export default function CanvasEditorPage() {
             setThumbnails((prev) => ({ ...prev, [page.id]: thumbUrl }));
             // Clear loading flag after page is fully loaded
             isLoadingPageRef.current = false;
+            setIsPageLoading(false);
             resolve();
           });
         });
@@ -1585,10 +1590,15 @@ export default function CanvasEditorPage() {
           className="flex-1 min-h-0 bg-mist-grey/30 flex items-start sm:items-center justify-center overflow-hidden p-2 sm:p-6 relative"
         >
           <div
-            className="canvas-wrapper shadow-xl rounded-sm"
+            className="canvas-wrapper shadow-xl rounded-sm relative"
             style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
           >
             <canvas ref={canvasElRef} />
+            {isPageLoading && (
+              <div className="absolute inset-0 bg-white flex items-center justify-center rounded-sm z-10">
+                <Loader2 className="w-8 h-8 text-grey animate-spin" />
+              </div>
+            )}
           </div>
 
           {/* Zoom Controls */}
