@@ -41,8 +41,8 @@ export default function LandingPage() {
   const howItWorksSteps = HOW_IT_WORKS_STEPS;
 
   return (
-    <div className="min-h-screen bg-warm-beige relative">
-      <div className="h-screen flex flex-col relative z-10">
+    <div className="min-h-screen bg-warm-beige relative flex flex-col">
+      <div className="flex-1 flex flex-col relative z-10">
         {/* Grain overlay */}
         <div
           className="fixed inset-0 pointer-events-none opacity-[0.15] z-0 mix-blend-multiply"
