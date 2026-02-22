@@ -250,8 +250,8 @@ export default function PillNav({
                   href={item.href}
                   className={`
                     pill relative inline-flex items-center justify-center overflow-hidden
-                    px-3 py-1.5 font-display font-medium rounded-full whitespace-nowrap
-                    ${item.isFirst ? "text-2xl font-bold" : "text-sm"}
+                    px-3 py-1. font-medium rounded-full whitespace-nowrap
+                    ${item.isFirst ? "text-2xl font-bold font-display" : `text-sm ${["About", "Blog", "Contact", "Login"].includes(item.label) ? "font-sans" : "font-display"}`}
                     ${item.isActive ? "is-active" : ""}
                     ${item.isLogin ? "bg-gray-200 hover:bg-transparent transition-colors duration-200" : ""}
                   `}
@@ -329,6 +329,8 @@ export default function PillNav({
         ref={mobileMenuRef}
         style={{
           backgroundColor: bgColor,
+          visibility: 'hidden',
+          opacity: 0,
         }}
       >
         <ul className="mobile-menu-list flex flex-col p-4">

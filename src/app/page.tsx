@@ -59,16 +59,13 @@ export default function LandingPage() {
           <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 lg:gap-6 items-center">
             {/* Left: Text Content */}
             <div className="text-left order-2 lg:order-1 py-1">
-              <p className="text-[12px] font-medium text-grey/60 tracking-[0.15em] mb-3 lowercase">
-                a time machine for your photo strips
-              </p>
               <h1 className="font-display text-[42px] sm:text-[46px] md:text-[52px] lg:text-[58px] font-bold tracking-tighter leading-[1.05] text-soft-black mb-4">
                 Your past self
                 <br />
                 just sent a gift
               </h1>
               <p className="font-body text-lg sm:text-xl text-[#1C1C1C]/80 max-w-sm leading-relaxed mb-6">
-                Scan a strip. Set a date. Relive the magic.
+                A time machine, home and scrapbook for your photo booth strips.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -84,16 +81,16 @@ export default function LandingPage() {
                   onClick={handleGallery}
                   className="group px-8 py-4 bg-transparent text-soft-black font-semibold rounded-full hover:bg-white/50 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-sans border border-soft-black/20"
                 >
-                  My Gallery
+                  My Home
                 </button>
               </div>
             </div>
 
-            <div className="hidden sm:flex justify-center lg:justify-end order-1 lg:order-2">
+            <div className="flex justify-center lg:justify-end order-1 lg:order-2 mb-6 lg:mb-0">
               <div className="relative w-full max-w-[280px] sm:max-w-[340px] lg:max-w-[360px] aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(28,28,28,0.08)] ring-4 ring-white/60">
                 <img
                   src="/hero.jpg"
-                  alt="ReStrip - Photo strips that come back to you"
+                  alt="ReStrip - Photo booth strips that come back to you"
                   className="w-full h-full object-cover"
                 />
               </div>
