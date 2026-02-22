@@ -6,7 +6,7 @@
  *
  * Features:
  * - True masonry layout with measured image heights
- * - Status indicator overlays (✓ Sent · ⏱ Pending · ✗ Failed)
+ * - Status indicator overlays (✓ Sent · 🗓 Scheduled · ✗ Failed)
  * - Right-click context menu for single delete
  * - "Select" mode with checkmarks for batch delete
  * - Lightbox viewer with keyboard navigation
@@ -601,8 +601,8 @@ export default function GalleryPage() {
             </span>
           )}
           {snap.delivery_status === "pending" && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/90 text-white text-xs shadow-sm" title="Pending">
-              ⏱
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm" title="Scheduled">
+              🗓
             </span>
           )}
           {snap.delivery_status === "scheduled" && (
@@ -1111,11 +1111,12 @@ export default function GalleryPage() {
                   Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
                   {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
                     ? "Delivered"
-                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled"
+                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled" ||
+                      lightboxSectionSnaps[lightboxIndex].delivery_status === "pending"
                     ? "Scheduled"
                     : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
                     ? "Failed"
-                    : "Pending delivery"}
+                    : "Scheduled"}
                 </p>
               </div>
             )}
