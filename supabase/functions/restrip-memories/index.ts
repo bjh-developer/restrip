@@ -178,6 +178,41 @@ serve(async () => {
 
     const now = new Date();
     const nowIso = now.toISOString();
+    const staleSchedulingIso = new Date(
+      now.getTime() - 10 * 60 * 1000,
+    ).toISOString();
+
+    // past send time
+
+    const { error: reconcileError } = await supabase
+      .from("snaps")
+      .update({
+        delivery_status: "sent",
+        delivered_at: nowIso,
+        error_message: null,
+      })
+      .eq("delivery_method", "email")
+      .eq("delivery_status", "scheduled")
+      .lte("send_time", nowIso);
+    if (reconcileError) {
+      console.error("Failed to reconcile scheduled email statuses:", reconcileError);
+    }
+
+    // stale lock
+    const { error: recoverError } = await supabase
+      .from("snaps")
+      .update({
+        delivery_status: "pending",
+        error_message: "Recovered stale scheduling lock",
+      })
+      .eq("delivery_method", "email")
+      .eq("delivery_status", "scheduling")
+      .is("resend_email_id", null)
+      .lt("updated_at", staleSchedulingIso);
+    if (recoverError) {
+      console.error("Failed to recover stale scheduling locks:", recoverError);
+    }
+
     const scheduleWindowEnd = new Date(
       now.getTime() + RESEND_SCHEDULING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
     );
@@ -193,6 +228,23 @@ serve(async () => {
     let emailsProcessed = 0;
     for (const strip of emailCandidates || []) {
       try {
+        // claim strip for processing
+        const { data: claimed, error: claimError } = await supabase
+          .from("snaps")
+          .update({
+            delivery_status: "scheduling",
+            error_message: null,
+          })
+          .eq("id", strip.id)
+          .is("resend_email_id", null)
+          .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+          .select("id")
+          .single();
+
+        if (claimError || !claimed) {
+          continue;
+        }
+
         const sendTime = new Date(strip.send_time);
         if (Number.isNaN(sendTime.getTime())) {
           throw new Error("Invalid send_time");
@@ -226,7 +278,7 @@ serve(async () => {
           scheduledAt,
         );
         if (scheduledAt) {
-          await supabase
+          const { error: updateError } = await supabase
             .from("snaps")
             .update({
               delivery_status: "scheduled",
@@ -235,11 +287,14 @@ serve(async () => {
               error_message: null,
             })
             .eq("id", strip.id);
+          if (updateError) {
+            throw new Error(`Failed to save scheduled state: ${updateError.message}`);
+          }
           console.log(
             `📬 Scheduled email for strip ${strip.id} at ${scheduledAt} (Resend id: ${resendEmailId})`,
           );
         } else {
-          await supabase
+          const { error: updateError } = await supabase
             .from("snaps")
             .update({
               delivery_status: "sent",
@@ -249,6 +304,9 @@ serve(async () => {
               error_message: null,
             })
             .eq("id", strip.id);
+          if (updateError) {
+            throw new Error(`Failed to save sent state: ${updateError.message}`);
+          }
           console.log(
             `✅ Sent email immediately for strip ${strip.id} (Resend id: ${resendEmailId})`,
           );

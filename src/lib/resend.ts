@@ -69,6 +69,13 @@ export async function sendMemoryEmail(snapId: string): Promise<SendResult> {
   if (snap.row.delivery_status === "sent") {
     return { success: true, emailId: snap.row.resend_email_id ?? "already-sent", status: "already-sent" };
   }
+  if (snap.row.delivery_status === "scheduled" && snap.row.resend_email_id) {
+    return {
+      success: true,
+      emailId: snap.row.resend_email_id,
+      status: "already-scheduled",
+    };
+  }
   try {
     const emailId = await deliverViaResend(snap.row);
     await markAsSent(supabase, snap.row.id, emailId);
