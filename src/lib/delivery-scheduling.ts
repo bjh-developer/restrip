@@ -79,11 +79,6 @@ function clampToAllowedWindow(candidate: Date, now: Date): Date {
   return candidate.getTime() < minimum.getTime() ? minimum : candidate;
 }
 
-function normalizeToSelectedDayEvening(selectedDate: Date): Date {
-  const { year, month, day } = getGmt8Parts(selectedDate);
-  return fromGmt8WallClock(year, month, day, 19, 0);
-}
-
 function surpriseDeliveryTime(now: Date): Date {
   const randomDays = randomIntInclusive(SURPRISE_MIN_DAYS, SURPRISE_MAX_DAYS);
   const targetDay = addDays(startOfGmt8Day(now), randomDays);
@@ -98,8 +93,8 @@ export function computeScheduledSendTime(
   if (period === "surprise") { return surpriseDeliveryTime(now); }
   if (!selectedDate) { return undefined; }
   if (period === "custom date") {
-    const evening = normalizeToSelectedDayEvening(selectedDate);
-    return clampToAllowedWindow(evening, now);
+    const randomized = randomWindowTimeOnDay(selectedDate);
+    return clampToAllowedWindow(randomized, now);
   }
   const randomized = randomWindowTimeOnDay(selectedDate);
   return clampToAllowedWindow(randomized, now);
