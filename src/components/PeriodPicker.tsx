@@ -70,10 +70,6 @@ const MIN_PERIOD_DAYS = 2;
  */
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- * Maximum months for surprise delivery (6 months).
- */
-const SURPRISE_MAX_MONTHS = 6;
 
 /**
  * Period options configuration.
@@ -109,17 +105,6 @@ function getRandomDateInRange(startDate: Date, endDate: Date): Date {
   const endTime = endDate.getTime();
   const randomTime = startTime + Math.random() * (endTime - startTime);
   return new Date(randomTime);
-}
-
-/**
- * Generates a surprise date (random within 1-6 months from now).
- *
- * @returns Random date 1-6 months in the future
- */
-function generateSurpriseDate(): Date {
-  const now = new Date();
-  const maxMs = SURPRISE_MAX_MONTHS * 30 * MS_PER_DAY;
-  return new Date(now.getTime() + Math.random() * maxMs);
 }
 
 /**
@@ -172,8 +157,8 @@ export const PeriodPicker = React.memo(({ onSelect }: PeriodPickerProps) => {
       setShowCustomDate(period === "custom date");
 
       if (period === "surprise") {
-        const surpriseDate = generateSurpriseDate();
-        onSelect(period, surpriseDate);
+        // parent decides surprise scheduling!!! idk i think its cleaner this way
+        onSelect(period);
       } else {
         // Clear scheduled time when switching to manual selection
         onSelect(period);

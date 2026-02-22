@@ -32,6 +32,7 @@ import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../../components/DeliveryMethodPicker";
+import { computeScheduledSendTime } from "../../../lib/delivery-scheduling";
 import {
   Announcement,
   AnnouncementTag,
@@ -61,24 +62,6 @@ const MAX_IMAGE_DIMENSION = 2048;
 
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
-
-/** Default delivery time (6 PM local time) */
-const DEFAULT_DELIVERY_HOUR = 18;
-
-/** Minimum days for surprise delivery */
-const SURPRISE_MIN_DAYS = 30;
-
-/** Maximum days for surprise delivery */
-const SURPRISE_MAX_DAYS = 180;
-
-/** Milliseconds in one day */
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/** Milliseconds in one hour */
-const MS_PER_HOUR = 60 * 60 * 1000;
-
-/** Storage bucket name */
-const STORAGE_BUCKET = "encrypted-images";
 
 // =============================================================================
 // GSAP Setup
@@ -169,44 +152,6 @@ async function compressImage(base64Image: string): Promise<string> {
   } catch {
     return base64Image;
   }
-}
-
-/** Calculates send time from a selected date */
-function calculateSendTime(selectedDate: Date): Date {
-  const now = new Date();
-  const isToday =
-    selectedDate.getFullYear() === now.getFullYear() &&
-    selectedDate.getMonth() === now.getMonth() &&
-    selectedDate.getDate() === now.getDate();
-
-  if (!isToday) {
-    const sendTime = new Date(selectedDate);
-    sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-    return sendTime;
-  }
-
-  if (now.getHours() >= DEFAULT_DELIVERY_HOUR) {
-    const oneHourFromNow = new Date(now.getTime() + MS_PER_HOUR);
-    if (oneHourFromNow.getDate() === now.getDate()) return oneHourFromNow;
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 0, 0);
-    return endOfDay;
-  }
-
-  const sixPm = new Date(selectedDate);
-  sixPm.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-  return sixPm;
-}
-
-/** Generates a random surprise date */
-function generateSurpriseDate(): Date {
-  const now = new Date();
-  const randomDays =
-    Math.floor(Math.random() * (SURPRISE_MAX_DAYS - SURPRISE_MIN_DAYS + 1)) +
-    SURPRISE_MIN_DAYS;
-  const sendTime = new Date(now.getTime() + randomDays * MS_PER_DAY);
-  sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-  return sendTime;
 }
 
 // =============================================================================
@@ -412,20 +357,18 @@ export default function NewMemoryPage() {
   const handlePeriodSelect = useCallback(
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
-      if (date) {
-        const sendTime = calculateSendTime(date);
-        if (period === "custom date") setCustomDate(sendTime);
-        if (period === "custom period") setCustomPeriod(sendTime.toISOString());
-        setScheduledSendTime(sendTime);
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else if (period === "surprise") {
-        setScheduledSendTime(generateSurpriseDate());
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else {
+      const sendTime = computeScheduledSendTime(period, date);
+      if (!sendTime) {
         setScheduledSendTime(undefined);
         setCustomDate(undefined);
         setCustomPeriod(undefined);
+        return;
       }
+
+      if (period === "custom date") setCustomDate(sendTime);
+      if (period === "custom period") setCustomPeriod(sendTime.toISOString());
+      setScheduledSendTime(sendTime);
+      setFieldErrors((prev) => ({ ...prev, period: undefined }));
     },
     [],
   );

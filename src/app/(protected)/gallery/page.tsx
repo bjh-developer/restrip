@@ -605,6 +605,11 @@ export default function GalleryPage() {
               ⏱
             </span>
           )}
+          {snap.delivery_status === "scheduled" && (
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm" title="Scheduled">
+              🗓
+            </span>
+          )}
           {snap.delivery_status === "failed" && (
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/90 text-white text-xs shadow-sm" title="Failed">
               ✗
@@ -1106,6 +1111,8 @@ export default function GalleryPage() {
                   Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
                   {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
                     ? "Delivered"
+                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled"
+                    ? "Scheduled"
                     : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
                     ? "Failed"
                     : "Pending delivery"}
