@@ -1,102 +1,33 @@
-/**
- * Landing Page
- *
- * Root page presenting two paths:
- * - Quick Send: Anonymous upload at /upload (no account needed)
- * - Gallery: Sign in to access encrypted gallery at /gallery
- *
- * @module app/page
- */
-
 "use client";
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Camera, Images, Upload, Calendar, Sparkles } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import PillNav from "../components/PillNav";
+import { ArrowRight, Camera, Images, Upload, Calendar, Sparkles, Lock } from "lucide-react";
 
-type HowItWorksStep = {
-  label: string;
-  Icon: React.ComponentType<{ className?: string }>;
-  iconWrapperClassName: string;
-};
+const HOW_IT_WORKS_STEPS = [
+  { label: "Upload", Icon: Upload, description: "Scan your strip", color: "#EBEBEB" },
+  { label: "Choose date", Icon: Calendar, description: "Pick a future date", color: "#FFF2C9" },
+  { label: "Get surprised", Icon: Sparkles, description: "The magic arrives", color: "#FEFCF8" },
+];
 
-type CtaCardConfig = {
-  title: string;
-  mobileSubtitle: string;
-  Icon: React.ComponentType<{ className?: string }>;
-  iconWrapperClassName: string;
-  desktopTooltip: string;
-  onClick: () => void;
-};
-
-function HowItWorks({ steps }: { steps: HowItWorksStep[] }) {
-  return (
-    <div className="flex flex-row gap-2 items-center justify-center text-center mt-6">
-      {steps.map((step, idx) => (
-        <React.Fragment key={step.label}>
-          <div className="flex flex-col items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${step.iconWrapperClassName}`}
-            >
-              <step.Icon className="w-4 h-4 text-soft-black" />
-            </div>
-            <span className="text-sm text-grey">{step.label}</span>
-          </div>
-
-          {idx < steps.length - 1 && (
-            <div className="text-grey/40" aria-hidden="true">
-              <ArrowRight className="w-4 h-4" />
-            </div>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
-
-function CtaCard({ config }: { config: CtaCardConfig }) {
-  const { Icon } = config;
-
-  return (
-    <button
-      type="button"
-      onClick={config.onClick}
-      className="group flex items-center gap-3 bg-white rounded-full px-4 py-4 sm:p-3 text-left active:scale-[0.98] transition-transform shadow-sm flex-1 relative"
-    >
-      <div
-        className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 ${config.iconWrapperClassName}`}
-      >
-        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-soft-black" />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <h2 className="font-display text-sm sm:text-base font-bold text-soft-black">{config.title}</h2>
-        <p className="text-[10px] sm:hidden text-grey">{config.mobileSubtitle}</p>
-      </div>
-
-      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-soft-black opacity-60 group-hover:opacity-100 transition-opacity" />
-
-      {/* Desktop tooltip: kept inline with the card so future tweaks don't require hunting styles elsewhere */}
-      <div className="hidden sm:block absolute left-1/2 -translate-x-1/2 top-full mt-1 w-48 p-2 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20 bg-soft-black">
-        <p className="text-[10px] leading-tight text-white">{config.desktopTooltip}</p>
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-0 h-0 border-l-3 border-r-3 border-b-3 border-transparent border-b-soft-black"></div>
-      </div>
-    </button>
-  );
-}
+const NAV_ITEMS = [
+  { label: "ReStrip", href: "/" },
+  { label: "About", href: "/about" },
+  { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/contact" },
+  { label: "Login", href: "/auth" },
+];
 
 export default function LandingPage() {
   const router = useRouter();
   const { user, hasEncryptionKey } = useAuth();
 
-  /** Navigate to the anonymous quick-send upload flow */
   const handleQuickSend = () => {
     router.push("/upload");
   };
 
-  /** Navigate to gallery (or auth page if not signed in) */
   const handleGallery = () => {
     if (user && hasEncryptionKey) {
       router.push("/gallery");
@@ -105,81 +36,63 @@ export default function LandingPage() {
     }
   };
 
-  const navItems = [
-    { label: "ReStrip", href: "/" },
-    { label: "About", href: "/about" },
-    { label: "Blog", href: "/blog" },
-    { label: "Contact", href: "/contact" },
-    { label: "Login", href: "/auth" },
-  ];
+  const navItems = NAV_ITEMS;
 
-  const howItWorksSteps: HowItWorksStep[] = [
-    { label: "Upload", Icon: Upload, iconWrapperClassName: "bg-blush-pink/20" },
-    { label: "Choose date", Icon: Calendar, iconWrapperClassName: "bg-pastel-blue/20" },
-    { label: "Get surprised", Icon: Sparkles, iconWrapperClassName: "bg-amber-200/30" },
-  ];
-
-  const ctaCards: CtaCardConfig[] = [
-    {
-      title: "Quick Send",
-      mobileSubtitle: "Fast, no-sign-in upload",
-      Icon: Camera,
-      iconWrapperClassName: "bg-blush-pink/30",
-      desktopTooltip: "Send a photo strip memory without signing in. Fast and simple.",
-      onClick: handleQuickSend,
-    },
-    {
-      title: "My Gallery",
-      mobileSubtitle: "Sign in to access",
-      Icon: Images,
-      iconWrapperClassName: "bg-pastel-blue/30",
-      desktopTooltip: "Sign in to save, view, and manage your encrypted memories.",
-      onClick: handleGallery,
-    },
-  ];
+  const howItWorksSteps = HOW_IT_WORKS_STEPS;
 
   return (
     <div className="min-h-screen bg-warm-beige relative">
-      {/* Main Content */}
-      <div className="min-h-screen flex flex-col pb-4 relative z-10">
-        {/* Grain overlay - only on beige background, not footer */}
+      <div className="h-screen flex flex-col relative z-10">
+        {/* Grain overlay */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-25 z-0"
+          className="fixed inset-0 pointer-events-none opacity-[0.15] z-0 mix-blend-multiply"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-            backgroundSize: '256px 256px',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundSize: '200px 200px',
           }}
         />
-        {/* Navigation */}
         <header className="flex justify-center py-2 shrink-0">
-          <PillNav
-            items={navItems}
-            theme="light"
-            initialLoadAnimation={true}
-          />
+          <PillNav items={navItems} theme="light" initialLoadAnimation />
         </header>
 
-        {/* Hero Section - Text Left, Image Right */}
-        <section className="px-4 sm:px-6 lg:px-8 py-3 md:py-6 lg:py-8 shrink-0">
-          <div className="max-w-2xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-10 items-center">
+        <section className="px-4 sm:px-6 lg:px-8 py-2 md:py-6 shrink-0 flex-1 flex items-center justify-center">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 lg:gap-6 items-center">
             {/* Left: Text Content */}
-            <div className="text-left order-2 lg:order-1">
-              <h1 className="font-display text-[46px] sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter leading-[1.15] text-soft-black mb-3 md:mb-4">
-                Your past self just sent a <span className="italic text-[#E8A5B0]">gift</span>
-              </h1>
-              <p className="font-body text-sm sm:text-base md:text-lg text-grey max-w-md mb-4">
-                Upload a photo strip, pick a future period, and we'll send you a surprise reminder. That's it.
+            <div className="text-left order-2 lg:order-1 py-1">
+              <p className="text-[12px] font-medium text-grey/60 tracking-[0.15em] mb-3 lowercase">
+                a time machine for your photo strips
               </p>
-              
-              {/* How It Works */}
-              <HowItWorks steps={howItWorksSteps} />
+              <h1 className="font-display text-[42px] sm:text-[46px] md:text-[52px] lg:text-[58px] font-bold tracking-tighter leading-[1.05] text-soft-black mb-4">
+                Your past self
+                <br />
+                just sent a gift
+              </h1>
+              <p className="font-body text-lg sm:text-xl text-[#1C1C1C]/80 max-w-sm leading-relaxed mb-6">
+                Scan a strip. Set a date. Relive the magic.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleQuickSend}
+                  className="group px-8 py-4 bg-[#FFC9D1] text-soft-black font-semibold rounded-full hover:bg-[#FFB3C1] transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2 text-sm font-sans"
+                >
+                  <Camera className="w-4 h-4" />
+                  Quick Send
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+                <button
+                  onClick={handleGallery}
+                  className="group px-8 py-4 bg-transparent text-soft-black font-semibold rounded-full hover:bg-white/50 transition-all duration-300 flex items-center justify-center gap-2 text-sm font-sans border border-soft-black/20"
+                >
+                  My Gallery
+                </button>
+              </div>
             </div>
 
-            {/* Right: Image */}
             <div className="hidden sm:flex justify-center lg:justify-end order-1 lg:order-2">
-              <div className="relative w-full max-w-[280px] sm:max-w-md lg:max-w-xl aspect-[4/3] rounded-2xl overflow-hidden shadow-lg">
-                <img 
-                  src="/hero.jpg" 
+              <div className="relative w-full max-w-[280px] sm:max-w-[340px] lg:max-w-[360px] aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(28,28,28,0.08)] ring-4 ring-white/60">
+                <img
+                  src="/hero.jpg"
                   alt="ReStrip - Photo strips that come back to you"
                   className="w-full h-full object-cover"
                 />
@@ -188,27 +101,54 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Main Content - CTA Cards */}
-        <main className="flex items-start justify-center px-4 pt-2 pb-4">
-          <div className="max-w-2xl w-full">
-            {/* Dual CTA Cards - Mobile: stacked compact rows, Desktop: side by side */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 max-w-lg sm:max-w-none mx-auto">
-              {ctaCards.map((config) => (
-                <CtaCard key={config.title} config={config} />
+        <section className="shrink-0 px-4 py-3">
+          <div className="max-w-4xl w-full mx-auto">
+            <div className="text-center mb-6">
+              <p className="text-[11px] font-semibold text-soft-black uppercase tracking-[0.2em] mb-2">How It Works</p>
+            </div>
+            <div className="flex items-center justify-center gap-3 sm:gap-6 mb-6">
+              {HOW_IT_WORKS_STEPS.map((step, idx) => (
+                <React.Fragment key={step.label}>
+                  <div className="flex flex-col items-center text-center w-28 sm:w-36">
+                    <div
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-2"
+                      style={{ backgroundColor: step.color }}
+                    >
+                      <step.Icon className="w-6 h-6 sm:w-7 sm:h-7 text-soft-black font-normal" />
+                    </div>
+                    <span className="text-sm sm:text-base text-soft-black font-normal">{step.label}</span>
+                    <span className="text-[11px] text-[#1C1C1C]/70 leading-tight mt-1">{step.description}</span>
+                  </div>
+                  {idx < 2 && (
+                    <div className="flex items-center self-start mt-6">
+                      <ArrowRight className="w-6 h-6 sm:w-7 sm:h-7 text-soft-black/30" />
+                    </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
+
+            {/* Trust Pills */}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#EBEBEB]/10 rounded-full text-[10px] text-[#1C1C1C]/60">
+                <Lock className="w-3 h-3" /> End-to-end encrypted
+              </span>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#EBEBEB]/10 rounded-full text-[10px] text-[#1C1C1C]/60">
+                <Images className="w-3 h-3" /> 1,240 memories shared
+              </span>
+            </div>
           </div>
-        </main>
+        </section>
       </div>
 
-      {/* Footer - Outside the flex container */}
-      <footer className="bg-soft-black text-warm-beige py-6">
+        {/* Footer */}
+      <footer className="text-[#FEFCF8] py-6" style={{ backgroundColor: '#1C1C1C' }}>
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
             &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
             <a
               href="https://www.linkedin.com/in/bek-joon-hao/"
-              className="hover:underline transition-all hover:text-pastel-blue"
+              className="hover:underline transition-all hover:text-[#CFE7FF]"
             >
               Joon Hao
             </a>
@@ -217,13 +157,13 @@ export default function LandingPage() {
           <div className="mt-3 flex justify-center space-x-4">
             <a
               href="/privacy-policy"
-              className="text-warm-beige hover:underline text-xs"
+              className="text-[#FEFCF8] hover:underline text-xs"
             >
               Privacy Policy
             </a>
             <a
               href="/contact"
-              className="text-warm-beige hover:underline text-xs"
+              className="text-[#FEFCF8] hover:underline text-xs"
             >
               Contact Us
             </a>
