@@ -56,15 +56,13 @@ export default function LandingPage() {
         </header>
 
         <section className="px-4 sm:px-6 lg:px-8 py-2 md:py-6 shrink-0 flex-1 flex items-center justify-center">
-          <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 lg:gap-6 items-center">
+          <div className="max-w-4xl mx-auto flex flex-col lg:flex-row items-center justify-center gap-6">
             {/* Left: Text Content */}
-            <div className="text-left order-2 lg:order-1 py-1">
+            <div className="text-center lg:text-left py-1 max-w-sm">
               <h1 className="font-display text-[42px] sm:text-[46px] md:text-[52px] lg:text-[58px] font-bold tracking-tighter leading-[1.05] text-soft-black mb-4">
-                Your past self
-                <br />
-                just sent a gift
+                Missing your photo strips?
               </h1>
-              <p className="font-body text-lg sm:text-xl text-[#1C1C1C]/80 max-w-sm leading-relaxed mb-6">
+              <p className="font-body text-lg sm:text-xl text-[#1C1C1C]/80 leading-relaxed mb-6">
                 A time machine, home and scrapbook for your photo booth strips.
               </p>
 
@@ -86,7 +84,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="flex justify-center lg:justify-end order-1 lg:order-2 mb-6 lg:mb-0">
+            <div className="flex justify-center order-first lg:order-last mb-6 lg:mb-0">
               <div className="relative w-full max-w-[280px] sm:max-w-[340px] lg:max-w-[360px] aspect-[4/3] rounded-2xl overflow-hidden shadow-[0_20px_60px_-15px_rgba(28,28,28,0.08)] ring-4 ring-white/60">
                 <img
                   src="/hero.jpg"

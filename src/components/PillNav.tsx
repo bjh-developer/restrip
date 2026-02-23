@@ -48,7 +48,7 @@ export default function PillNav({
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   const isLight = theme === "light";
-  const bgColor = isLight ? "#fef3c7" : "#1f2937";
+  const bgColor = isLight ? "#FEFCF8" : "#1f2937";
 
   const mobileLoginItem = useMemo(
     () => items.find((item) => item.label.toLowerCase() === "login"),
@@ -235,13 +235,13 @@ export default function PillNav({
     <div className="pill-nav-container relative">
       <nav
         ref={navRef}
-        className={`pill-nav relative inline-flex items-center px-6 py-3 rounded-full shadow-lg w-[90vw] md:w-auto md:inline-flex ${className}`}
+        className={`pill-nav relative inline-flex items-center px-4 py-2 rounded-full shadow-lg w-[90vw] md:w-auto md:inline-flex ${className}`}
         aria-label="Primary"
         style={{
           backgroundColor: bgColor,
         }}
       >
-        <div className="pill-nav-items hidden md:flex items-center gap-6" ref={navItemsRef}>
+        <div className="pill-nav-items hidden md:flex items-center gap-4" ref={navItemsRef}>
           <ul className="pill-list flex items-center gap-2" role="menubar">
             {itemData.map((item, i) => (
               <li key={item.href} role="none">
