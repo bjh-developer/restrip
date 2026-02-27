@@ -29,6 +29,7 @@ import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../components/DeliveryMethodPicker";
+import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
 import {
   Announcement,
   AnnouncementTag,
@@ -65,21 +66,6 @@ const MAX_IMAGE_DIMENSION = 2048;
 
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
-
-/** Default delivery time (6 PM local time) */
-const DEFAULT_DELIVERY_HOUR = 18;
-
-/** Minimum days for surprise delivery */
-const SURPRISE_MIN_DAYS = 30;
-
-/** Maximum days for surprise delivery */
-const SURPRISE_MAX_DAYS = 180;
-
-/** Milliseconds in one day */
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/** Milliseconds in one hour */
-const MS_PER_HOUR = 60 * 60 * 1000;
 
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
@@ -190,75 +176,6 @@ async function compressImage(base64Image: string): Promise<string> {
     console.error("⚠️ Compression failed, using original:", error);
     return base64Image;
   }
-}
-
-/**
- * Calculates the scheduled send time based on a selected date.
- *
- * Rules:
- * - If today and after 6 PM: schedule for 1 hour from now (or 11:59 PM)
- * - If today and before 6 PM: schedule for 6 PM today
- * - If future date: schedule for 6 PM on that date
- *
- * @param selectedDate - The date selected by the user
- * @returns Calculated send time
- */
-function calculateSendTime(selectedDate: Date): Date {
-  const now = new Date();
-  const isToday =
-    selectedDate.getFullYear() === now.getFullYear() &&
-    selectedDate.getMonth() === now.getMonth() &&
-    selectedDate.getDate() === now.getDate();
-
-  if (!isToday) {
-    // Future date: schedule for 6 PM
-    const sendTime = new Date(selectedDate);
-    sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-    return sendTime;
-  }
-
-  // Today: check current time
-  const currentHour = now.getHours();
-
-  if (currentHour >= DEFAULT_DELIVERY_HOUR) {
-    // After 6 PM: try 1 hour from now
-    const oneHourFromNow = new Date(now.getTime() + MS_PER_HOUR);
-    const isStillToday =
-      oneHourFromNow.getDate() === now.getDate() &&
-      oneHourFromNow.getMonth() === now.getMonth() &&
-      oneHourFromNow.getFullYear() === now.getFullYear();
-
-    if (isStillToday) {
-      return oneHourFromNow;
-    }
-
-    // Would be tomorrow, use 11:59 PM today
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 0, 0);
-    return endOfDay;
-  }
-
-  // Before 6 PM: schedule for 6 PM today
-  const sixPmToday = new Date(selectedDate);
-  sixPmToday.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-  return sixPmToday;
-}
-
-/**
- * Generates a random surprise date within the configured range.
- *
- * @returns Random date between SURPRISE_MIN_DAYS and SURPRISE_MAX_DAYS from now
- */
-function generateSurpriseDate(): Date {
-  const now = new Date();
-  const randomDays =
-    Math.floor(Math.random() * (SURPRISE_MAX_DAYS - SURPRISE_MIN_DAYS + 1)) +
-    SURPRISE_MIN_DAYS;
-
-  const sendTime = new Date(now.getTime() + randomDays * MS_PER_DAY);
-  sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-
-  return sendTime;
 }
 
 // =============================================================================
@@ -579,39 +496,25 @@ export default function UploadPage() {
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
 
-      let sendTime: Date | undefined;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const sendTime = computeScheduledSendTime(period, timezone, date);
 
-      if (date) {
-        // User selected a specific date - calculate send time
-        sendTime = calculateSendTime(date);
-
-        if (period === "custom date") {
-          setCustomDate(sendTime);
-        } else if (period === "custom period") {
-          setCustomPeriod(sendTime.toISOString());
-        }
-
-        setScheduledSendTime(sendTime);
-        setValidationErrors([]);
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else if (period === "surprise") {
-        // Generate random surprise date
-        sendTime = generateSurpriseDate();
-        setScheduledSendTime(sendTime);
-        setValidationErrors([]);
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else {
-        // Clear scheduled time when period type requires manual date selection
+      if (!sendTime) {
         setScheduledSendTime(undefined);
         setCustomDate(undefined);
         setCustomPeriod(undefined);
+        return;
       }
 
-      if (sendTime) {
-        console.log(
-          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`,
-        );
+      if (period === "custom date") {
+        setCustomDate(sendTime);
+      } else if (period === "custom period") {
+        setCustomPeriod(sendTime.toISOString());
       }
+
+      setScheduledSendTime(sendTime);
+      setValidationErrors([]);
+      setFieldErrors((prev) => ({ ...prev, period: undefined }));
     },
     [],
   );

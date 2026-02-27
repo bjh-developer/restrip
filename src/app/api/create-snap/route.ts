@@ -17,8 +17,7 @@ import {
   rateLimitResponse,
   UPLOAD_LIMIT,
 } from "../../../lib/rate-limit";
-import { verifyTurnstileToken } from "../../../lib/turnstile";
-import { sendMemoryEmail } from "../../../lib/resend";
+import { scheduleOrSendMemoryEmail } from "../../../lib/resend";
 
 /** Maximum request body size: 1 MB (metadata only, no image) */
 const MAX_BODY_SIZE = 1 * 1024 * 1024;
@@ -317,15 +316,14 @@ export async function POST(
 
     console.log("✅ Snap created successfully:", data.id);
 
-    // Trigger immediate email delivery via Resend
-    // Telegram delivery is still handled by the Supabase Edge Function cron
+    // resend has a 30d limit oops
     if (deliveryMethod === "email") {
-      console.log("[create-snap] Triggering email delivery for snap:", data.id);
+      console.log("[create-snap] Enqueueing email delivery for snap:", data.id);
       try {
-        const emailResult = await sendMemoryEmail(data.id);
+        const emailResult = await scheduleOrSendMemoryEmail(data.id);
         console.log("[create-snap] Email result:", emailResult);
       } catch (err) {
-        console.error("[create-snap] Failed to send email:", err);
+        console.error("[create-snap] Failed to enqueue email:", err);
       }
     }
 

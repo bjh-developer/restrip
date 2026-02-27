@@ -1,18 +1,5 @@
 /**
  * Resend Email Delivery Service
- *
- * Decrypts a snap's image and caption, then sends an email with the
- * image attached via the Resend SDK.
- *
- * This module is used by:
- *   - /api/create-snap (immediate send after snap creation)
- *   - /api/send-memory (manual retry / webhook endpoint)
- *
- * TODO: Use Resend's `scheduledAt` parameter for delayed delivery.
- *       Resend supports scheduling up to 30 days in advance (ISO 8601).
- *       For snaps beyond 30 days, a cron/queue is needed to enqueue
- *       them within the 30-day window.
- *
  * @module lib/resend
  */
 
@@ -25,9 +12,26 @@ import {
   getServerEncryptionKey,
 } from "./simple-encryption";
 
-// ---------------------------------------------------------------------------
-// Singleton instances (created once at module load)
-// ---------------------------------------------------------------------------
+const RESEND_SCHEDULING_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const RESEND_MIN_SCHEDULE_AHEAD_MS = 5 * 60 * 1000;
+
+const FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL ?? "ReStrip <onboarding@resend.dev>";
+
+interface SnapRow {
+  id: string;
+  storage_path: string;
+  image_iv: string;
+  encrypted_caption: string | null;
+  caption_iv: string | null;
+  send_time: string;
+  delivery_method: "email" | "telegram";
+  delivery_address: string;
+  delivery_status: string | null;
+  retry_count: number | null;
+  resend_email_id: string | null;
+  resend_scheduled_at: string | null;
+}
 
 let _resend: Resend | null = null;
 let _supabase: SupabaseClient | null = null;
@@ -51,149 +55,226 @@ function getSupabaseAdmin(): SupabaseClient {
   return _supabase;
 }
 
-const FROM_EMAIL =
-  process.env.RESEND_FROM_EMAIL ?? "ReStrip <onboarding@resend.dev>";
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 export interface SendResult {
   success: boolean;
   emailId?: string;
+  status?: "sent" | "scheduled" | "deferred" | "already-sent" | "already-scheduled";
   error?: string;
 }
 
-/**
- * Send a memory email for a given snap ID.
- *
- * 1. Fetches the snap record
- * 2. Downloads & decrypts the image from Supabase Storage
- * 3. Decrypts caption
- * 4. Sends email via Resend (React template + image attachment)
- * 5. Updates delivery_status in the database
- */
 export async function sendMemoryEmail(snapId: string): Promise<SendResult> {
-  console.log("[resend] sendMemoryEmail called for snapId:", snapId);
   const supabase = getSupabaseAdmin();
-  const resend = getResend();
-  console.log("[resend] Clients initialised, fetching snap...");
+  const snap = await fetchSnap(supabase, snapId);
+  if (!snap.success) return snap.result;
+  if (snap.row.delivery_status === "sent") {
+    return { success: true, emailId: snap.row.resend_email_id ?? "already-sent", status: "already-sent" };
+  }
+  if (snap.row.delivery_status === "scheduled" && snap.row.resend_email_id) {
+    return {
+      success: true,
+      emailId: snap.row.resend_email_id,
+      status: "already-scheduled",
+    };
+  }
+  try {
+    const emailId = await deliverViaResend(snap.row);
+    await markAsSent(supabase, snap.row.id, emailId);
+    return { success: true, emailId, status: "sent" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await markAsFailed(supabase, snap.row.id, snap.row.retry_count ?? 0, message);
+    return { success: false, error: message };
+  }
+}
 
-  // 1. Fetch snap ----------------------------------------------------------
-  const { data: snap, error: fetchError } = await supabase
+export async function scheduleOrSendMemoryEmail(
+  snapId: string,
+): Promise<SendResult> {
+  const supabase = getSupabaseAdmin();
+  const snap = await fetchSnap(supabase, snapId);
+  if (!snap.success) return snap.result;
+  if (snap.row.delivery_status === "sent") {
+    return { success: true, emailId: snap.row.resend_email_id ?? "already-sent", status: "already-sent" };
+  }
+  if (snap.row.delivery_status === "scheduled" && snap.row.resend_email_id) {
+    return { success: true, emailId: snap.row.resend_email_id, status: "already-scheduled" };
+  }
+  const sendAt = new Date(snap.row.send_time);
+  if (Number.isNaN(sendAt.getTime())) {
+    const error = "Invalid send_time on snap";
+    await markAsFailed(supabase, snap.row.id, snap.row.retry_count ?? 0, error);
+    return { success: false, error };
+  }
+  const now = new Date();
+  const latestDirectSchedule = new Date(now.getTime() + RESEND_SCHEDULING_WINDOW_MS);
+
+  // long horizon ( > 30d )
+  if (sendAt.getTime() > latestDirectSchedule.getTime()) {
+    await supabase
+      .from("snaps")
+      .update({ delivery_status: "pending", error_message: null })
+      .eq("id", snap.row.id);
+    return { success: true, status: "deferred" };
+  }
+  const canSchedule = sendAt.getTime() > now.getTime() + RESEND_MIN_SCHEDULE_AHEAD_MS;
+  try {
+    const emailId = await deliverViaResend(
+      snap.row,
+      canSchedule ? sendAt.toISOString() : undefined,
+    );
+    if (canSchedule) {
+      await markAsScheduled(supabase, snap.row.id, emailId, sendAt.toISOString());
+      return { success: true, emailId, status: "scheduled" };
+    }
+    await markAsSent(supabase, snap.row.id, emailId);
+    return { success: true, emailId, status: "sent" };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await markAsFailed(supabase, snap.row.id, snap.row.retry_count ?? 0, message);
+    return { success: false, error: message };
+  }
+}
+
+async function fetchSnap(
+  supabase: SupabaseClient,
+  snapId: string,
+): Promise<
+  | { success: true; row: SnapRow }
+  | { success: false; result: SendResult }
+> {
+  const { data, error } = await supabase
     .from("snaps")
-    .select("*")
+    .select(
+      "id, storage_path, image_iv, encrypted_caption, caption_iv, send_time, delivery_method, delivery_address, delivery_status, retry_count, resend_email_id, resend_scheduled_at",
+    )
     .eq("id", snapId)
     .single();
-
-  if (fetchError || !snap) {
-    console.error("[resend] Snap not found:", fetchError);
-    return { success: false, error: "Snap not found" };
+  if (error || !data) {
+    console.error("[resend] Snap not found:", error);
+    return { success: false, result: { success: false, error: "Snap not found" } };
   }
-
-  if (snap.delivery_method !== "email") {
-    return { success: false, error: "Delivery method is not email" };
+  const row = data as SnapRow;
+  if (row.delivery_method !== "email") {
+    return {
+      success: false,
+      result: { success: false, error: "Delivery method is not email" },
+    };
   }
-
-  if (snap.delivery_status === "sent") {
-    return { success: true, emailId: "already-sent" };
+  if (!row.delivery_address) {
+    return {
+      success: false,
+      result: { success: false, error: "Missing delivery_address" },
+    };
   }
+  return { success: true, row };
+}
 
-  try {
-    // 2. Download encrypted image ------------------------------------------
-    const { data: imageBlob, error: dlError } = await supabase
-      .storage
-      .from("encrypted-images")
-      .download(snap.storage_path);
-
-    if (dlError || !imageBlob) {
-      throw new Error(`Failed to download image: ${dlError?.message}`);
-    }
-
-    const encryptionKey = getServerEncryptionKey();
-    const imageBuffer = await imageBlob.arrayBuffer();
-    const encryptedImageBase64 = arrayBufferToBase64(imageBuffer);
-
-    // 3. Decrypt image -----------------------------------------------------
-    const decryptedBuffer = await decryptData(
-      encryptedImageBase64,
-      snap.image_iv,
+async function decryptEmailPayload(snap: SnapRow): Promise<{
+  caption: string;
+  imageBase64: string;
+}> {
+  const supabase = getSupabaseAdmin();
+  const { data: imageBlob, error: dlError } = await supabase
+    .storage
+    .from("encrypted-images")
+    .download(snap.storage_path);
+  if (dlError || !imageBlob) {
+    throw new Error(`Failed to download image: ${dlError?.message}`);
+  }
+  const encryptionKey = getServerEncryptionKey();
+  const imageBuffer = await imageBlob.arrayBuffer();
+  const encryptedImageBase64 = arrayBufferToBase64(imageBuffer);
+  const decryptedBuffer = await decryptData(
+    encryptedImageBase64,
+    snap.image_iv,
+    encryptionKey,
+  );
+  let caption = "";
+  if (snap.encrypted_caption && snap.caption_iv) {
+    const captionBuf = await decryptData(
+      snap.encrypted_caption,
+      snap.caption_iv,
       encryptionKey,
     );
-    const decryptedImageBase64 = arrayBufferToBase64(decryptedBuffer);
-
-    // 4. Decrypt caption ---------------------------------------------------
-    let caption = "";
-    if (snap.encrypted_caption && snap.caption_iv) {
-      const captionBuf = await decryptData(
-        snap.encrypted_caption,
-        snap.caption_iv,
-        encryptionKey,
-      );
-      caption = new TextDecoder().decode(captionBuf);
-    }
-
-    // 5. Send via Resend ---------------------------------------------------
-    const { data: emailResult, error: emailError } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [snap.delivery_address],
-      subject: "📸 A memory from your past!",
-      react: MemoryEmail({ caption }),
-      attachments: [
-        {
-          filename: "memory.png",
-          content: decryptedImageBase64,
-        },
-      ],
-      // TODO: scheduledAt: snap.send_time,
-    });
-
-    if (emailError) {
-      console.error("[resend] Send error:", emailError);
-
-      await supabase
-        .from("snaps")
-        .update({
-          delivery_status: "failed",
-          error_message: emailError.message ?? JSON.stringify(emailError),
-          retry_count: (snap.retry_count || 0) + 1,
-        })
-        .eq("id", snapId);
-
-      return {
-        success: false,
-        error: emailError.message ?? "Resend send failed",
-      };
-    }
-
-    // 6. Mark sent ---------------------------------------------------------
-    await supabase
-      .from("snaps")
-      .update({
-        delivery_status: "sent",
-        delivered_at: new Date().toISOString(),
-      })
-      .eq("id", snapId);
-
-    console.log(
-      `✅ [resend] Email sent for snap ${snapId} → ${snap.delivery_address} (id: ${emailResult?.id})`,
-    );
-
-    return { success: true, emailId: emailResult?.id };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[resend] Unexpected error:", msg);
-
-    // Mark failed in DB
-    await supabase
-      .from("snaps")
-      .update({
-        delivery_status: "failed",
-        error_message: msg,
-        retry_count: (snap.retry_count || 0) + 1,
-      })
-      .eq("id", snapId);
-
-    return { success: false, error: msg };
+    caption = new TextDecoder().decode(captionBuf);
   }
+  return {
+    caption,
+    imageBase64: arrayBufferToBase64(decryptedBuffer),
+  };
+}
+
+async function deliverViaResend(
+  snap: SnapRow,
+  scheduledAt?: string,
+): Promise<string> {
+  const resend = getResend();
+  const payload = await decryptEmailPayload(snap);
+  const { data: emailResult, error: emailError } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: [snap.delivery_address],
+    subject: "📸 A memory from your past!",
+    react: MemoryEmail({ caption: payload.caption }),
+    attachments: [
+      {
+        filename: "memory.png",
+        content: payload.imageBase64,
+      },
+    ],
+    ...(scheduledAt ? { scheduledAt } : {}),
+  });
+  if (emailError) {
+    throw new Error(emailError.message ?? JSON.stringify(emailError));
+  }
+  return emailResult?.id ?? "unknown";
+}
+
+async function markAsSent(
+  supabase: SupabaseClient,
+  snapId: string,
+  emailId: string,
+): Promise<void> {
+  await supabase
+    .from("snaps")
+    .update({
+      delivery_status: "sent",
+      delivered_at: new Date().toISOString(),
+      resend_email_id: emailId,
+      resend_scheduled_at: null,
+      error_message: null,
+    })
+    .eq("id", snapId);
+}
+
+async function markAsScheduled(
+  supabase: SupabaseClient,
+  snapId: string,
+  emailId: string,
+  scheduledAt: string,
+): Promise<void> {
+  await supabase
+    .from("snaps")
+    .update({
+      delivery_status: "scheduled",
+      resend_email_id: emailId,
+      resend_scheduled_at: scheduledAt,
+      error_message: null,
+    })
+    .eq("id", snapId);
+}
+
+async function markAsFailed(
+  supabase: SupabaseClient,
+  snapId: string,
+  retryCount: number,
+  message: string,
+): Promise<void> {
+  await supabase
+    .from("snaps")
+    .update({
+      delivery_status: "failed",
+      error_message: message,
+      retry_count: retryCount + 1,
+    })
+    .eq("id", snapId);
 }

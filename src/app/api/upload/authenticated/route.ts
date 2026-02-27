@@ -23,7 +23,7 @@ import {
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
 import { checkRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "../../../../lib/rate-limit";
-import { sendMemoryEmail } from "../../../../lib/resend";
+import { scheduleOrSendMemoryEmail } from "../../../../lib/resend";
 
 /** Maximum request body size: 10 MB */
 const MAX_BODY_SIZE = 10 * 1024 * 1024;
@@ -242,15 +242,14 @@ export async function POST(
 
     console.log(`✅ Snap ${snapData.id} created for user ${userId}`);
 
-    // Trigger immediate email delivery via Resend
-    // Telegram delivery is still handled by the Supabase Edge Function cron
+    // once again, 30d on resend
     if (deliveryMethod === "email") {
-      console.log("[authenticated] Triggering email delivery for snap:", snapData.id);
+      console.log("[authenticated] Enqueueing email delivery for snap:", snapData.id);
       try {
-        const emailResult = await sendMemoryEmail(snapData.id);
+        const emailResult = await scheduleOrSendMemoryEmail(snapData.id);
         console.log("[authenticated] Email result:", emailResult);
       } catch (err) {
-        console.error("[authenticated] Failed to send email:", err);
+        console.error("[authenticated] Failed to enqueue email:", err);
       }
     }
 

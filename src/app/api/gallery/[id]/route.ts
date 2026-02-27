@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
+import { Resend } from "resend";
 import { checkRateLimit, rateLimitResponse, DELETE_LIMIT } from "../../../../lib/rate-limit";
 
 /**
@@ -26,6 +27,15 @@ const supabaseAdmin = createClient(
 
 /** Storage bucket name for images */
 const STORAGE_BUCKET = "encrypted-images";
+let _resend: Resend | null = null;
+function getResend(): Resend {
+  if (!_resend) {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) throw new Error("RESEND_API_KEY is not set");
+    _resend = new Resend(key);
+  }
+  return _resend;
+}
 
 /**
  * DELETE /api/gallery/[id]
@@ -63,7 +73,7 @@ export async function DELETE(
     // Fetch the snap to verify ownership and get storage path
     const { data: snap, error: fetchError } = await supabaseAdmin
       .from("snaps")
-      .select("id, user_id, storage_path")
+      .select("id, user_id, storage_path, delivery_method, delivery_status, resend_email_id")
       .eq("id", id)
       .single();
 
@@ -80,6 +90,20 @@ export async function DELETE(
         { error: "Snap not found" },
         { status: 404 },
       );
+    }
+
+    if ( snap.delivery_method === "email" && snap.resend_email_id && snap.delivery_status !== "sent" ) {
+      try {
+        const resend = getResend();
+        const { error: cancelError } = await resend.emails.cancel(snap.resend_email_id);
+        if (cancelError) {
+          const message = cancelError.message ?? JSON.stringify(cancelError);
+          return NextResponse.json( { error: `Failed to cancel scheduled email before deletion: ${message}`, }, { status: 409 }, );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json( { error: `Failed to cancel scheduled email before deletion: ${message}`, }, { status: 409 }, );
+      }
     }
 
     // Delete the file from storage
