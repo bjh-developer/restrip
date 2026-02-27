@@ -19,7 +19,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Brush, CircleAlert, Check, ArrowLeft } from "lucide-react";
-// import { ScrollTrigger } from "gsap/ScrollTrigger";
 import imageCompression from "browser-image-compression";
 import Link from "next/link";
 import { Label } from "@/components/ui/label";
@@ -50,13 +49,6 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
 import { loadUserJot } from "../../lib/userjot";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  alternates: {
-    canonical: "https://www.restrip.app/upload",
-  },
-};
 
 // =============================================================================
 // Constants
