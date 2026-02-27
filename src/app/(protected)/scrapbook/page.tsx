@@ -35,6 +35,84 @@ import {
 import { Skeleton } from "../../../../components/ui/skeleton";
 
 // =============================================================================
+// Delete Confirmation Modal
+// =============================================================================
+
+interface DeleteConfirmModalProps {
+  open: boolean;
+  bookCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}
+
+function DeleteConfirmModal({
+  open,
+  bookCount,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: DeleteConfirmModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40">
+      <div
+        className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-300"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+        aria-describedby="delete-desc"
+      >
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+            <Trash2 className="w-6 h-6 text-red-600" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <h2 id="delete-title" className="font-display text-lg font-bold text-soft-black text-center mb-2">
+          Delete {bookCount} {bookCount === 1 ? "book" : "books"}?
+        </h2>
+
+        {/* Description */}
+        <p id="delete-desc" className="text-sm text-grey text-center mb-6">
+          All pages and content will be permanently deleted. This cannot be undone.
+        </p>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border border-mist-grey text-soft-black hover:bg-mist-grey/30 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>Delete {bookCount === 1 ? "Book" : "Books"}</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Create / Edit Book Modal
 // =============================================================================
 
@@ -151,6 +229,9 @@ export default function CanvasPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
+  // Delete confirmation modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
   // Load books from API
   useEffect(() => {
     fetchBooks()
@@ -181,16 +262,15 @@ export default function CanvasPage() {
     [editingBook],
   );
 
-  /** Batch-delete selected books */
-  const handleBatchDelete = useCallback(async () => {
+  /** Show delete confirmation modal */
+  const showDeleteConfirmation = useCallback(() => {
     if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
-    if (
-      !confirm(
-        `Delete ${count} ${count === 1 ? "book" : "books"} and all their pages? This cannot be undone.`,
-      )
-    )
-      return;
+    setDeleteModalOpen(true);
+  }, [selectedIds.size]);
+
+  /** Confirm and execute batch deletion */
+  const confirmBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
 
     const ids = Array.from(selectedIds);
     setDeletingIds(new Set(ids));
@@ -223,6 +303,9 @@ export default function CanvasPage() {
     // Clear deleting status
     setDeletingIds(new Set());
 
+    // Close modal
+    setDeleteModalOpen(false);
+
     // Only exit select mode if all succeeded
     if (failedIds.size === 0) {
       setSelectMode(false);
@@ -236,6 +319,11 @@ export default function CanvasPage() {
       );
     }
   }, [selectedIds]);
+
+  /** Wrapper for batch delete button - show confirmation */
+  const handleBatchDelete = useCallback(() => {
+    showDeleteConfirmation();
+  }, [showDeleteConfirmation]);
 
   /** Toggle selection of a book */
   const toggleSelect = useCallback((id: string) => {
@@ -448,6 +536,13 @@ export default function CanvasPage() {
             ? { title: editingBook.title, coverColor: editingBook.coverColor }
             : undefined
         }
+      />
+      <DeleteConfirmModal
+        open={deleteModalOpen}
+        bookCount={selectedIds.size}
+        onConfirm={confirmBatchDelete}
+        onCancel={() => setDeleteModalOpen(false)}
+        isDeleting={deletingIds.size > 0}
       />
     </div>
   );

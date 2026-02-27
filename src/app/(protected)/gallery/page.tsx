@@ -80,8 +80,101 @@ interface DisplaySnap extends SnapRecord {
 const LOAD_BATCH_SIZE = 4;
 
 // =============================================================================
-// Helpers
+// Helpers & Components
 // =============================================================================
+
+/**
+ * Delete confirmation modal component
+ * Shows a custom confirmation dialog instead of native confirm()
+ */
+interface DeleteConfirmModalProps {
+  open: boolean;
+  snapCount: number;
+  isSingleSnap: boolean;
+  selectedSnap?: DisplaySnap;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}
+
+function DeleteConfirmModal({
+  open,
+  snapCount,
+  isSingleSnap,
+  selectedSnap,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: DeleteConfirmModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40">
+      <div
+        className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-300"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+        aria-describedby="delete-desc"
+      >
+        {/* Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+            <Trash2 className="w-6 h-6 text-red-600" />
+          </div>
+        </div>
+
+        {/* Title */}
+        <h2 id="delete-title" className="font-display text-lg font-bold text-soft-black text-center mb-2">
+          Are you sure you want to delete{" "}
+          {isSingleSnap ? "photo strip" : `${snapCount} photo strip${snapCount !== 1 ? "s" : ""}`}?
+        </h2>
+
+        {/* Description with warning */}
+        <p id="delete-desc" className="text-sm text-grey text-center mb-4">
+          This action cannot be undone.
+        </p>
+
+        {/* Warning note if snap hasn't been delivered */}
+        {isSingleSnap && selectedSnap && selectedSnap.delivery_status !== "sent" && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-xs text-amber-800 flex items-start gap-2">
+              <span className="text-amber-600 mt-0.5">⚠</span>
+              <span>This memory will not be delivered anymore.</span>
+            </p>
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border border-mist-grey text-soft-black hover:bg-mist-grey/30 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>Delete {isSingleSnap ? "Photo" : "Photos"}</>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // =============================================================================
 // Component
@@ -105,6 +198,11 @@ export default function GalleryPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Delete confirmation modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteModalMode, setDeleteModalMode] = useState<"single" | "batch">("single");
+  const [deletePendingSnapId, setDeletePendingSnapId] = useState<string | null>(null);
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{
@@ -367,9 +465,17 @@ export default function GalleryPage() {
   // Actions
   // =========================================================================
 
-  /** Delete a single snap by ID */
-  const handleDelete = async (snapId: string) => {
-    if (!confirm("Delete this memory? This action cannot be undone.")) return;
+  /** Show delete confirmation modal for a single snap */
+  const showDeleteConfirmation = (snapId: string) => {
+    setDeletePendingSnapId(snapId);
+    setDeleteModalMode("single");
+    setDeleteModalOpen(true);
+  };
+
+  /** Confirm and execute single snap deletion */
+  const confirmDeleteSingleSnap = async () => {
+    if (!deletePendingSnapId) return;
+    const snapId = deletePendingSnapId;
 
     try {
       setDeletingIds((prev) => new Set(prev).add(snapId));
@@ -399,6 +505,9 @@ export default function GalleryPage() {
       if (lightboxIndex !== null && snaps[lightboxIndex]?.id === snapId) {
         setLightboxIndex(null);
       }
+
+      setDeleteModalOpen(false);
+      setDeletePendingSnapId(null);
     } catch (err) {
       console.error("Delete error:", err);
       alert(err instanceof Error ? err.message : "Failed to delete snap");
@@ -411,12 +520,22 @@ export default function GalleryPage() {
     }
   };
 
-  /** Batch-delete selected snaps */
-  const handleBatchDelete = async () => {
+  /** Wrapper for context menu delete - show confirmation */
+  const handleDelete = (snapId: string) => {
+    showDeleteConfirmation(snapId);
+  };
+
+  /** Show delete confirmation modal for batch delete */
+  const showBatchDeleteConfirmation = () => {
+    if (selectedIds.size === 0) return;
+    setDeleteModalMode("batch");
+    setDeleteModalOpen(true);
+  };
+
+  /** Confirm and execute batch deletion */
+  const confirmBatchDelete = async () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
-    if (!confirm(`Delete ${count} ${count === 1 ? "memory" : "memories"}? This cannot be undone.`))
-      return;
 
     const ids = Array.from(selectedIds);
     setDeletingIds(new Set(ids));
@@ -467,6 +586,9 @@ export default function GalleryPage() {
     
     setLightboxIndex(null);
 
+    // Close modal and reset state
+    setDeleteModalOpen(false);
+
     // Show error message if any deletions failed
     if (failedIds.size > 0) {
       const failedMessages = failedResults
@@ -480,6 +602,11 @@ export default function GalleryPage() {
         `The failed items remain selected for retry. Details: ${failedMessages}`
       );
     }
+  };
+
+  /** Wrapper for batch delete button - show confirmation */
+  const handleBatchDelete = () => {
+    showBatchDeleteConfirmation();
   };
 
   /** Toggle selection of a snap */
@@ -1031,6 +1158,20 @@ export default function GalleryPage() {
           </button>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        open={deleteModalOpen}
+        snapCount={deleteModalMode === "batch" ? selectedIds.size : 1}
+        isSingleSnap={deleteModalMode === "single"}
+        selectedSnap={deletePendingSnapId ? snaps.find((s) => s.id === deletePendingSnapId) : undefined}
+        onConfirm={deleteModalMode === "single" ? confirmDeleteSingleSnap : confirmBatchDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setDeletePendingSnapId(null);
+        }}
+        isDeleting={deletingIds.size > 0}
+      />
 
       {/* Lightbox Overlay */}
       {lightboxIndex !== null && lightboxSectionSnaps[lightboxIndex] && (
