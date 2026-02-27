@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     url: "https://www.restrip.app/contact",
     siteName: "ReStrip",
     images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
