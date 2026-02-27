@@ -17,11 +17,15 @@ import { ArrowRight, Camera, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
 import ScrollReveal from "../components/ScrollReveal";
+import {
+  Status,
+  StatusIndicator,
+  StatusLabel,
+} from "../components/ui/shadcn-io/status";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import { loadUserJot } from "../lib/userjot";
 import Link from "next/link";
-
 
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
@@ -70,11 +74,18 @@ export default function LandingPage() {
             A time machine, home and scrapbook for your photo booth strips.
           </p>
 
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-4">
+            <Status status="online">
+              <StatusIndicator />
+              <StatusLabel />
+            </Status>
+          </div>
+
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
             {/* Quick Send Card */}
             <Link
-              href = "/upload"
+              href="/upload"
               className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
             >
               <div className="flex items-center gap-3 mb-3">
@@ -86,7 +97,8 @@ export default function LandingPage() {
                 </h2>
               </div>
               <p className="text-sm text-grey mb-4">
-                Upload your photo strip, pick a future period, and we'll send you a surprise. No account needed.
+                Upload your photo strip, pick a future period, and we'll send
+                you a surprise. No account needed.
               </p>
               <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 Get started
