@@ -117,7 +117,7 @@ function FontPicker({ value, onChange }: FontPickerProps) {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-mist-grey text-soft-black hover:border-blush-pink focus:outline-none focus:ring-1 focus:ring-blush-pink transition bg-white min-w-[130px] justify-between"
         title="Font"
       >
-        <span style={{ fontFamily: value }}>{value}</span>
+        <span style={{ fontFamily: value }} className="leading-none">{value}</span>
         <svg
           className="w-3 h-3 text-grey shrink-0"
           viewBox="0 0 12 12"
@@ -1382,7 +1382,7 @@ export default function CanvasEditorPage() {
       className={`flex flex-col flex-1 min-h-0 overflow-hidden ${fontClassNames}`}
     >
       {/* Top Toolbar */}
-      <div className="bg-white border-b border-mist-grey px-4 py-2 flex items-center justify-between">
+      <div className="bg-white border-b border-mist-grey px-3 py-3 flex items-center justify-between">
         {/* Left: Back + Title */}
         <div className="flex items-center gap-3">
           <button
@@ -1414,46 +1414,53 @@ export default function CanvasEditorPage() {
 
         {/* Center: Tools */}
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setGalleryOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Add Photo Strip"
-          >
-            <ImageIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">Photo</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setStickerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Add Sticker"
-          >
-            <Smile className="w-4 h-4" />
-            <span className="hidden sm:inline">Sticker</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleAddText}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Add Text"
-          >
-            <Type className="w-4 h-4" />
-            <span className="hidden sm:inline">Text</span>
-          </button>
-          <div className="w-px h-6 bg-mist-grey mx-1" />
-          <button
-            type="button"
-            onClick={() => setBgOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Page Background"
-          >
-            <Palette className="w-4 h-4" />
-            <span className="hidden sm:inline">Background</span>
-          </button>
-          {selectedIsText && (
+          {selectedIsText ? (
             <FontPicker value={activeFont} onChange={handleFontChange} />
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Add Photo Strip"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Photo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStickerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Add Sticker"
+              >
+                <Smile className="w-4 h-4" />
+                <span className="hidden sm:inline">Sticker</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddText}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Add Text"
+              >
+                <Type className="w-4 h-4" />
+                <span className="hidden sm:inline">Text</span>
+              </button>
+              <div className="w-px h-6 bg-mist-grey mx-1" />
+              <button
+                type="button"
+                onClick={() => setBgOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Page Background"
+              >
+                <Palette className="w-4 h-4" />
+                <span className="hidden sm:inline">Background</span>
+              </button>
+            </>
           )}
+        </div>
+
+        {/* Right: Export + Delete */}
+        <div className="flex items-center gap-2">
           {selectionHasObject && (
             <button
               type="button"
@@ -1464,10 +1471,6 @@ export default function CanvasEditorPage() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-        </div>
-
-        {/* Right: Export */}
-        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setExportOpen(true)}
