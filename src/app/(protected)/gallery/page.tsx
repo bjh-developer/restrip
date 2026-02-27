@@ -41,6 +41,13 @@ import {
   getCachedIds,
   removeCachedImage,
 } from "../../../lib/gallery-cache";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/gallery",
+  },
+};
 
 // =============================================================================
 // Types

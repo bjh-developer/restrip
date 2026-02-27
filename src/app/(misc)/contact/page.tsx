@@ -3,6 +3,13 @@
 import { useEffect } from "react";
 import { Mail, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import { loadUserJot } from "../../../lib/userjot";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/contact",
+  },
+};
 
 export default function ContactPage() {
   useEffect(() => {

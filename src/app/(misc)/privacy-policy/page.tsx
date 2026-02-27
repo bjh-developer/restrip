@@ -2,6 +2,13 @@
 import { useEffect } from "react";
 import { Shield, Trash2, Eye, Lock } from "lucide-react";
 import { loadUserJot } from "../../../lib/userjot";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/privacy-policy",
+  },
+};
 
 export default function PrivacyPage() {
   useEffect(() => {

@@ -1,4 +1,11 @@
 import { SignIn } from "@clerk/nextjs";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/sign-in",
+  },
+};
 
 export default function SignInPage() {
   return (

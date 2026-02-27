@@ -45,6 +45,13 @@ import {
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
 import { useUser } from "@clerk/nextjs";
 import * as z from "zod";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/new",
+  },
+};
 
 // =============================================================================
 // Constants

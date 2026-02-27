@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   title: "ReStrip - Photo booth strips that come back to you",
   description:
     "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+  alternates: {
+    canonical: "https://www.restrip.app",
+  },
   openGraph: {
     title: "ReStrip - Photo booth strips that come back to you",
     description:

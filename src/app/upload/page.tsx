@@ -50,6 +50,13 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
 import { loadUserJot } from "../../lib/userjot";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/upload",
+  },
+};
 
 // =============================================================================
 // Constants

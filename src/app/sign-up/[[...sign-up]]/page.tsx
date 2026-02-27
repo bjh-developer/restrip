@@ -1,4 +1,11 @@
 import { SignUp } from "@clerk/nextjs";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "https://www.restrip.app/sign-up",
+  },
+};
 
 export default function SignUpPage() {
   return (
