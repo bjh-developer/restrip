@@ -497,7 +497,8 @@ export default function UploadPage() {
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
 
-      const sendTime = computeScheduledSendTime(period, date);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const sendTime = computeScheduledSendTime(period, timezone, date);
 
       if (!sendTime) {
         setScheduledSendTime(undefined);
@@ -515,12 +516,6 @@ export default function UploadPage() {
       setScheduledSendTime(sendTime);
       setValidationErrors([]);
       setFieldErrors((prev) => ({ ...prev, period: undefined }));
-
-      if (sendTime) {
-        console.log(
-          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`,
-        );
-      }
     },
     [],
   );

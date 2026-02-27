@@ -357,7 +357,8 @@ export default function NewMemoryPage() {
   const handlePeriodSelect = useCallback(
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
-      const sendTime = computeScheduledSendTime(period, date);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const sendTime = computeScheduledSendTime(period, timezone, date);
       if (!sendTime) {
         setScheduledSendTime(undefined);
         setCustomDate(undefined);
