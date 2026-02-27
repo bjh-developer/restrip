@@ -31,11 +31,6 @@ import {
 } from "../../components/DeliveryMethodPicker";
 import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
 import {
-  Announcement,
-  AnnouncementTag,
-  AnnouncementTitle,
-} from "../../components/ui/shadcn-io/announcement";
-import {
   Banner,
   BannerAction,
   BannerClose,
@@ -183,21 +178,6 @@ async function compressImage(base64Image: string): Promise<string> {
 // =============================================================================
 
 /**
- * Beta testing announcement pill.
- */
-const AnnouncementPill = React.memo(() => (
-  <Announcement className="bg-sky-100 text-sky-700" themed>
-    <AnnouncementTag>Info</AnnouncementTag>
-    <AnnouncementTitle>
-      Beta testing in progress, all memories
-      <br />
-      will be sent within 5 minutes
-    </AnnouncementTitle>
-  </Announcement>
-));
-AnnouncementPill.displayName = "AnnouncementPill";
-
-/**
  * Image upload component with drag-and-drop support.
  *
  * Displays a dropzone for image upload and shows a preview of the
@@ -271,28 +251,6 @@ const UploadImage = React.memo(
   },
 );
 UploadImage.displayName = "UploadImage";
-
-/**
- * Announcement banner for upcoming features.
- */
-const AnnouncementBanner = React.memo(() => (
-  <Banner>
-    <BannerIcon icon={CircleAlert} />
-    <BannerTitle>
-      v2.0 is coming soon with exciting new features! e.g. a canvas to store
-      your photo strip memories...
-    </BannerTitle>
-    <BannerAction
-      onClick={() => {
-        window.open("https://restrip.userjot.com/", "_blank");
-      }}
-    >
-      Suggest a feature
-    </BannerAction>
-    <BannerClose />
-  </Banner>
-));
-AnnouncementBanner.displayName = "AnnouncementBanner";
 
 /**
  * Toggle switch for enabling/disabling auto-crop feature.
@@ -1066,9 +1024,6 @@ export default function UploadPage() {
               <h3 className="font-display text-xl font-bold text-soft-black mt-6">
                 4. where to send your memory
               </h3>
-              <div className="mt-2">
-                <AnnouncementPill />
-              </div>
             </div>
             <div className="mt-4 flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker

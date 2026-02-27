@@ -17,11 +17,6 @@ import { ArrowRight, Camera, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
 import ScrollReveal from "../components/ScrollReveal";
-import {
-  Announcement,
-  AnnouncementTag,
-  AnnouncementTitle,
-} from "../components/ui/shadcn-io/announcement";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import { loadUserJot } from "../lib/userjot";
@@ -44,21 +39,6 @@ try {
 // =============================================================================
 // Sub-Components
 // =============================================================================
-
-/**
- * Beta testing announcement pill.
- */
-const AnnouncementPill = React.memo(() => (
-  <Announcement className="bg-sky-100 text-sky-700" themed>
-    <AnnouncementTag>Info</AnnouncementTag>
-    <AnnouncementTitle>
-      Beta testing in progress, all memories
-      <br />
-      will be sent within 5 minutes
-    </AnnouncementTitle>
-  </Announcement>
-));
-AnnouncementPill.displayName = "AnnouncementPill";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -89,9 +69,6 @@ export default function LandingPage() {
           <p className="font-body text-grey mb-4 max-w-md mx-auto">
             A time machine, home and scrapbook for your photo booth strips.
           </p>
-          <div className="mb-12">
-            <AnnouncementPill />
-          </div>
 
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">

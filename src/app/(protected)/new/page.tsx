@@ -34,11 +34,6 @@ import {
 } from "../../../components/DeliveryMethodPicker";
 import { computeScheduledSendTime } from "../../../lib/delivery-scheduling";
 import {
-  Announcement,
-  AnnouncementTag,
-  AnnouncementTitle,
-} from "../../../components/ui/shadcn-io/announcement";
-import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
@@ -157,21 +152,6 @@ async function compressImage(base64Image: string): Promise<string> {
 // =============================================================================
 // Sub-components
 // =============================================================================
-
-/**
- * Beta testing announcement pill.
- */
-const AnnouncementPill = React.memo(() => (
-  <Announcement className="bg-sky-100 text-sky-700" themed>
-    <AnnouncementTag>Info</AnnouncementTag>
-    <AnnouncementTitle>
-      Beta testing in progress, all memories
-      <br />
-      will be sent within 5 minutes
-    </AnnouncementTitle>
-  </Announcement>
-));
-AnnouncementPill.displayName = "AnnouncementPill";
 
 /** Image upload with drag-and-drop */
 const UploadImage = React.memo(
@@ -668,10 +648,6 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-1">
               When to deliver
             </label>
-            <p className="mb-2 text-xs text-sky-500 flex items-center gap-1">
-              <BadgeInfo className="w-3 h-3" /> Beta testing in progress, all
-              memories will be sent within 5 minutes.
-            </p>
             <PeriodPicker onSelect={handlePeriodSelect} />
             {fieldErrors.period && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
