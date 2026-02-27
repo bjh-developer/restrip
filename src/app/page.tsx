@@ -25,6 +25,8 @@ import {
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import { loadUserJot } from "../lib/userjot";
+import Link from "next/link";
+
 
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
@@ -69,20 +71,6 @@ export default function LandingPage() {
     return loadUserJot(USERJOT_CONFIG_ID);
   }, []);
 
-  /** Navigate to the anonymous quick-send upload flow */
-  const handleQuickSend = () => {
-    router.push("/upload");
-  };
-
-  /** Navigate to gallery (or sign-in page if not signed in) */
-  const handleGallery = () => {
-    if (isSignedIn) {
-      router.push("/gallery");
-    } else {
-      router.push("/sign-in");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
       {/* Hero Section */}
@@ -108,10 +96,9 @@ export default function LandingPage() {
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
             {/* Quick Send Card */}
-            <button
-              type="button"
-              onClick={handleQuickSend}
-              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left"
+            <Link
+              href = "/upload"
+              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
@@ -128,13 +115,12 @@ export default function LandingPage() {
                 Get started
                 <ArrowRight className="w-4 h-4" />
               </span>
-            </button>
+            </Link>
 
             {/* Gallery Card */}
-            <button
-              type="button"
-              onClick={handleGallery}
-              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left"
+            <Link
+              href="/gallery"
+              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-pastel-blue/30 flex items-center justify-center">
@@ -151,7 +137,7 @@ export default function LandingPage() {
                 {isSignedIn ? "Open gallery" : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>
-            </button>
+            </Link>
           </div>
           {/* About Section */}
           <div className="max-w-2xl mx-auto mt-6">
