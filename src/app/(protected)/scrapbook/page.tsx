@@ -33,13 +33,6 @@ import {
   updateBookApi,
 } from "../../../lib/scrapbook-api";
 import { Skeleton } from "../../../../components/ui/skeleton";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  alternates: {
-    canonical: "https://www.restrip.app/scrapbook",
-  },
-};
 
 // =============================================================================
 // Create / Edit Book Modal

@@ -53,13 +53,6 @@ import {
 } from "../../../../lib/scrapbook-api";
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  alternates: {
-    canonical: "https://www.restrip.app/scrapbook/[bookId]",
-  },
-};
 
 // =============================================================================
 // Constants
