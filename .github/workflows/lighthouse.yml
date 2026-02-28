@@ -4,9 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "app/**"
-      - "components/**"
-      - "styles/**"
+      - "src/**"
       - "public/**"
       - "*.css"
       - "next.config.*"
