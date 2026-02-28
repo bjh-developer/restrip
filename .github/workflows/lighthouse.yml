@@ -13,8 +13,8 @@ on:
       - "tailwind.config.*"
 
 jobs:
-  lighthouse:
-    name: Lighthouse Audit
+  deploy-and-audit:
+    name: Deploy Preview & Lighthouse Audit
     runs-on: ubuntu-latest
 
     steps:
@@ -30,15 +30,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for Vercel preview deployment
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
-        id: wait-for-preview
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy preview to Vercel
+        id: deploy
+        run: |
+          PREVIEW_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --env NODE_ENV=preview 2>&1 | tail -1)
+          echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Comment preview URL on PR
+        uses: peter-evans/create-or-update-comment@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 120
-          check_interval: 5
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🚀 Preview deployed: ${{ steps.deploy.outputs.url }}
 
       - name: Run Lighthouse CI
-        run: npx lhci autorun --collect.url=${{ steps.wait-for-preview.outputs.url }}
+        run: npx lhci autorun --collect.url=${{ steps.deploy.outputs.url }}
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
