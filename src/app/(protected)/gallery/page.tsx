@@ -17,6 +17,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -78,6 +79,22 @@ interface DisplaySnap extends SnapRecord {
 
 /** Number of images to load concurrently to avoid memory pressure */
 const LOAD_BATCH_SIZE = 4;
+
+/** SWR fetcher for gallery metadata */
+const galleryFetcher = async (url: string): Promise<{ snaps: SnapRecord[] }> => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      message = data.error ?? message;
+    } catch {
+      try { message = (await res.text()) || message; } catch { /* noop */ }
+    }
+    throw new Error(message);
+  }
+  return res.json();
+};
 
 // =============================================================================
 // Helpers & Components
@@ -183,12 +200,29 @@ function DeleteConfirmModal({
 export default function GalleryPage() {
   const router = useRouter();
 
-  // Data states
+  // SWR — metadata cache (persists across navigations, shows stale data instantly)
+  const {
+    data: galleryData,
+    isLoading: swrLoading,
+    error: swrError,
+    mutate: mutateGallery,
+  } = useSWR("/api/gallery", galleryFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 30_000,
+  });
+
+  // Derived loading/error state
+  const isLoading = swrLoading;
+  const allLoaded = !swrLoading;
+  const error = swrError ? (swrError as Error).message : null;
+
+  // Display snaps (metadata + image URLs merged)
   const [snaps, setSnaps] = useState<DisplaySnap[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [allLoaded, setAllLoaded] = useState(false);
   const [showMasonry, setShowMasonry] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // Track which snap IDs have had image loading initiated (avoids double-loading on revalidation)
+  const loadedSnapIdsRef = useRef<Set<string>>(new Set());
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -224,9 +258,6 @@ export default function GalleryPage() {
 
   // Track active object URLs for cleanup
   const objectUrlsRef = useRef<Map<string, string>>(new Map());
-
-  // Guard against concurrent fetches
-  const isFetchingRef = useRef(false);
 
   // =========================================================================
   // Data fetching — metadata first, then images progressively
@@ -285,114 +316,66 @@ export default function GalleryPage() {
     [], // No dependencies — all state updates use functional form
   );
 
-  // Fetch gallery data (metadata + progressive image loading)
-  const fetchGallery = useCallback(async (signal?: AbortSignal) => {
-    // Prevent concurrent fetches
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
+  // Sync SWR metadata into snaps state + trigger progressive image loading
+  useEffect(() => {
+    if (!galleryData) return;
+    const rawSnaps = galleryData.snaps;
 
-    try {
-      setIsLoading(true);
-      setAllLoaded(false);
-      setError(null);
+    // Merge fresh metadata with any already-loaded image URLs / dimensions
+    setSnaps((prev) => {
+      const existing = new Map(prev.map((s) => [s.id, s]));
+      return rawSnaps.map((raw) => {
+        const cur = existing.get(raw.id);
+        return {
+          ...raw,
+          image_url: cur?.image_url ?? null,
+          naturalWidth: cur?.naturalWidth ?? 300,
+          naturalHeight: cur?.naturalHeight ?? 400,
+        };
+      });
+    });
 
-      const response = await fetch("/api/gallery");
-      if (signal?.aborted) return;
+    // Start image loading only for IDs we haven't processed yet
+    const newIds = rawSnaps.map((s) => s.id).filter((id) => !loadedSnapIdsRef.current.has(id));
+    if (newIds.length === 0) return;
+    newIds.forEach((id) => loadedSnapIdsRef.current.add(id));
 
-      if (!response.ok) {
-        let errorMessage = "Failed to fetch gallery";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error ?? errorMessage;
-        } catch {
-          try {
-            const errorText = await response.text();
-            errorMessage = errorText || `HTTP ${response.status}`;
-          } catch {
-            errorMessage = `HTTP ${response.status}`;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      const { snaps: rawSnaps } = (await response.json()) as {
-        snaps: SnapRecord[];
-      };
-
-      if (signal?.aborted) return;
-
-      if (rawSnaps.length === 0) {
-        setSnaps([]);
-        setIsLoading(false);
-        setAllLoaded(true);
-        return;
-      }
-
-      const placeholderSnaps: DisplaySnap[] = rawSnaps.map((snap) => ({
-        ...snap,
-        image_url: null,
-        naturalWidth: 300,
-        naturalHeight: 400,
-      }));
-
-      setSnaps(placeholderSnaps);
-      setIsLoading(false);
-      setAllLoaded(true);
-
+    (async () => {
       const cachedIds = await getCachedIds();
-      if (signal?.aborted) return;
-
-      const snapIds = rawSnaps.map((s) => s.id);
-      const cached = snapIds.filter((id) => cachedIds.has(id));
-      const uncached = snapIds.filter((id) => !cachedIds.has(id));
+      const cached = newIds.filter((id) => cachedIds.has(id));
+      const uncached = newIds.filter((id) => !cachedIds.has(id));
 
       if (cached.length > 0) {
         await Promise.all(cached.map((id) => loadSnapImage(id, cachedIds)));
       }
-
       for (let i = 0; i < uncached.length; i += LOAD_BATCH_SIZE) {
-        if (signal?.aborted) return;
         const batch = uncached.slice(i, i + LOAD_BATCH_SIZE);
         await Promise.all(batch.map((id) => loadSnapImage(id, cachedIds)));
       }
-    } catch (err) {
-      if (!signal?.aborted) {
-        console.error("Gallery fetch error:", err);
-        setError(err instanceof Error ? err.message : "Failed to load gallery");
-        setIsLoading(false);
-      }
-    } finally {
-      isFetchingRef.current = false;
-    }
-  }, [loadSnapImage]);
+    })();
+  }, [galleryData, loadSnapImage]);
 
-  // Initial fetch on mount
+  // Cleanup object URLs on unmount
   useEffect(() => {
-    const controller = new AbortController();
-    fetchGallery(controller.signal);
-
-    // Cleanup: abort pending work and revoke object URLs
     return () => {
-      controller.abort();
-      isFetchingRef.current = false;
       for (const url of objectUrlsRef.current.values()) {
         URL.revokeObjectURL(url);
       }
       objectUrlsRef.current.clear();
+      loadedSnapIdsRef.current.clear();
     };
-  }, [fetchGallery]);
+  }, []);
 
-  // Manual refresh handler
-  const handleRefresh = () => {
-    // Clear existing object URLs to prevent memory leaks
+  // Manual refresh — clear local image state and force SWR revalidation
+  const handleRefresh = useCallback(() => {
     for (const url of objectUrlsRef.current.values()) {
       URL.revokeObjectURL(url);
     }
     objectUrlsRef.current.clear();
-    
-    // Fetch fresh data
-    fetchGallery();
-  };
+    loadedSnapIdsRef.current.clear();
+    setSnaps([]);
+    mutateGallery();
+  }, [mutateGallery]);
 
   // Show masonry as soon as metadata is ready (images load progressively)
   useEffect(() => {
@@ -508,6 +491,12 @@ export default function GalleryPage() {
 
       setDeleteModalOpen(false);
       setDeletePendingSnapId(null);
+
+      // Remove from SWR cache so it doesn't reappear on next revisit
+      mutateGallery(
+        (prev) => prev ? { ...prev, snaps: prev.snaps.filter((s) => s.id !== snapId) } : prev,
+        false,
+      );
     } catch (err) {
       console.error("Delete error:", err);
       alert(err instanceof Error ? err.message : "Failed to delete snap");
@@ -535,7 +524,6 @@ export default function GalleryPage() {
   /** Confirm and execute batch deletion */
   const confirmBatchDelete = async () => {
     if (selectedIds.size === 0) return;
-    const count = selectedIds.size;
 
     const ids = Array.from(selectedIds);
     setDeletingIds(new Set(ids));
@@ -588,6 +576,12 @@ export default function GalleryPage() {
 
     // Close modal and reset state
     setDeleteModalOpen(false);
+
+    // Remove deleted snaps from SWR cache
+    mutateGallery(
+      (prev) => prev ? { ...prev, snaps: prev.snaps.filter((s) => !deletedIds.has(s.id)) } : prev,
+      false,
+    );
 
     // Show error message if any deletions failed
     if (failedIds.size > 0) {
@@ -1066,8 +1060,8 @@ export default function GalleryPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {allLoaded && snaps.length === 0 && !error && (
+      {/* Empty state — only show when SWR has confirmed zero snaps */}
+      {!swrLoading && galleryData !== undefined && galleryData.snaps.length === 0 && !error && (
         <div className="text-center py-20">
           <ImageOff className="w-12 h-12 text-grey/40 mx-auto mb-4" />
           <h2 className="font-display text-xl font-semibold text-soft-black mb-2">

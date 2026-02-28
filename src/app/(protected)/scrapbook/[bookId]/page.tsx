@@ -53,6 +53,44 @@ import {
 } from "../../../../lib/scrapbook-api";
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
+import {
+  getCachedImage,
+  setCachedImage,
+} from "../../../../lib/gallery-cache";
+
+// =============================================================================
+// Thumbnail cache helpers (sessionStorage, keyed by pageId)
+// =============================================================================
+
+/** Persist a thumbnail dataURL in sessionStorage. Key includes a content hash
+ * so thumbnails are auto-invalidated when the page's element count changes. */
+function saveThumbnailCache(pageId: string, elementCount: number, dataUrl: string) {
+  try {
+    sessionStorage.setItem(`thumb:${pageId}:${elementCount}`, dataUrl);
+  } catch {
+    // Ignore quota errors (sessionStorage is best-effort)
+  }
+}
+
+/** Read a cached thumbnail. Returns null if missing or stale. */
+function readThumbnailCache(pageId: string, elementCount: number): string | null {
+  try {
+    return sessionStorage.getItem(`thumb:${pageId}:${elementCount}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Invalidate a thumbnail cache entry (call after auto-save changes a page). */
+function clearThumbnailCache(pageId: string) {
+  try {
+    // Remove all keys for this pageId (any element count)
+    const keys = Object.keys(sessionStorage).filter((k) => k.startsWith(`thumb:${pageId}:`));
+    keys.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    // Ignore
+  }
+}
 
 // =============================================================================
 // Constants
@@ -216,15 +254,21 @@ function GalleryPicker({ open, onClose, onSelect }: GalleryPickerProps) {
       .finally(() => setLoading(false));
   }, [open]);
 
-  // Load thumbnails
+  // Load thumbnails — use IndexedDB cache first
   useEffect(() => {
     if (snaps.length === 0) return;
     snaps.forEach((snap) => {
       if (imageUrls[snap.id]) return;
-      fetch(`/api/images/${snap.id}`)
-        .then((r) => r.blob())
-        .then((blob) => {
-          const url = URL.createObjectURL(blob);
+      // Try IndexedDB cache first
+      getCachedImage(snap.id)
+        .then(async (blob: Blob | null) => {
+          if (!blob) {
+            const r = await fetch(`/api/images/${snap.id}`);
+            if (!r.ok) return;
+            blob = await r.blob();
+            await setCachedImage(snap.id, blob);
+          }
+          const url = URL.createObjectURL(blob!);
           setImageUrls((prev) => ({ ...prev, [snap.id]: url }));
         })
         .catch(console.error);
@@ -757,13 +801,20 @@ export default function CanvasEditorPage() {
         setSelectedIsText(false);
       });
 
-      // Load all pages to generate thumbnails, ending on page 0
-      // Temporarily disable auto-save events while generating thumbnails
+      // Load all pages to generate thumbnails, ending on page 0.
+      // Skip full canvas load for pages that have a cached thumbnail —
+      // this eliminates the entire multi-page waterfall on returning visits.
       const pages = book!.pages;
       if (pages.length > 1) {
-        // Generate thumbnails for non-first pages first
         for (let i = pages.length - 1; i >= 1; i--) {
-          await loadPageToCanvas(pages[i]);
+          const pg = pages[i];
+          const cached = readThumbnailCache(pg.id, pg.elements.length);
+          if (cached) {
+            // Thumbnail already up-to-date — restore it directly
+            setThumbnails((prev) => ({ ...prev, [pg.id]: cached }));
+          } else {
+            await loadPageToCanvas(pg);
+          }
         }
       }
       // Load page 0 last so it stays on screen
@@ -878,9 +929,11 @@ export default function CanvasEditorPage() {
       elements.push(el);
     });
 
-    // Generate thumbnail
+    // Generate thumbnail and update sessionStorage cache so next visit skips re-render
     canvas.renderAll();
     const thumbUrl = canvas.toDataURL({ format: "png", multiplier: 0.15 });
+    clearThumbnailCache(currentPage.id);
+    saveThumbnailCache(currentPage.id, elements.length, thumbUrl);
     setThumbnails((prev) => ({ ...prev, [currentPage.id]: thumbUrl }));
 
     // Update local state
@@ -924,6 +977,7 @@ export default function CanvasEditorPage() {
       for (const el of page.elements) {
         try {
           if (el.type === "sticker" && el.stickerKey) {
+            // Check sessionStorage thumbnail cache before loading sticker
             const sticker = STICKER_PACK.find((s) => s.key === el.stickerKey);
             if (!sticker) continue;
             const img = await fabric.FabricImage.fromURL(sticker.src);
@@ -968,16 +1022,26 @@ export default function CanvasEditorPage() {
       canvas.discardActiveObject();
       canvas.renderAll();
 
+      // Check sessionStorage thumbnail cache before doing an expensive re-render
+      const cachedThumb = readThumbnailCache(page.id, page.elements.length);
+
       // Generate thumbnail after all elements (including images) are loaded
       // Use double-rAF to ensure the canvas bitmap is fully painted
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            canvas.renderAll();
-            const thumbUrl = canvas.toDataURL({
-              format: "png",
-              multiplier: 0.15,
-            });
+            let thumbUrl: string;
+            if (cachedThumb) {
+              // Reuse cached thumbnail — no expensive toDataURL call needed
+              thumbUrl = cachedThumb;
+            } else {
+              canvas.renderAll();
+              thumbUrl = canvas.toDataURL({
+                format: "png",
+                multiplier: 0.15,
+              });
+              saveThumbnailCache(page.id, page.elements.length, thumbUrl);
+            }
             setThumbnails((prev) => ({ ...prev, [page.id]: thumbUrl }));
             // Clear loading flag after page is fully loaded
             isLoadingPageRef.current = false;
@@ -1007,13 +1071,19 @@ export default function CanvasEditorPage() {
       if (!canvas) return;
 
       try {
-        const response = await fetch(`/api/images/${snapId}`);
-        if (!response.ok) throw new Error("Failed to load image");
-        const blob = await response.blob();
+        // Use IndexedDB cache to avoid re-downloading on every page open
+        let blob = await getCachedImage(snapId);
+        if (!blob) {
+          const response = await fetch(`/api/images/${snapId}`);
+          if (!response.ok) throw new Error("Failed to load image");
+          blob = await response.blob();
+          await setCachedImage(snapId, blob);
+        }
+
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
+          reader.readAsDataURL(blob!);
         });
 
         const fabric = await import("fabric");

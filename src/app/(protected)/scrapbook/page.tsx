@@ -14,6 +14,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import {
   Plus,
   Trash2,
@@ -33,6 +34,9 @@ import {
   updateBookApi,
 } from "../../../lib/scrapbook-api";
 import { Skeleton } from "../../../../components/ui/skeleton";
+
+/** SWR fetcher for books list */
+const booksFetcher = () => fetchBooks();
 
 // =============================================================================
 // Delete Confirmation Modal
@@ -219,8 +223,18 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
 
 export default function CanvasPage() {
   const router = useRouter();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // SWR — books list cache (shows stale data instantly on revisit)
+  const {
+    data: books = [],
+    isLoading: loading,
+    mutate: mutateBooks,
+  } = useSWR("books", booksFetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: true,
+    dedupingInterval: 30_000,
+  });
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
 
@@ -232,22 +246,17 @@ export default function CanvasPage() {
   // Delete confirmation modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Load books from API
-  useEffect(() => {
-    fetchBooks()
-      .then(setBooks)
-      .finally(() => setLoading(false));
-  }, []);
-
   /** Create a new book and navigate to the editor */
   const handleCreate = useCallback(
     async (title: string, color: string) => {
       const book = await createBookApi(title, color);
       if (!book) return;
       setModalOpen(false);
+      // Optimistically add to SWR cache
+      mutateBooks((prev = []) => [book, ...prev], false);
       router.push(`/scrapbook/${book.id}`);
     },
-    [router],
+    [router, mutateBooks],
   );
 
   /** Update existing book */
@@ -255,11 +264,17 @@ export default function CanvasPage() {
     async (title: string, color: string) => {
       if (!editingBook) return;
       await updateBookApi(editingBook.id, { title, coverColor: color });
-      const refreshed = await fetchBooks();
-      setBooks(refreshed);
+      // Patch SWR cache optimistically
+      mutateBooks(
+        (prev = []) =>
+          prev.map((b) =>
+            b.id === editingBook.id ? { ...b, title, coverColor: color } : b,
+          ),
+        false,
+      );
       setEditingBook(null);
     },
-    [editingBook],
+    [editingBook, mutateBooks],
   );
 
   /** Show delete confirmation modal */
@@ -295,7 +310,7 @@ export default function CanvasPage() {
     const failedIds = new Set(failedResults.map(({ id }) => id));
 
     // Remove successfully deleted books
-    setBooks((prev) => prev.filter((b) => !deletedIds.has(b.id)));
+    mutateBooks((prev = []) => prev.filter((b) => !deletedIds.has(b.id)), false);
 
     // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
@@ -318,7 +333,7 @@ export default function CanvasPage() {
           `The failed items remain selected for retry.`,
       );
     }
-  }, [selectedIds]);
+  }, [selectedIds, mutateBooks]);
 
   /** Wrapper for batch delete button - show confirmation */
   const handleBatchDelete = useCallback(() => {
@@ -340,7 +355,7 @@ export default function CanvasPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="font-display text-2xl font-bold text-soft-black">
+          <h1 className="font-display text-3xl font-bold text-soft-black">
             My Scrapbooks
           </h1>
           <p className="text-sm text-grey mt-1">
