@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
-import { BadgeInfo, Brush, CircleAlert, Check } from "lucide-react";
+import { BadgeInfo, Brush, CircleAlert, Check, ArrowLeft, Crop as CropIcon, RotateCcw } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
@@ -40,8 +40,23 @@ import {
   DropzoneEmptyState,
 } from "../../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useUser } from "@clerk/nextjs";
 import * as z from "zod";
+import ReactCrop, {
+  type Crop,
+  type PixelCrop,
+  centerCrop,
+  makeAspectCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
 // =============================================================================
 // Constants
@@ -150,6 +165,53 @@ async function compressImage(base64Image: string): Promise<string> {
   }
 }
 
+// helper for manual cropping – draw rotated crop area to canvas
+async function canvasPreview(
+  image: HTMLImageElement,
+  crop: PixelCrop,
+  rotation = 0,
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No 2d context");
+
+  const TO_RADIANS = Math.PI / 180;
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  const pixelRatio = window.devicePixelRatio || 1;
+
+  canvas.width = Math.floor(crop.width * scaleX * pixelRatio);
+  canvas.height = Math.floor(crop.height * scaleY * pixelRatio);
+
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.imageSmoothingQuality = "high";
+
+  const cropX = crop.x * scaleX;
+  const cropY = crop.y * scaleY;
+  const rotateRads = rotation * TO_RADIANS;
+  const centerX = image.naturalWidth / 2;
+  const centerY = image.naturalHeight / 2;
+
+  ctx.save();
+  ctx.translate(-cropX, -cropY);
+  ctx.translate(centerX, centerY);
+  ctx.rotate(rotateRads);
+  ctx.translate(-centerX, -centerY);
+  ctx.drawImage(
+    image,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+    0,
+    0,
+    image.naturalWidth,
+    image.naturalHeight,
+  );
+  ctx.restore();
+  return canvas.toDataURL("image/jpeg", 0.95);
+}
+
 // =============================================================================
 // Sub-components
 // =============================================================================
@@ -255,7 +317,7 @@ const AutoCropSwitch = React.memo(
         }`}
       >
         <Brush className="w-4 h-4" />
-        {isProcessing ? "Processing..." : "Auto-detect & crop photo strip"}
+        {isProcessing ? "Processing..." : "Enable auto-crop"}
       </Label>
     </div>
   ),
@@ -275,6 +337,13 @@ export default function NewMemoryPage() {
   const [croppedImage, setCroppedImage] = useState<string | undefined>();
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
+  // manual crop state
+  const [isManualCropping, setIsManualCropping] = useState(false);
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [savedCropPct, setSavedCropPct] = useState<Crop | undefined>();
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [rotation, setRotation] = useState(0);
   const [caption, setCaption] = useState("");
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
@@ -311,7 +380,10 @@ export default function NewMemoryPage() {
     async (checked: boolean) => {
       setAutoCropEnabled(checked);
       if (!checked || !originalImage) return;
-      if (croppedImage) return;
+      if (croppedImage) {
+        if (isManualCropping) setIsManualCropping(false);
+        return;
+      }
 
       setIsCropping(true);
       try {
@@ -324,6 +396,7 @@ export default function NewMemoryPage() {
         const data = await response.json();
         if (!data.photostrip) throw new Error("No photostrip detected");
         setCroppedImage(`data:image/png;base64,${data.photostrip}`);
+        if (isManualCropping) setIsManualCropping(false);
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Unknown error";
         alert(`Failed to crop: ${msg}`);
@@ -332,8 +405,58 @@ export default function NewMemoryPage() {
         setIsCropping(false);
       }
     },
-    [originalImage, croppedImage],
+    [originalImage, croppedImage, isManualCropping],
   );
+
+  const handleRotationChange = useCallback((degrees: number) => {
+    setRotation(degrees);
+  }, []);
+
+  const handleResetCropInDialog = useCallback(() => {
+    setRotation(0);
+    setCrop(undefined);
+    setCompletedCrop(undefined);
+  }, []);
+
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget;
+    if (savedCropPct) {
+      setCrop(savedCropPct);
+    } else {
+      const initialCrop = centerCrop(
+        makeAspectCrop({ unit: "%", width: 80 }, width / height, width, height),
+        width,
+        height,
+      );
+      setCrop(initialCrop);
+    }
+  }
+
+  const handleSaveManualCrop = useCallback(async () => {
+    if (
+      completedCrop &&
+      imgRef.current &&
+      completedCrop.width > 0 &&
+      completedCrop.height > 0
+    ) {
+      try {
+        const croppedBase64 = await canvasPreview(
+          imgRef.current,
+          completedCrop,
+          rotation,
+        );
+        setCroppedImage(croppedBase64);
+        setSavedCropPct(crop);
+        setIsManualCropping(false);
+        setAutoCropEnabled(false);
+      } catch (e) {
+        console.error("Failed to crop", e);
+        alert("Something went wrong while cropping. Please try again.");
+      }
+    } else {
+      setIsManualCropping(false);
+    }
+  }, [completedCrop, crop, rotation]);
 
   const handlePeriodSelect = useCallback(
     (period: PeriodOption, date?: Date) => {
@@ -610,12 +733,22 @@ export default function NewMemoryPage() {
               isLoading={isCropping}
               error={!!fieldErrors.image}
             />
-            <AutoCropSwitch
-              autoCropEnabled={autoCropEnabled}
-              onToggle={handleAutoCropToggle}
-              isProcessing={isCropping}
-              imageUploaded={!!originalImage}
-            />
+            {originalImage && (
+              <div className="flex gap-3 justify-center mt-4 mb-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsManualCropping(true);
+                  }}
+                  className="gap-2"
+                >
+                  <CropIcon size={16} />
+                  {croppedImage ? "Re-crop" : "Crop & Straighten"}
+                </Button>
+              </div>
+            )}
             {fieldErrors.image && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
                 <CircleAlert className="w-3 h-3" />
@@ -625,7 +758,100 @@ export default function NewMemoryPage() {
           </div>
 
           {/* Caption */}
-          <div>
+
+        {/* manual crop dialog */}
+        <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
+          <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+            <DialogHeader className="p-4 border-b shrink-0">
+              <DialogTitle>Crop &amp; Straighten your photo strip</DialogTitle>
+            </DialogHeader>
+
+            <div className="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
+              {/* Auto-crop toggle inside dialog */}
+              {originalImage && (
+                <AutoCropSwitch
+                  autoCropEnabled={autoCropEnabled}
+                  onToggle={handleAutoCropToggle}
+                  isProcessing={isCropping}
+                  imageUploaded={!!originalImage || !!croppedImage}
+                />
+              )}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium" htmlFor="rotation-slider">
+                  Rotation: {rotation > 0 ? `+${rotation}` : rotation}°
+                </label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetCropInDialog}
+                  className="gap-1.5 text-xs h-7 px-2"
+                >
+                  <RotateCcw size={13} />
+                  Reset
+                </Button>
+              </div>
+              <input
+                id="rotation-slider"
+                type="range"
+                min={-180}
+                max={180}
+                step={0.5}
+                value={rotation}
+                onChange={(e) => handleRotationChange(Number(e.target.value))}
+                className="w-full accent-pastel-blue"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground select-none">
+                <span>−180°</span>
+                <span>0°</span>
+                <span>+180°</span>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4 relative">
+              {originalImage && (
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c, pct) => {
+                    setCrop(pct);
+                  }}
+                  onComplete={(c) => setCompletedCrop(c)}
+                >
+                  <img
+                    ref={imgRef}
+                    src={originalImage}
+                    alt="Rotate and crop"
+                    onLoad={onImageLoad}
+                    style={{
+                      maxHeight: "55vh",
+                      maxWidth: "100%",
+                      width: "auto",
+                      height: "auto",
+                      objectFit: "contain",
+                      transform: `rotate(${rotation}deg)`,
+                      transition: "transform 0.05s linear",
+                    }}
+                  />
+                </ReactCrop>
+              )}
+            </div>
+
+            <DialogFooter className="p-4 border-t bg-white gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsManualCropping(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSaveManualCrop}>
+                Apply Crop
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+          {/* Caption */}          <div>
             <label className="block text-sm font-medium text-soft-black mb-2">
               Caption
             </label>

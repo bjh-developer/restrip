@@ -23,7 +23,8 @@ import {
   Brush,
   Crop as CropIcon,
   RotateCcw,
-  Check, ArrowLeft,
+  Check,
+  ArrowLeft,
 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import ReactCrop, {
@@ -342,11 +343,11 @@ const AutoCropSwitch = React.memo(
     }
 
     return (
-      <div className="flex items-start gap-3 rounded-lg border bg-background p-4">
+      <div className="flex items-center gap-3 rounded-lg border bg-background p-4">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pastel-blue">
           <Brush className="size-5 text-soft-black" />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex flex-1 flex-col justify-center gap-1">
           <div className="flex items-center justify-between gap-4">
             <Label className="font-medium" htmlFor="feature-toggle">
               Enable auto-crop {statusText}
@@ -358,10 +359,6 @@ const AutoCropSwitch = React.memo(
               disabled={isProcessing || imageUploaded === false}
             />
           </div>
-          <p className="text-muted-foreground text-sm text-left">
-            Auto crops out photo strip just like it had been scanned.
-            (Recommended for physical copy)
-          </p>
         </div>
       </div>
     );
@@ -505,6 +502,8 @@ export default function UploadPage() {
       // Use cached result if available
       if (croppedImage) {
         console.log("📦 Using cached cropped image from memory");
+        // if user triggered from manual dialog close it immediately
+        if (isManualCropping) setIsManualCropping(false);
         return;
       }
 
@@ -513,6 +512,11 @@ export default function UploadPage() {
         const croppedResult = await processImageWithRunPod(originalImage);
         setCroppedImage(croppedResult);
         console.log("✅ Image cropped successfully");
+
+        // if we're currently in manual crop dialog, close it once auto-crop finishes
+        if (isManualCropping) {
+          setIsManualCropping(false);
+        }
 
         // // Refresh scroll triggers after image changes
         // setTimeout(() => ScrollTrigger.refresh(), 100);
@@ -526,7 +530,7 @@ export default function UploadPage() {
         setIsCropping(false);
       }
     },
-    [originalImage, croppedImage],
+    [originalImage, croppedImage, isManualCropping],
   );
 
   /**
@@ -1127,7 +1131,7 @@ export default function UploadPage() {
                   className="gap-2"
                 >
                   <CropIcon size={16} />
-                  {croppedImage ? "Re-crop" : "Manual Crop"}
+                  {croppedImage ? "Re-crop" : "Crop & Straighten"}
                 </Button>
               </div>
             )}
@@ -1137,12 +1141,6 @@ export default function UploadPage() {
                 <p className="text-red-700 text-sm">{fieldErrors.image}</p>
               </div>
             )}
-            <AutoCropSwitch
-              autoCropEnabled={autoCropEnabled}
-              onToggle={handleAutoCropToggle}
-              isProcessing={isCropping}
-              imageUploaded={!!originalImage || !!croppedImage}
-            />
 
             {/* Journal Caption */}
             <div>
@@ -1274,6 +1272,15 @@ export default function UploadPage() {
           </DialogHeader>
 
           <div className="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
+            {/* Auto-crop toggle inside dialog */}
+            {originalImage && (
+              <AutoCropSwitch
+                autoCropEnabled={autoCropEnabled}
+                onToggle={handleAutoCropToggle}
+                isProcessing={isCropping}
+                imageUploaded={!!originalImage || !!croppedImage}
+              />
+            )}
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium" htmlFor="rotation-slider">
                 Rotation: {rotation > 0 ? `+${rotation}` : rotation}°
@@ -1298,7 +1305,7 @@ export default function UploadPage() {
               value={rotation}
               onChange={(e) => handleRotationChange(Number(e.target.value))}
               className="w-full accent-pastel-blue"
-            />
+            />{" "}
             <div className="flex justify-between text-xs text-muted-foreground select-none">
               <span>−180°</span>
               <span>0°</span>
