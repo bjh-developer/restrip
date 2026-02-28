@@ -377,18 +377,24 @@ export default function GalleryPage() {
     mutateGallery();
   }, [mutateGallery]);
 
-  // Show masonry as soon as metadata is ready (images load progressively)
-  useEffect(() => {
-    if (!isLoading && snaps.length > 0) {
-      setShowMasonry(true);
-    } else {
-      setShowMasonry(false);
-    }
-  }, [isLoading, snaps.length]);
-
   // Count how many images have loaded
   const loadedImageCount = snaps.filter((s) => s.image_url !== null).length;
-  const isLoadingImages = !isLoading && snaps.length > 0 && loadedImageCount === 0;
+  const isLoadingImages = !isLoading && snaps.length > 0 && loadedImageCount < snaps.length;
+
+  // Show masonry only once ALL images in the current batch have loaded.
+  // Once shown, never hide again (background SWR revalidations should not
+  // interrupt a visible gallery — new snaps just pop in naturally).
+  useEffect(() => {
+    const allLoaded = !isLoading && snaps.length > 0 && loadedImageCount === snaps.length;
+    if (allLoaded) {
+      setShowMasonry(true);
+    } else if (isLoading || snaps.length === 0) {
+      // Only reset on a genuine fresh load (cache cleared / first mount)
+      setShowMasonry(false);
+    }
+    // When isLoadingImages && !isLoading && snaps.length > 0:
+    // keep current showMasonry — don't hide an already-visible gallery
+  }, [isLoading, snaps.length, loadedImageCount]);
 
   // =========================================================================
   // Context menu & dropdown dismiss
@@ -1032,7 +1038,7 @@ export default function GalleryPage() {
       )}
 
       {/* Loading skeleton (during metadata fetch or initial image load) */}
-      {(isLoading || isLoadingImages) && (
+      {!showMasonry && (isLoading || isLoadingImages) && (
         <div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
             {/* Generate skeleton items with varying heights to mimic masonry */}
