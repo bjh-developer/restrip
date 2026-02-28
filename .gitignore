@@ -114,7 +114,9 @@ supabase/.temp
 
 # local backup
 backup-auth-version/
-/.github
 
 # clerk
 /.clerk
+
+/.github/instructions
+/.github/appmod

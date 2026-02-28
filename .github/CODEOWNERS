@@ -1,0 +1,20 @@
+# Default
+*  @bjh-developer @JunHam
+
+# Frontend components
+/src/app/   @JunHam @Yay @Nareshix @unkn0wnperson @Keonnnnn
+
+# RunPod handler
+/runpod/    @Choco-Bloop
+
+# Supabase migrations
+/supabase/migrations/
+
+# Auth and security
+/src/proxy.ts   @Yay
+/src/lib/simple-encryption.ts   @Yay
+/src/lib/rate-limit.ts  @Yay
+/src/lib/turnstile.ts   @Yay
+
+# CI/CD config
+/.github/
