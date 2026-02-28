@@ -35,7 +35,7 @@ jobs:
         run: ruff check runpod/
 
       - name: Run tests
-        run: pytest runpod/tests/ -v --cov=runpod/ --cov-report=summary
+        run: pytest runpod/tests/ -v --cov=runpod/ --cov-report=term
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
