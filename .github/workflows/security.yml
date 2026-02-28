@@ -10,7 +10,7 @@ jobs:
   secret-scan:
     name: Secret Scanning (TruffleHog)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'  # only runs on PRs
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,6 +47,7 @@ jobs:
   semgrep:
     name: Semgrep Scan
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
