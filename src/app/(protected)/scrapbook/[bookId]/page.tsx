@@ -1418,6 +1418,17 @@ export default function CanvasEditorPage() {
     return () => resizeObserver.disconnect();
   }, [applyZoom]);
 
+  // Re-apply zoom once the initial page load finishes so the canvas fits
+  // correctly on mobile. The ResizeObserver fires too early (before toolbar
+  // and nav have settled their final heights), so getBaseScale() returns a
+  // wrong value on first render. By the time isPageLoading → false, layout
+  // is fully committed and the scale calculation will be accurate.
+  useEffect(() => {
+    if (!isPageLoading) {
+      applyZoom(zoomLevelRef.current);
+    }
+  }, [isPageLoading, applyZoom]);
+
   // ============= Wheel zoom =============
   useEffect(() => {
     const container = canvasContainerRef.current;
