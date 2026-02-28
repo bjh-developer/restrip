@@ -2,13 +2,13 @@
 *  @bjh-developer @JunHam
 
 # Frontend components
-/src/app/   @JunHam @Yay @Nareshix @unkn0wnperson @Keonnnnn
+/src/   @JunHam @Yay @Nareshix @unkn0wnperson @Keonnnnn
 
 # RunPod handler
 /runpod/    @Choco-Bloop
 
 # Supabase migrations
-/supabase/migrations/
+/supabase/
 
 # Auth and security
 /src/proxy.ts   @Yay
@@ -18,3 +18,5 @@
 
 # CI/CD config
 /.github/
+/next.config.*
+/tailwind.config.*
