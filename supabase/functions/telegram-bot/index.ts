@@ -26,14 +26,48 @@ bot.command("start", async (ctx) => {
     );
   }
 
-  const snapId = startPayload.replace("snap_", "");
+  // Parse snap_{id}_{token} format
+  const parts = startPayload.substring(5).split("_"); // remove "snap_" prefix
+  if (parts.length < 2) {
+    return ctx.reply(
+      "❌ Invalid link format.\n\nPlease use the latest link from your ReStrip account."
+    );
+  }
+  const token = parts.pop()!; // last segment is the token
+  const snapId = parts.join("_"); // remaining segments form the id (UUIDs contain hyphens, not underscores, but be safe)
   const chatId = ctx.chat.id;
 
   try {
+    // First verify the token matches
+    const { data: snap, error: fetchError } = await supabase
+      .from("snaps")
+      .select("id, telegram_link_token, telegram_chat_id")
+      .eq("id", snapId)
+      .single();
+
+    if (fetchError || !snap) {
+      return ctx.reply(
+        "❌ Could not find this memory.\n\nMake sure you're using the correct link from your ReStrip account."
+      );
+    }
+
+    if (!snap.telegram_link_token || snap.telegram_link_token !== token) {
+      return ctx.reply(
+        "❌ Invalid or expired link.\n\nPlease use the correct link from your ReStrip account."
+      );
+    }
+
+    if (snap.telegram_chat_id) {
+      return ctx.reply(
+        "✅ This memory is already linked! You'll receive it when it's time."
+      );
+    }
+
     const { data, error } = await supabase
       .from("snaps")
       .update({ telegram_chat_id: chatId })
       .eq("id", snapId)
+      .eq("telegram_link_token", token)
       .select()
       .single();
 
@@ -47,7 +81,7 @@ bot.command("start", async (ctx) => {
 
     await ctx.reply(
       "✅ Successfully linked!\n\n" +
-        "📸 You'll receive a surprise here in this chat soon!"
+        "You'll receive a surprise here soon!"
     );
   } catch (err) {
     console.error("Exception in start handler:", err);

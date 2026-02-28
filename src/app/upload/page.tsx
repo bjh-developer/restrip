@@ -20,14 +20,11 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowUpRightIcon,
   Brush,
-  CircleAlert,
   Crop as CropIcon,
   RotateCcw,
+  Check, ArrowLeft,
 } from "lucide-react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import gsap from "gsap";
 import imageCompression from "browser-image-compression";
 import ReactCrop, {
   type Crop,
@@ -36,7 +33,7 @@ import ReactCrop, {
   makeAspectCrop,
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-
+import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,20 +51,7 @@ import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../components/DeliveryMethodPicker";
-import ScrollReveal from "../../components/ScrollReveal";
-import ShinyText from "../../components/ShinyText";
-import {
-  Announcement,
-  AnnouncementTag,
-  AnnouncementTitle,
-} from "../../components/ui/shadcn-io/announcement";
-import {
-  Banner,
-  BannerAction,
-  BannerClose,
-  BannerIcon,
-  BannerTitle,
-} from "../../components/ui/shadcn-io/banner";
+import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
 import {
   Dropzone,
   DropzoneContent,
@@ -75,6 +59,7 @@ import {
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
+import { loadUserJot } from "../../lib/userjot";
 
 // =============================================================================
 // Constants
@@ -92,33 +77,8 @@ const MAX_IMAGE_DIMENSION = 2048;
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
 
-/** Default delivery time (6 PM local time) */
-const DEFAULT_DELIVERY_HOUR = 18;
-
-/** Minimum days for surprise delivery */
-const SURPRISE_MIN_DAYS = 30;
-
-/** Maximum days for surprise delivery */
-const SURPRISE_MAX_DAYS = 180;
-
-/** Milliseconds in one day */
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/** Milliseconds in one hour */
-const MS_PER_HOUR = 60 * 60 * 1000;
-
 /** UserJot widget configuration ID */
 const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
-
-// =============================================================================
-// GSAP Plugin Registration
-// =============================================================================
-
-try {
-  gsap.registerPlugin(ScrollTrigger);
-} catch {
-  // Plugin already registered - safe to ignore
-}
 
 // =============================================================================
 // Types
@@ -281,75 +241,6 @@ async function canvasPreview(
   return canvas.toDataURL("image/jpeg", 0.95);
 }
 
-/**
- * Calculates the scheduled send time based on a selected date.
- *
- * Rules:
- * - If today and after 6 PM: schedule for 1 hour from now (or 11:59 PM)
- * - If today and before 6 PM: schedule for 6 PM today
- * - If future date: schedule for 6 PM on that date
- *
- * @param selectedDate - The date selected by the user
- * @returns Calculated send time
- */
-function calculateSendTime(selectedDate: Date): Date {
-  const now = new Date();
-  const isToday =
-    selectedDate.getFullYear() === now.getFullYear() &&
-    selectedDate.getMonth() === now.getMonth() &&
-    selectedDate.getDate() === now.getDate();
-
-  if (!isToday) {
-    // Future date: schedule for 6 PM
-    const sendTime = new Date(selectedDate);
-    sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-    return sendTime;
-  }
-
-  // Today: check current time
-  const currentHour = now.getHours();
-
-  if (currentHour >= DEFAULT_DELIVERY_HOUR) {
-    // After 6 PM: try 1 hour from now
-    const oneHourFromNow = new Date(now.getTime() + MS_PER_HOUR);
-    const isStillToday =
-      oneHourFromNow.getDate() === now.getDate() &&
-      oneHourFromNow.getMonth() === now.getMonth() &&
-      oneHourFromNow.getFullYear() === now.getFullYear();
-
-    if (isStillToday) {
-      return oneHourFromNow;
-    }
-
-    // Would be tomorrow, use 11:59 PM today
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 0, 0);
-    return endOfDay;
-  }
-
-  // Before 6 PM: schedule for 6 PM today
-  const sixPmToday = new Date(selectedDate);
-  sixPmToday.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-  return sixPmToday;
-}
-
-/**
- * Generates a random surprise date within the configured range.
- *
- * @returns Random date between SURPRISE_MIN_DAYS and SURPRISE_MAX_DAYS from now
- */
-function generateSurpriseDate(): Date {
-  const now = new Date();
-  const randomDays =
-    Math.floor(Math.random() * (SURPRISE_MAX_DAYS - SURPRISE_MIN_DAYS + 1)) +
-    SURPRISE_MIN_DAYS;
-
-  const sendTime = new Date(now.getTime() + randomDays * MS_PER_DAY);
-  sendTime.setHours(DEFAULT_DELIVERY_HOUR, 0, 0, 0);
-
-  return sendTime;
-}
-
 // =============================================================================
 // Sub-Components
 // =============================================================================
@@ -430,44 +321,6 @@ const UploadImage = React.memo(
 UploadImage.displayName = "UploadImage";
 
 /**
- * Announcement banner for upcoming features.
- */
-const AnnouncementBanner = React.memo(() => (
-  <Banner>
-    <BannerIcon icon={CircleAlert} />
-    <BannerTitle>
-      v2.0 is coming soon with exciting new features! e.g. a canvas to store
-      your photo strip memories...
-    </BannerTitle>
-    <BannerAction
-      onClick={() => {
-        window.open("https://restrip.userjot.com/", "_blank");
-      }}
-    >
-      Suggest a feature
-    </BannerAction>
-    <BannerClose />
-  </Banner>
-));
-AnnouncementBanner.displayName = "AnnouncementBanner";
-
-/**
- * Beta testing announcement pill.
- */
-const AnnouncementPill = React.memo(() => (
-  <Announcement className="bg-sky-100 text-sky-700" themed>
-    <AnnouncementTag>Info</AnnouncementTag>
-    <AnnouncementTitle>
-      Beta testing in progress, all memories
-      <br />
-      will be sent within 5 minutes
-      <ArrowUpRightIcon className="shrink-0 opacity-70" size={16} />
-    </AnnouncementTitle>
-  </Announcement>
-));
-AnnouncementPill.displayName = "AnnouncementPill";
-
-/**
  * Toggle switch for enabling/disabling auto-crop feature.
  *
  * Auto-crop uses a YOLO model to detect and extract photo strips
@@ -544,6 +397,8 @@ export default function UploadPage() {
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
 
   // Image state
   const [autoCropEnabled, setAutoCropEnabled] = useState(false);
@@ -569,6 +424,10 @@ export default function UploadPage() {
   const [resetKey, setResetKey] = useState(0);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<
+    string | undefined
+  >();
 
   // -------------------------------------------------------------------------
   // Refs for scroll-to-error functionality
@@ -655,8 +514,8 @@ export default function UploadPage() {
         setCroppedImage(croppedResult);
         console.log("✅ Image cropped successfully");
 
-        // Refresh scroll triggers after image changes
-        setTimeout(() => ScrollTrigger.refresh(), 100);
+        // // Refresh scroll triggers after image changes
+        // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
         console.error("❌ Failed to crop image:", error);
         const errorMessage =
@@ -744,39 +603,25 @@ export default function UploadPage() {
     (period: PeriodOption, date?: Date) => {
       setSelectedPeriod(period);
 
-      let sendTime: Date | undefined;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const sendTime = computeScheduledSendTime(period, timezone, date);
 
-      if (date) {
-        // User selected a specific date - calculate send time
-        sendTime = calculateSendTime(date);
-
-        if (period === "custom date") {
-          setCustomDate(sendTime);
-        } else if (period === "custom period") {
-          setCustomPeriod(sendTime.toISOString());
-        }
-
-        setScheduledSendTime(sendTime);
-        setValidationErrors([]);
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else if (period === "surprise") {
-        // Generate random surprise date
-        sendTime = generateSurpriseDate();
-        setScheduledSendTime(sendTime);
-        setValidationErrors([]);
-        setFieldErrors((prev) => ({ ...prev, period: undefined }));
-      } else {
-        // Clear scheduled time when period type requires manual date selection
+      if (!sendTime) {
         setScheduledSendTime(undefined);
         setCustomDate(undefined);
         setCustomPeriod(undefined);
+        return;
       }
 
-      if (sendTime) {
-        console.log(
-          `📅 Memory will be delivered on: ${sendTime.toISOString()} (${sendTime.toLocaleString()})`,
-        );
+      if (period === "custom date") {
+        setCustomDate(sendTime);
+      } else if (period === "custom period") {
+        setCustomPeriod(sendTime.toISOString());
       }
+
+      setScheduledSendTime(sendTime);
+      setValidationErrors([]);
+      setFieldErrors((prev) => ({ ...prev, period: undefined }));
     },
     [],
   );
@@ -924,6 +769,13 @@ export default function UploadPage() {
       return;
     }
 
+    // Validate Turnstile CAPTCHA token
+    if (!turnstileToken) {
+      alert("⚠️ Please complete the CAPTCHA verification before submitting.");
+      return;
+    }
+
+    // Start processing without pre-opening any tabs
     setValidationErrors([]);
     setIsProcessing(true);
 
@@ -950,6 +802,7 @@ export default function UploadPage() {
         body: JSON.stringify({
           image: compressedImage,
           caption: caption,
+          turnstileToken: turnstileToken,
         }),
       });
 
@@ -958,7 +811,7 @@ export default function UploadPage() {
         throw new Error(errorData.error ?? "Failed to upload image");
       }
 
-      const { storagePath, encryptedCaption, captionIv, imageIv } =
+      const { storagePath, encryptedCaption, captionIv, imageIv, uploadNonce } =
         await uploadResponse.json();
       console.log("✅ Encrypted and stored at:", storagePath);
 
@@ -976,6 +829,7 @@ export default function UploadPage() {
           deliveryMethod,
           deliveryAddress,
           periodType: selectedPeriod,
+          uploadNonce,
         }),
       });
 
@@ -987,29 +841,18 @@ export default function UploadPage() {
       const snapData = await createSnapResponse.json();
       console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
-      // Step 4: Show success confirmation
-      if (deliveryMethod === "telegram" && snapData.snap?.id) {
-        const botUsername =
-          process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
-        const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}`;
-
-        const shouldOpenTelegram = window.confirm(
-          "🎉 Memory scheduled!\n\n" +
-            "Click OK to open Telegram and start the bot.\n" +
-            "The bot will send your memory back on the scheduled date.\n\n" +
-            `Telegram username: @${botUsername}`,
-        );
-
-        if (shouldOpenTelegram) {
-          // Use location.href for better iOS Safari compatibility
-          window.location.href = telegramLink;
+      // Show success page for both email and telegram
+      if (snapData.snap?.id) {
+        if (deliveryMethod === "telegram") {
+          const botUsername =
+            process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "RestripBot";
+          const telegramLink = `https://t.me/${botUsername}?start=snap_${snapData.snap.id}_${snapData.snap.telegram_link_token}`;
+          setTelegramBotLink(telegramLink);
         }
+        setIsSuccess(true);
       } else {
-        alert("🎉 Your memory has been scheduled for delivery!");
+        throw new Error("No snap ID returned");
       }
-
-      // Step 5: Reset form for next upload
-      resetForm();
     } catch (error) {
       console.error("❌ Processing failed:", error);
       const errorMessage =
@@ -1017,6 +860,13 @@ export default function UploadPage() {
       setValidationErrors([errorMessage]);
     } finally {
       setIsProcessing(false);
+
+      // Reset Turnstile widget to generate a new token for next submission
+      if (turnstileWidgetId && window.turnstile) {
+        console.log("Resetting Turnstile widget...");
+        window.turnstile.reset(turnstileWidgetId);
+        setTurnstileToken(null);
+      }
     }
   };
 
@@ -1040,15 +890,15 @@ export default function UploadPage() {
   // Effects
   // -------------------------------------------------------------------------
 
-  /**
-   * Refresh ScrollTrigger when image changes.
-   */
-  useEffect(() => {
-    if (originalImage) {
-      const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [originalImage]);
+  // /**
+  //  * Refresh ScrollTrigger when image changes.
+  //  */
+  // useEffect(() => {
+  //   if (originalImage) {
+  //     const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
+  //     return () => clearTimeout(timeoutId);
+  //   }
+  // }, [originalImage]);
 
   /**
    * Initialize with surprise period on mount.
@@ -1057,74 +907,193 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
-  /**
-   * Reset errors and refresh ScrollTrigger on mount.
-   */
-  useEffect(() => {
-    setValidationErrors([]);
-    setFieldErrors({});
+  // /**
+  //  * Reset errors and refresh ScrollTrigger on mount.
+  //  */
+  // useEffect(() => {
+  //   setValidationErrors([]);
+  //   setFieldErrors({});
 
-    const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
-    return () => clearTimeout(timeoutId);
-  }, []);
+  //   const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
+  //   return () => clearTimeout(timeoutId);
+  // }, []);
 
   /**
    * Load UserJot feedback widget SDK.
    */
   useEffect(() => {
-    // Load UserJot SDK loader
-    const loaderScript = document.createElement("script");
-    loaderScript.innerHTML = `
-      window.$ujq = window.$ujq || [];
-      window.uj = window.uj || new Proxy({}, {
-        get: (_, p) => (...a) => window.$ujq.push([p, ...a])
-      });
-      document.head.appendChild(
-        Object.assign(document.createElement('script'), {
-          src: 'https://cdn.userjot.com/sdk/v2/uj.js',
-          type: 'module',
-          async: true
-        })
-      );
-    `;
-    document.head.appendChild(loaderScript);
-
-    // Initialize UserJot widget
-    const initScript = document.createElement("script");
-    initScript.innerHTML = `
-      window.uj.init('${USERJOT_CONFIG_ID}', {
-        widget: true,
-        position: 'right',
-        theme: 'auto'
-      });
-    `;
-    document.head.appendChild(initScript);
+    return loadUserJot(USERJOT_CONFIG_ID);
   }, []);
+
+  /**
+   * Load Cloudflare Turnstile CAPTCHA script and initialize widget.
+   * Uses explicit rendering for SPA compatibility.
+   * @see https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
+   */
+  useEffect(() => {
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+    if (!siteKey) {
+      console.warn("Turnstile site key not configured");
+      return;
+    }
+
+    let widgetId: string | undefined;
+
+    // Function to render/re-render the Turnstile widget
+    const renderWidget = () => {
+      if (!window.turnstile) {
+        console.warn("Turnstile not loaded yet");
+        return;
+      }
+
+      const container = document.getElementById("turnstile-widget");
+      if (!container) {
+        console.error("Turnstile container not found");
+        return;
+      }
+
+      // Remove old widget if it exists
+      if (widgetId && window.turnstile) {
+        console.log("Removing old widget:", widgetId);
+        try {
+          window.turnstile.remove(widgetId);
+        } catch (e) {
+          console.warn("Failed to remove old widget:", e);
+        }
+      }
+
+      console.log("Initializing Turnstile widget...");
+      widgetId = window.turnstile.render(container, {
+        sitekey: siteKey,
+        callback: (token: string) => {
+          console.log("✅ Turnstile token received");
+          setTurnstileToken(token);
+        },
+        "error-callback": () => {
+          console.error("❌ Turnstile error");
+          setTurnstileToken(null);
+        },
+        "expired-callback": () => {
+          console.warn("⚠️ Turnstile token expired");
+          setTurnstileToken(null);
+        },
+        theme: "light",
+      });
+      console.log("Turnstile widget rendered with ID:", widgetId);
+      setTurnstileWidgetId(widgetId);
+    };
+
+    // Define onload callback before loading script
+    const callbackName = `onTurnstileLoad_${Date.now()}`;
+    (window as unknown as Record<string, unknown>)[callbackName] = renderWidget;
+
+    // Check if Turnstile is already loaded
+    if (window.turnstile) {
+      console.log("Turnstile already loaded, rendering widget");
+      renderWidget();
+    } else {
+      // Load Turnstile script with explicit rendering
+      const script = document.createElement("script");
+      script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      // Cleanup widget on unmount
+      if (widgetId && window.turnstile) {
+        try {
+          window.turnstile.remove(widgetId);
+        } catch (e) {
+          console.warn("Failed to remove widget on unmount:", e);
+        }
+      }
+      delete (window as unknown as Record<string, unknown>)[callbackName];
+    };
+  }, [isSuccess]);
 
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
 
+  // Show success screen if submission was successful
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-warm-beige flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
+            <Check className="w-8 h-8 text-green-600" />
+          </div>
+          <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+            All Set! 🎉
+          </h1>
+          {telegramBotLink ? (
+            <>
+              <p className="text-grey mb-4">
+                Your memory will be delivered via Telegram in time to come.
+                Start the bot below to confirm you will receive it.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(telegramBotLink, "_blank", "noopener,noreferrer");
+                }}
+                className="w-full mb-4 px-4 py-3 bg-[#229ED9] text-white rounded-lg hover:bg-[#1e8bc3] transition text-sm font-semibold flex items-center justify-center gap-2"
+              >
+                <svg
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.752-.244-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635.099-.002.321.023.465.14.121.099.154.232.17.326.016.094.036.308.02.475z" />
+                </svg>
+                Start Telegram Bot
+              </button>
+            </>
+          ) : (
+            <p className="text-grey mb-4">
+              Your memory will be delivered to your email address in time to
+              come.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSuccess(false);
+              setTelegramBotLink(null);
+              setTurnstileToken(null);
+              resetForm();
+              // Widget will be re-rendered by useEffect when isSuccess changes
+            }}
+            className="w-full px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
+          >
+            Create Another Memory
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-warm-beige">
-      <AnnouncementBanner />
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-3">
-            ReStrip
+        {/* Back Button */}
+        <div className="mb-4">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-soft-black hover:text-accent-red transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+        </div>
+
+        <div className="text-center mb-8">
+          <h1 className="font-display text-3xl font-bold text-soft-black mb-2">
+            Quick Send
           </h1>
-          <ShinyText
-            text="Photo strips that come back to you."
-            disabled={false}
-            speed={15}
-            className="font-display text-3xl md:text-4xl font-semibold text-soft-black mb-4"
-          />
-          <p className="font-body text-grey mb-6">
-            Upload your photo strip, pick a future period, and we'll send you a
-            surprise email then. That's it.
-          </p>
-          <AnnouncementPill />
         </div>
 
         {/* Upload Card */}
@@ -1183,7 +1152,7 @@ export default function UploadPage() {
             </div>
             <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
               <Textarea
-                placeholder="Type caption here for your photo strip."
+                placeholder="Write a message to your future self..."
                 value={caption}
                 onChange={(e) => {
                   setCaption(e.target.value);
@@ -1226,7 +1195,7 @@ export default function UploadPage() {
                 4. where to send your memory
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={deliveryRef}>
+            <div className="mt-4 flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker
                 onSelect={handleDeliveryMethodSelect}
                 error={!!fieldErrors.deliveryAddress}
@@ -1251,15 +1220,31 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* Turnstile CAPTCHA Widget */}
+            <div className="mt-6 flex justify-center">
+              <div id="turnstile-widget"></div>
+            </div>
+
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing}
+              disabled={isProcessing || !turnstileToken}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing
-                ? "Encrypting & Delivering..."
-                : "Deliver to the Future!"}
+              {isProcessing ? (
+                <>
+                  <Spinner
+                    variant="pinwheel"
+                    size={16}
+                    className="text-warm-beige"
+                  />
+                  One day, you'll open this and smile...
+                </>
+              ) : !turnstileToken ? (
+                "Completing CAPTCHA..."
+              ) : (
+                "Deliver to the Future!"
+              )}
             </button>
 
             {/* Buy Me a Coffee Button */}
@@ -1278,23 +1263,6 @@ export default function UploadPage() {
                 />
               </a>
             </div>
-          </div>
-        </div>
-
-        {/* About Section */}
-        <div className="max-w-2xl mx-auto mt-6">
-          <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
-            <ScrollReveal
-              baseOpacity={0}
-              enableBlur={true}
-              baseRotation={0}
-              blurStrength={10}
-            >
-              We live in a world where memories are fleeting, photo strips pile
-              up, and feelings fade. ReStrip slows time down. You capture a
-              moment today and, months later, it comes back to make you smile.
-              ReStrip is a time machine for your happiest moments.
-            </ScrollReveal>
           </div>
         </div>
       </div>
@@ -1382,26 +1350,22 @@ export default function UploadPage() {
       </Dialog>
 
       {/* Footer Section */}
-      <footer className="bg-soft-black text-warm-beige py-8">
+      <footer className="bg-soft-black text-warm-beige py-6">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">
-            &copy; {new Date().getFullYear()} ReStrip, made with ❤️, by{" "}
-            <a
-              href="https://www.linkedin.com/in/bek-joon-hao/"
-              className="hover:underline transition-all hover:text-pastel-blue"
-            >
-              Joon Hao
-            </a>
-            .
+            &copy; {new Date().getFullYear()} ReStrip, made with ❤️.
           </p>
-          <div className="mt-4 flex justify-center space-x-4">
+          <div className="mt-3 flex justify-center space-x-4">
             <a
               href="/privacy-policy"
-              className="text-warm-beige hover:underline"
+              className="text-warm-beige hover:underline text-xs"
             >
               Privacy Policy
             </a>
-            <a href="/contact" className="text-warm-beige hover:underline">
+            <a
+              href="/contact"
+              className="text-warm-beige hover:underline text-xs"
+            >
               Contact Us
             </a>
           </div>

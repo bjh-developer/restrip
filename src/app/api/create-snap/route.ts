@@ -9,7 +9,24 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  UPLOAD_LIMIT,
+} from "../../../lib/rate-limit";
+import { scheduleOrSendMemoryEmail } from "../../../lib/resend";
+
+/** Maximum request body size: 1 MB (metadata only, no image) */
+const MAX_BODY_SIZE = 1 * 1024 * 1024;
+
+/** Allowed origin for CORS */
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
+/** Email validation regex */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Supported delivery methods for snap notifications */
 type DeliveryMethod = "email" | "telegram";
@@ -24,6 +41,8 @@ interface CreateSnapRequestBody {
   deliveryMethod: DeliveryMethod;
   deliveryAddress?: string;
   periodType: string;
+  turnstileToken?: string;
+  uploadNonce?: string;
 }
 
 /** Shape of a snap record in the database */
@@ -70,9 +89,16 @@ const REQUIRED_FIELDS: readonly (keyof CreateSnapRequestBody)[] = [
  * Supabase admin client with elevated permissions.
  * Uses service role key for direct database access.
  */
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin: SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /**
@@ -81,9 +107,10 @@ const supabaseAdmin: SupabaseClient = createClient(
  * @param body - Parsed request body
  * @returns Object with validation result and missing fields if any
  */
-function validateRequiredFields(
-  body: Partial<CreateSnapRequestBody>,
-): { valid: boolean; missing?: string[] } {
+function validateRequiredFields(body: Partial<CreateSnapRequestBody>): {
+  valid: boolean;
+  missing?: string[];
+} {
   const missing = REQUIRED_FIELDS.filter((field) => !body[field]);
 
   if (missing.length > 0) {
@@ -102,6 +129,33 @@ function validateRequiredFields(
 function parseScheduledTime(dateString: string): Date | null {
   const date = new Date(dateString);
   return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Verify and consume the nonce to prevent replay attacks.
+ *
+ * @param nonce - The unique nonce generated during upload
+ * @param clientIp - The IP address of the client making the request
+ * @returns Whether the nonce is valid and has been consumed
+ *
+ * The nonce must match an unused record in the database for the same IP and must not be expired.
+ * If valid, it will be marked as used to prevent reuse.
+ */
+async function verifyAndConsumeNonce(
+  nonce: string,
+  clientIp: string,
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("upload_nonces")
+    .update({ used: true })
+    .eq("nonce", nonce)
+    .eq("client_ip", clientIp)
+    .eq("used", false)
+    .gt("expires_at", new Date().toISOString())
+    .select()
+    .single();
+
+  return !error && !!data;
 }
 
 /**
@@ -139,7 +193,58 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
   try {
+    // CORS check for anonymous routes
+    const origin = request.headers.get("origin");
+    if (ALLOWED_ORIGIN && origin && origin !== ALLOWED_ORIGIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Rate limiting by IP
+    const clientIp = getClientIp(request);
+    const rl = checkRateLimit(`create-snap:${clientIp}`, UPLOAD_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
+
+    // Body size check
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
+    if (contentLength > MAX_BODY_SIZE) {
+      return NextResponse.json(
+        { error: "Request body too large" },
+        { status: 413 },
+      );
+    }
+
     const body = (await request.json()) as Partial<CreateSnapRequestBody>;
+    const {
+      storagePath,
+      encryptedCaption,
+      captionIv,
+      imageIv,
+      scheduledSendTime,
+      deliveryMethod,
+      deliveryAddress,
+      periodType,
+      uploadNonce,
+    } = body as CreateSnapRequestBody;
+
+    // Nonce verification (Cloudflare Turnstile)
+    if (!uploadNonce) {
+      return NextResponse.json(
+        { error: "Missing upload verification token" },
+        { status: 403 },
+      );
+    }
+
+    const nonceValid = await verifyAndConsumeNonce(uploadNonce, clientIp);
+    if (!nonceValid) {
+      return NextResponse.json(
+        { error: "Invalid or expired upload token. Please start over." },
+        { status: 403 },
+      );
+    }
 
     // Validate required fields
     const validation = validateRequiredFields(body);
@@ -150,23 +255,20 @@ export async function POST(
       );
     }
 
-    const {
-      storagePath,
-      encryptedCaption,
-      captionIv,
-      imageIv,
-      scheduledSendTime,
-      deliveryMethod,
-      deliveryAddress,
-      periodType,
-    } = body as CreateSnapRequestBody;
-
     // Validate email address for email delivery
-    if (deliveryMethod === "email" && !deliveryAddress) {
-      return NextResponse.json(
-        { error: "Email address is required for email delivery" },
-        { status: 400 },
-      );
+    if (deliveryMethod === "email") {
+      if (!deliveryAddress) {
+        return NextResponse.json(
+          { error: "Email address is required for email delivery" },
+          { status: 400 },
+        );
+      }
+      if (!EMAIL_REGEX.test(deliveryAddress)) {
+        return NextResponse.json(
+          { error: "Invalid email address format" },
+          { status: 400 },
+        );
+      }
     }
 
     // Parse and validate send time
@@ -177,6 +279,11 @@ export async function POST(
         { status: 400 },
       );
     }
+
+    // Generate a link token for telegram delivery to prevent IDOR
+    // 8 bytes = 16 hex chars (keeps deep link under Telegram's 64-char limit)
+    const telegramLinkToken =
+      deliveryMethod === "telegram" ? randomBytes(8).toString("hex") : null;
 
     // Insert snap record into database
     const { data, error: dbError } = await supabaseAdmin
@@ -192,6 +299,9 @@ export async function POST(
         delivery_method: deliveryMethod,
         delivery_address: deliveryAddress ?? "",
         period_type: periodType,
+        ...(telegramLinkToken
+          ? { telegram_link_token: telegramLinkToken }
+          : {}),
       })
       .select()
       .single();
@@ -206,10 +316,18 @@ export async function POST(
 
     console.log("✅ Snap created successfully:", data.id);
 
-    return NextResponse.json(
-      { snap: data as SnapRecord },
-      { status: 200 },
-    );
+    // resend has a 30d limit oops
+    if (deliveryMethod === "email") {
+      console.log("[create-snap] Enqueueing email delivery for snap:", data.id);
+      try {
+        const emailResult = await scheduleOrSendMemoryEmail(data.id);
+        console.log("[create-snap] Email result:", emailResult);
+      } catch (err) {
+        console.error("[create-snap] Failed to enqueue email:", err);
+      }
+    }
+
+    return NextResponse.json({ snap: data as SnapRecord }, { status: 200 });
   } catch (error) {
     console.error("Create snap handler error:", error);
 

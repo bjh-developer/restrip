@@ -1,17 +1,17 @@
-// supabase/functions/send-strips/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
-import { encode as base64Encode, decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import {
+  encode as base64Encode,
+  decode as base64Decode,
+} from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
-function minifyHtml(html: string): string {
-  return html
-    .replace(/\n/g, "") // Remove newlines
-    .replace(/[\t ]+</g, "<") // Remove spaces/tabs before tags
-    .replace(/>[\t ]+/g, ">") // Remove spaces/tabs after tags
-    .replace(/[\t ]+/g, " ") // Replace multiple spaces with single space
-    .trim();
-}
+
+// memories > 30d are in database as pending, cron schedules them after they enter 30d window
+// resend handles frm there
+
+const MAX_MEMORIES_TO_PROCESS = 50;
+const RESEND_SCHEDULING_WINDOW_DAYS = 30;
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 // ===== Decryption utilities =====
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
@@ -68,93 +68,69 @@ async function decryptImage(
   return new Uint8Array(decrypted);
 }
 
-async function sendEmailWithGmail(
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildEmailHtml(caption: string): string {
+  const safeCaption = escapeHtml(caption || "");
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;line-height:1.5;color:#111">
+      <h2 style="margin:0 0 12px">A memory from your past 📸</h2>
+      ${safeCaption ? `<p style="margin:0">${safeCaption}</p>` : "<p style=\"margin:0\">Your photostrip memory is attached.</p>"}
+    </div>
+  `;
+}
+
+async function scheduleEmailWithResend(
   to: string,
-  snapId: string,
-  imageBase64: string,
+  imageBytes: Uint8Array,
   caption: string,
-) {
-  // Create SMTP client per email to avoid connection issues
-  const smtpClient = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: {
-        username: Deno.env.get("GMAIL_USER")!,
-        password: Deno.env.get("GMAIL_APP_PASSWORD")!,
-      },
-    },
-  });
-
-  try {
-    const emailHtml = minifyHtml(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; background-color: #F3E8D8;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F3E8D8;">
-              <tr>
-                  <td align="center" style="padding: 40px 20px;">
-                      <table width="100%" maxwidth="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(28, 28, 28, 0.08);">
-                          <tr>
-                              <td align="center" style="padding: 40px 24px; background-color: #1C1C1C;">
-                                  <div style="font-size: 32px; font-weight: 700; color: #F3E8D8; letter-spacing: -0.5px;">ReStrip</div>
-                                  <div style="font-size: 14px; color: #EBEBEB; margin-top: 6px; font-weight: 300; letter-spacing: 0.5px;">Photo strips that come back to you.</div>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td style="padding: 48px 40px;">
-                                  <p style="margin: 0 0 24px 0; font-size: 18px; color: #1C1C1C; line-height: 1.5; font-weight: 500;">A memory from your past! 🤗</p>
-                                  ${caption ? `<p style="margin: 0 0 28px 0; font-size: 16px; color: #6B6B6B; line-height: 1.7; font-style: italic;">"${caption}"</p>` : ''}
-                                  <p style="margin: 24px 0 0 0; font-size: 14px; color: #6B6B6B; text-align: center;">Your photo is attached to this email 📎</p>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td style="padding: 28px 40px; border-top: 1px solid #EBEBEB; background-color: #F3E8D8;">
-                                  <p style="margin: 0 0 12px 0; font-size: 13px; color: #6B6B6B; text-align: center;">ReStrip by Joon Hao • Photo strips that come back to you.</p>
-                                  <p style="margin: 0; font-size: 12px; color: #6B6B6B; text-align: center;">
-                                      <a href="https://restrip.vercel.app/privacy-policy" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Privacy Policy</a> • 
-                                      <a href="https://restrip.vercel.app/contact" style="color: #1C1C1C; text-decoration: none; font-weight: 500;">Contact Us</a>
-                                  </p>
-                              </td>
-                          </tr>
-                      </table>
-                  </td>
-              </tr>
-          </table>
-      </body>
-      </html>
-    `);
-
-    await smtpClient.send({
-      from: Deno.env.get("GMAIL_USER")!,
-      to: to,
-      subject: "📸 A memory from your past!",
-      html: emailHtml,
-      attachments: [
-        {
-          filename: "memory.png",
-          content: imageBase64,
-          encoding: "base64",
-          contentType: "image/png",
-        },
-      ],
-    });
-
-    console.log(`✅ Sent email with image to ${to}`);
-  } finally {
-    // Always close the connection after sending
-    await smtpClient.close();
+  scheduledAt?: string,
+): Promise<string> {
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendKey) {
+    throw new Error("RESEND_API_KEY not configured");
   }
+  const from = Deno.env.get("RESEND_FROM_EMAIL") ?? "ReStrip <onboarding@resend.dev>";
+  const imageBase64 = base64Encode(imageBytes);
+  const payload: Record<string, unknown> = {
+    from,
+    to: [to],
+    subject: "📸 A memory from your past!",
+    html: buildEmailHtml(caption),
+    attachments: [
+      {
+        filename: "memory.png",
+        content: imageBase64,
+      },
+    ],
+  };
+  if (scheduledAt) {
+    payload.scheduled_at = scheduledAt;
+  }
+  const response = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const json = await response.json();
+  if (!response.ok) {
+    throw new Error(`Resend API error: ${JSON.stringify(json)}`);
+  }
+  return (json as { id?: string }).id ?? "unknown";
 }
 
 async function sendTelegramPhoto(
   chatId: number,
-  snapId: string,
   imageBytes: Uint8Array,
   caption: string,
 ) {
@@ -163,12 +139,10 @@ async function sendTelegramPhoto(
     throw new Error("TELEGRAM_BOT_TOKEN not configured");
   }
 
-  // Build caption with optional user caption
-  const telegramCaption = caption 
-    ? `📸 A memory from your past!\n\n"${caption}"`
-    : `📸 A memory from your past!`;
+  const telegramCaption = caption
+    ? `A memory from your past! 🤗\n\n"${caption}"`
+    : `A memory from your past! 🤗`;
 
-  // Create form data to send photo as file
   const formData = new FormData();
   formData.append("chat_id", chatId.toString());
   formData.append("photo", new Blob([imageBytes], { type: "image/png" }), "memory.png");
@@ -190,59 +164,201 @@ async function sendTelegramPhoto(
   return response.json();
 }
 
-serve(async (req) => {
+serve(async () => {
   try {
-    // Create Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get encryption key
     const encryptionKey = Deno.env.get("ENCRYPTION_SECRET");
     if (!encryptionKey) {
       throw new Error("ENCRYPTION_SECRET not configured");
     }
 
-    const now = new Date().toISOString();
-    const MAX_MEMORIES_TO_SEND = 50;
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const staleSchedulingIso = new Date(
+      now.getTime() - 10 * 60 * 1000,
+    ).toISOString();
 
-    // Get photo strips that are due to be sent
-    const { data: dueStrips, error } = await supabase
+    // past send time
+
+    const { error: reconcileError } = await supabase
+      .from("snaps")
+      .update({
+        delivery_status: "sent",
+        delivered_at: nowIso,
+        error_message: null,
+      })
+      .eq("delivery_method", "email")
+      .eq("delivery_status", "scheduled")
+      .lte("send_time", nowIso);
+    if (reconcileError) {
+      console.error("Failed to reconcile scheduled email statuses:", reconcileError);
+    }
+
+    // stale lock
+    const { error: recoverError } = await supabase
+      .from("snaps")
+      .update({
+        delivery_status: "pending",
+        error_message: "Recovered stale scheduling lock",
+      })
+      .eq("delivery_method", "email")
+      .eq("delivery_status", "scheduling")
+      .is("resend_email_id", null)
+      .lt("updated_at", staleSchedulingIso);
+    if (recoverError) {
+      console.error("Failed to recover stale scheduling locks:", recoverError);
+    }
+
+    const scheduleWindowEnd = new Date(
+      now.getTime() + RESEND_SCHEDULING_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    );
+    const { data: emailCandidates, error: emailQueryError } = await supabase
       .from("snaps")
       .select("*")
-      .or("delivery_status.eq.pending,delivery_status.eq.failed")
-      // .lte("send_time", now)
-      .limit(MAX_MEMORIES_TO_SEND); // Rate limiting
-
-    if (error) throw error;
-
-    console.log(`Found ${dueStrips?.length || 0} strips to send`);
-
-    // Send each photo strip
-    for (const strip of dueStrips || []) {
+      .eq("delivery_method", "email")
+      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      .is("resend_email_id", null)
+      .lte("send_time", scheduleWindowEnd.toISOString())
+      .limit(MAX_MEMORIES_TO_PROCESS);
+    if (emailQueryError) throw emailQueryError;
+    let emailsProcessed = 0;
+    for (const strip of emailCandidates || []) {
       try {
-        // Download encrypted image from storage
+        // claim strip for processing
+        const { data: claimed, error: claimError } = await supabase
+          .from("snaps")
+          .update({
+            delivery_status: "scheduling",
+            error_message: null,
+          })
+          .eq("id", strip.id)
+          .is("resend_email_id", null)
+          .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+          .select("id")
+          .single();
+
+        if (claimError || !claimed) {
+          continue;
+        }
+
+        const sendTime = new Date(strip.send_time);
+        if (Number.isNaN(sendTime.getTime())) {
+          throw new Error("Invalid send_time");
+        }
         const { data: imageData, error: downloadError } = await supabase.storage
           .from("encrypted-images")
           .download(strip.storage_path);
-        
+        if (downloadError) {
+          throw new Error(`Failed to download image: ${downloadError.message}`);
+        }
+        const imageBuffer = await imageData.arrayBuffer();
+        const encryptedImageBase64 = arrayBufferToBase64(imageBuffer);
+        const decryptedImageBytes = await decryptImage(
+          encryptedImageBase64,
+          strip.image_iv,
+          encryptionKey,
+        );
+        let decryptedCaption = "";
+        if (strip.encrypted_caption && strip.caption_iv) {
+          decryptedCaption = await decryptCaption(
+            strip.encrypted_caption,
+            strip.caption_iv,
+            encryptionKey,
+          );
+        }
+        const scheduledAt = sendTime > now ? sendTime.toISOString() : undefined;
+        const resendEmailId = await scheduleEmailWithResend(
+          strip.delivery_address,
+          decryptedImageBytes,
+          decryptedCaption,
+          scheduledAt,
+        );
+        if (scheduledAt) {
+          const { error: updateError } = await supabase
+            .from("snaps")
+            .update({
+              delivery_status: "scheduled",
+              resend_email_id: resendEmailId,
+              resend_scheduled_at: scheduledAt,
+              error_message: null,
+            })
+            .eq("id", strip.id);
+          if (updateError) {
+            throw new Error(`Failed to save scheduled state: ${updateError.message}`);
+          }
+          console.log(
+            `📬 Scheduled email for strip ${strip.id} at ${scheduledAt} (Resend id: ${resendEmailId})`,
+          );
+        } else {
+          const { error: updateError } = await supabase
+            .from("snaps")
+            .update({
+              delivery_status: "sent",
+              delivered_at: new Date().toISOString(),
+              resend_email_id: resendEmailId,
+              resend_scheduled_at: null,
+              error_message: null,
+            })
+            .eq("id", strip.id);
+          if (updateError) {
+            throw new Error(`Failed to save sent state: ${updateError.message}`);
+          }
+          console.log(
+            `✅ Sent email immediately for strip ${strip.id} (Resend id: ${resendEmailId})`,
+          );
+        }
+        emailsProcessed += 1;
+      } catch (deliveryError) {
+        const message =
+          deliveryError instanceof Error
+            ? deliveryError.message
+            : String(deliveryError);
+        console.error(`❌ Failed to schedule email for strip ${strip.id}:`, message);
+        await supabase
+          .from("snaps")
+          .update({
+            delivery_status: "failed",
+            error_message: message,
+            retry_count: (strip.retry_count || 0) + 1,
+          })
+          .eq("id", strip.id);
+      }
+    }
+    const { data: telegramDue, error: telegramQueryError } = await supabase
+      .from("snaps")
+      .select("*")
+      .eq("delivery_method", "telegram")
+      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      .lte("send_time", nowIso)
+      .limit(MAX_MEMORIES_TO_PROCESS);
+
+    if (telegramQueryError) throw telegramQueryError;
+
+    let telegramProcessed = 0;
+
+    for (const strip of telegramDue || []) {
+      try {
+        const { data: imageData, error: downloadError } = await supabase.storage
+          .from("encrypted-images")
+          .download(strip.storage_path);
+
         if (downloadError) {
           throw new Error(`Failed to download image: ${downloadError.message}`);
         }
 
-        // Read the encrypted image data as ArrayBuffer, then convert to base64
         const imageBuffer = await imageData.arrayBuffer();
         const encryptedImageBase64 = arrayBufferToBase64(imageBuffer);
-        
-        // Decrypt the image
+
         const decryptedImageBytes = await decryptImage(
           encryptedImageBase64,
           strip.image_iv,
           encryptionKey,
         );
 
-        // Decrypt the caption if present
         let decryptedCaption = "";
         if (strip.encrypted_caption && strip.caption_iv) {
           decryptedCaption = await decryptCaption(
@@ -252,53 +368,39 @@ serve(async (req) => {
           );
         }
 
-        // Convert to base64 for email attachment
-        const imageBase64 = arrayBufferToBase64(decryptedImageBytes.buffer);
-
-        if (strip.delivery_method === "telegram") {
-          // Telegram delivery
-          if (!strip.telegram_chat_id) {
-            throw new Error("User has not started the bot yet");
-          }
-
-          await sendTelegramPhoto(
-            strip.telegram_chat_id,
-            strip.id,
-            decryptedImageBytes,
-            decryptedCaption,
-          );
-
-          console.log(
-            `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
-          );
-        } else {
-          await sendEmailWithGmail(
-            strip.delivery_address,
-            strip.id,
-            imageBase64,
-            decryptedCaption,
-          );
-
-          console.log(`✅ Sent strip ${strip.id} with image to ${strip.delivery_address}`);
+        if (!strip.telegram_chat_id) {
+          throw new Error("User has not started the bot yet");
         }
 
-        // Mark as sent (works for both methods)
+        await sendTelegramPhoto(
+          strip.telegram_chat_id,
+          decryptedImageBytes,
+          decryptedCaption,
+        );
+
         await supabase
           .from("snaps")
           .update({
             delivery_status: "sent",
             delivered_at: new Date().toISOString(),
+            error_message: null,
           })
           .eq("id", strip.id);
+        console.log(
+          `✅ Sent Telegram photo for strip ${strip.id} to chat ${strip.telegram_chat_id}`,
+        );
+        telegramProcessed += 1;
       } catch (deliveryError) {
-        console.error(`❌ Failed to send strip ${strip.id}:`, deliveryError);
-
-        // Mark as failed with error message
+        const message =
+          deliveryError instanceof Error
+            ? deliveryError.message
+            : String(deliveryError);
+        console.error(`❌ Failed to send Telegram strip ${strip.id}:`, message);
         await supabase
           .from("snaps")
           .update({
             delivery_status: "failed",
-            error_message: deliveryError.message,
+            error_message: message,
             retry_count: (strip.retry_count || 0) + 1,
           })
           .eq("id", strip.id);
@@ -308,7 +410,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        processed: dueStrips?.length || 0,
+        emailsProcessed,
+        telegramProcessed,
       }),
       {
         headers: { "Content-Type": "application/json" },
@@ -316,8 +419,9 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    console.error("Function error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Function error:", message);
+    return new Response(JSON.stringify({ error: message }), {
       headers: { "Content-Type": "application/json" },
       status: 500,
     });

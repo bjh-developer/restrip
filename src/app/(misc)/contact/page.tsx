@@ -1,56 +1,35 @@
 "use client";
 
 import { useEffect } from "react";
-import { Mail, Github, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { Mail, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import { loadUserJot } from "../../../lib/userjot";
 
 export default function ContactPage() {
   useEffect(() => {
-    // Load UserJot SDK
-    const script1 = document.createElement("script");
-    script1.innerHTML = `window.$ujq=window.$ujq||[];window.uj=window.uj||new Proxy({},{get:(_,p)=>(...a)=>window.$ujq.push([p,...a])});document.head.appendChild(Object.assign(document.createElement('script'),{src:'https://cdn.userjot.com/sdk/v2/uj.js',type:'module',async:!0}));`;
-    document.head.appendChild(script1);
-
-    // Initialize UserJot
-    const script2 = document.createElement("script");
-    script2.innerHTML = `
-      window.uj.init('cmik6o1zx04nt15mqotv6d58d', {
-        widget: true,
-        position: 'right',
-        theme: 'auto'
-      });
-    `;
-    document.head.appendChild(script2);
+    return loadUserJot("cmik6o1zx04nt15mqotv6d58d");
   }, []);
 
   const socials = [
     {
       icon: Mail,
       label: "Email",
-      description: "Direct message to me",
-      href: "mailto:joonhaobek@gmail.com",
-      color: "text-soft-black",
-    },
-    {
-      icon: Github,
-      label: "GitHub",
-      description: "Issues & open source",
-      href: "https://github.com/bjh-developer/restrip",
-      target: "_blank",
+      description: "Send an email to ReStrip team",
+      href: "mailto:hello@restrip.app",
       color: "text-soft-black",
     },
     {
       icon: Instagram,
       label: "Instagram",
-      description: "Follow me for updates",
-      href: "https://instagram.com/_b.jh_",
+      description: "Follow ReStrip for updates",
+      href: "https://www.instagram.com/restrip.official",
       target: "_blank",
       color: "text-soft-black",
     },
     {
       icon: Linkedin,
       label: "LinkedIn",
-      description: "Let's connect",
-      href: "https://linkedin.com/in/joonhaobek",
+      description: "Connect with ReStrip team",
+      href: "https://www.linkedin.com/company/restrip-app",
       target: "_blank",
       color: "text-soft-black",
     },

@@ -1,0 +1,12 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        { "type": "host", "value": "restrip.app" }
+      ],
+      "destination": "https://www.restrip.app/$1",
+      "permanent": true
+    }
+  ]
+}

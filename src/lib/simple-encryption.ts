@@ -53,8 +53,10 @@ export function getServerEncryptionKey(): string {
     // Server-side: use environment variable
     const envKey = process.env.ENCRYPTION_SECRET;
     if (!envKey) {
-      console.warn("⚠️ ENCRYPTION_SECRET not set, using fallback key (NOT FOR PRODUCTION)");
-      return "FALLBACK_KEY_DO_NOT_USE_IN_PRODUCTION_32"; // 32 chars = 256 bits when encoded
+      throw new Error(
+        "FATAL: ENCRYPTION_SECRET environment variable is not set. " +
+        "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+      );
     }
     return envKey;
   } else {

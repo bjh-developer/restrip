@@ -20,6 +20,20 @@ import {
   encryptData,
   getServerEncryptionKey,
 } from "../../../lib/simple-encryption";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  UPLOAD_LIMIT,
+} from "../../../lib/rate-limit";
+import { verifyTurnstileToken } from "../../../lib/turnstile";
+import { randomBytes } from "crypto";
+
+/** Maximum request body size: 10 MB */
+const MAX_BODY_SIZE = 10 * 1024 * 1024;
+
+/** Allowed origin for CORS (set to your production domain) */
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
 /** Response shape for successful upload */
 interface UploadSuccessResponse {
@@ -38,6 +52,7 @@ interface ErrorResponse {
 interface UploadRequestBody {
   image: string;
   caption: string;
+  turnstileToken?: string;
 }
 
 /** Storage bucket name for encrypted images */
@@ -50,9 +65,16 @@ const ANONYMOUS_FOLDER = "anonymous";
  * Supabase admin client instance.
  * Uses service role key for elevated storage access.
  */
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
+  throw new Error("FATAL: Supabase environment variables are not set");
+}
+
 const supabaseAdmin: SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
 );
 
 /**
@@ -75,9 +97,10 @@ function generateUniqueFilePath(): string {
  * @param body - Parsed request body
  * @returns Object with validation result and optional error message
  */
-function validateRequestBody(
-  body: Partial<UploadRequestBody>,
-): { valid: boolean; error?: string } {
+function validateRequestBody(body: Partial<UploadRequestBody>): {
+  valid: boolean;
+  error?: string;
+} {
   if (!body.image || typeof body.image !== "string") {
     return { valid: false, error: "Missing or invalid image field" };
   }
@@ -121,7 +144,52 @@ export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<UploadSuccessResponse | ErrorResponse>> {
   try {
+    // CORS check for anonymous routes
+    const origin = request.headers.get("origin");
+    if (ALLOWED_ORIGIN && origin && origin !== ALLOWED_ORIGIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Rate limiting by IP
+    const clientIp = getClientIp(request);
+    const rl = checkRateLimit(`upload:${clientIp}`, UPLOAD_LIMIT);
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds);
+    }
+
+    // Body size check
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
+    if (contentLength > MAX_BODY_SIZE) {
+      return NextResponse.json(
+        { error: "Request body too large (max 10 MB)" },
+        { status: 413 },
+      );
+    }
+
     const body = (await request.json()) as Partial<UploadRequestBody>;
+
+    // CAPTCHA verification (Cloudflare Turnstile)
+    const turnstileValid = await verifyTurnstileToken(
+      body.turnstileToken ?? "",
+      clientIp,
+    );
+    if (!turnstileValid) {
+      return NextResponse.json(
+        { error: "CAPTCHA verification failed. Please try again." },
+        { status: 403 },
+      );
+    }
+
+    const uploadNonce = randomBytes(16).toString("hex");
+    const nonceExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+    await supabaseAdmin.from("upload_nonces").insert({
+      nonce: uploadNonce,
+      client_ip: clientIp,
+      expires_at: new Date(nonceExpiry).toISOString(),
+      used: false,
+    });
 
     // Validate required fields
     const validation = validateRequestBody(body);
@@ -184,6 +252,7 @@ export async function POST(
         encryptedCaption,
         captionIv,
         imageIv,
+        uploadNonce,
       },
       { status: 200 },
     );

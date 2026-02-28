@@ -65,6 +65,7 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "serif"],
         body: ["var(--font-body)", "sans-serif"],
+        caption: ["var(--font-caption)", "cursive"],
       },
       borderRadius: {
         xs: "4px",
