@@ -53,10 +53,7 @@ import {
 } from "../../../../lib/scrapbook-api";
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
-import {
-  getCachedImage,
-  setCachedImage,
-} from "../../../../lib/gallery-cache";
+import { getCachedImage, setCachedImage } from "../../../../lib/gallery-cache";
 
 // =============================================================================
 // Thumbnail cache helpers (sessionStorage, keyed by pageId)
@@ -64,7 +61,11 @@ import {
 
 /** Persist a thumbnail dataURL in sessionStorage. Key includes a content hash
  * so thumbnails are auto-invalidated when the page's element count changes. */
-function saveThumbnailCache(pageId: string, elementCount: number, dataUrl: string) {
+function saveThumbnailCache(
+  pageId: string,
+  elementCount: number,
+  dataUrl: string,
+) {
   try {
     sessionStorage.setItem(`thumb:${pageId}:${elementCount}`, dataUrl);
   } catch {
@@ -73,7 +74,10 @@ function saveThumbnailCache(pageId: string, elementCount: number, dataUrl: strin
 }
 
 /** Read a cached thumbnail. Returns null if missing or stale. */
-function readThumbnailCache(pageId: string, elementCount: number): string | null {
+function readThumbnailCache(
+  pageId: string,
+  elementCount: number,
+): string | null {
   try {
     return sessionStorage.getItem(`thumb:${pageId}:${elementCount}`);
   } catch {
@@ -85,7 +89,9 @@ function readThumbnailCache(pageId: string, elementCount: number): string | null
 function clearThumbnailCache(pageId: string) {
   try {
     // Remove all keys for this pageId (any element count)
-    const keys = Object.keys(sessionStorage).filter((k) => k.startsWith(`thumb:${pageId}:`));
+    const keys = Object.keys(sessionStorage).filter((k) =>
+      k.startsWith(`thumb:${pageId}:`),
+    );
     keys.forEach((k) => sessionStorage.removeItem(k));
   } catch {
     // Ignore
@@ -155,7 +161,9 @@ function FontPicker({ value, onChange }: FontPickerProps) {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-mist-grey text-soft-black hover:border-blush-pink focus:outline-none focus:ring-1 focus:ring-blush-pink transition bg-white min-w-[130px] justify-between"
         title="Font"
       >
-        <span style={{ fontFamily: value }} className="leading-none">{value}</span>
+        <span style={{ fontFamily: value }} className="leading-none">
+          {value}
+        </span>
         <svg
           className="w-3 h-3 text-grey shrink-0"
           viewBox="0 0 12 12"
@@ -1497,7 +1505,7 @@ export default function CanvasEditorPage() {
         <div className="flex items-center gap-1">
           {selectedIsText ? (
             <FontPicker value={activeFont} onChange={handleFontChange} />
-          ) : (
+          ) : !selectionHasObject ? (
             <>
               <button
                 type="button"
@@ -1537,7 +1545,7 @@ export default function CanvasEditorPage() {
                 <span className="hidden sm:inline">Background</span>
               </button>
             </>
-          )}
+          ) : null}
         </div>
 
         {/* Right: Export + Delete */}
