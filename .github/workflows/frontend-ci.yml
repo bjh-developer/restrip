@@ -4,14 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "app/**"
-      - "components/**"
-      - "styles/**"
-      - "public/**"
-      - "lib/**"
-      - "hooks/**"
-      - "types/**"
-      - "*.css"
+      - "src/**"
       - "next.config.*"
       - "tailwind.config.*"
       - "tsconfig.json"
