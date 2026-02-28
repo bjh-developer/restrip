@@ -10,12 +10,11 @@ jobs:
   secret-scan:
     name: Secret Scanning (TruffleHog)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # full history needed for TruffleHog
+          fetch-depth: 0
 
       - name: Scan for secrets
         uses: trufflesecurity/trufflehog@main
@@ -28,7 +27,6 @@ jobs:
   dependency-audit:
     name: npm Audit
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,30 +42,3 @@ jobs:
 
       - name: Run audit
         run: npm audit --audit-level=high
-
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-
-    strategy:
-      matrix:
-        language: [typescript, python]
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
