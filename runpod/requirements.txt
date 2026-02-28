@@ -1,5 +1,5 @@
 # RunPod Python Dependencies
-runpod==1.6.2
+runpod==1.8.1
 
 # Local Development Server
 fastapi>=0.104.0
