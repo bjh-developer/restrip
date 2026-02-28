@@ -10,6 +10,7 @@ jobs:
   secret-scan:
     name: Secret Scanning (TruffleHog)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'  # only runs on PRs
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,13 +21,13 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
           extra_args: --only-verified
 
   dependency-audit:
     name: npm Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # runs on both push and PR
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,3 +43,20 @@ jobs:
 
       - name: Run audit
         run: npm audit --audit-level=high
+
+  semgrep:
+    name: Semgrep Scan
+    runs-on: ubuntu-latest  # runs on both push and PR
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Semgrep scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >
+            p/typescript
+            p/python
+            p/nextjs
+            p/secrets
+            p/owasp-top-ten
