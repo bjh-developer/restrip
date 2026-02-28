@@ -5,6 +5,14 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Additional project-specific rule overrides.
+  {
+    rules: {
+      // the app uses a lot of contractions and apostrophes in UI text;
+      // escaping each would be noisy, so disable the rule globally.
+      "react/no-unescaped-entities": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

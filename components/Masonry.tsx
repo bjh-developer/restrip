@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { gsap } from 'gsap';
 
 // =============================================================================
@@ -8,15 +8,18 @@ import { gsap } from 'gsap';
 // =============================================================================
 
 const useMedia = (queries: string[], values: number[], defaultValue: number): number => {
-  const get = () => values[queries.findIndex(q => matchMedia(q).matches)] ?? defaultValue;
+  const get = useCallback(
+    () => values[queries.findIndex(q => matchMedia(q).matches)] ?? defaultValue,
+    [queries, values, defaultValue]
+  );
 
   const [value, setValue] = useState<number>(get);
 
   useEffect(() => {
-    const handler = () => setValue(get);
+    const handler = () => setValue(get());
     queries.forEach(q => matchMedia(q).addEventListener('change', handler));
     return () => queries.forEach(q => matchMedia(q).removeEventListener('change', handler));
-  }, [queries]);
+  }, [queries, get]);
 
   return value;
 };
@@ -105,10 +108,7 @@ const Masonry: React.FC<MasonryProps> = ({
 
   // Preload images (skipped for data URLs)
   useEffect(() => {
-    if (skipPreload) {
-      setImagesReady(true);
-      return;
-    }
+    if (skipPreload) return; // already ready if skipping
     const urls = items.map(i => i.img);
     Promise.all(
       urls.map(
@@ -151,7 +151,7 @@ const Masonry: React.FC<MasonryProps> = ({
   useLayoutEffect(() => {
     if (!imagesReady || grid.length === 0) return;
 
-    grid.forEach((item, index) => {
+    grid.forEach(item => {
       const selector = `[data-key="${item.id}"]`;
       const animProps = { x: item.x, y: item.y, width: item.w, height: item.h };
 

@@ -133,8 +133,11 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
 
   useEffect(() => {
     if (open) {
-      setTitle(initial?.title ?? "");
-      setColor(initial?.coverColor ?? COVER_COLORS[0]);
+      // delay to avoid sync state update warning
+      setTimeout(() => {
+        setTitle(initial?.title ?? "");
+        setColor(initial?.coverColor ?? COVER_COLORS[0]);
+      }, 0);
     }
   }, [open, initial]);
 

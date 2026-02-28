@@ -1236,7 +1236,7 @@ export default function UploadPage() {
                     size={16}
                     className="text-warm-beige"
                   />
-                  One day, you'll open this and smile...
+                  One day, you&apos;ll open this and smile...
                 </>
               ) : !turnstileToken ? (
                 "Completing CAPTCHA..."

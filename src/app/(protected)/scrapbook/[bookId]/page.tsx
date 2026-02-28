@@ -533,7 +533,10 @@ function ExportPicker({
   // Reset selection when opened
   useEffect(() => {
     if (open) {
-      setSelectedPages(new Set(pages.map((_, i) => i)));
+      // avoid synchronous setState in effect
+      setTimeout(() => {
+        setSelectedPages(new Set(pages.map((_, i) => i)));
+      }, 0);
     }
   }, [open, pages]);
 
