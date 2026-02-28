@@ -8,5 +8,11 @@
       "destination": "https://www.restrip.app/$1",
       "permanent": true
     }
-  ]
+  ],
+  "github": {
+    "enabled": true,
+    "autoAlias": true,
+    "silent": false,
+    "autoJobCancelation": true
+  }
 }
