@@ -32,6 +32,8 @@ from numpy.typing import NDArray
 from PIL import Image
 from ultralytics import YOLO
 
+import os
+
 import runpod
 
 # Configure logging for better debugging in serverless environment
@@ -66,7 +68,7 @@ MODEL_PATH = "runs/segment/train/weights/best.pt"
 
 # Initialize YOLO model at module level for reuse across requests
 logger.info("Loading YOLO model from %s", MODEL_PATH)
-model = YOLO(MODEL_PATH)
+model = YOLO(MODEL_PATH) if os.getenv("RUNPOD_POD_ID") else None # Only load model in RunPod environment, skip during CI testing
 logger.info("Model loaded successfully")
 
 
