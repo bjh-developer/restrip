@@ -17,6 +17,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { BadgeInfo, Brush, CircleAlert, Check } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
@@ -474,6 +475,9 @@ export default function NewMemoryPage() {
 
       const responseData = await uploadResponse.json();
       console.log("✅ Memory created successfully!");
+
+      // Invalidate gallery SWR cache so the new memory appears immediately on next visit
+      mutate("/api/gallery");
 
       // Store telegram bot link if telegram delivery was selected
       if (deliveryMethod === "telegram" && responseData.snap?.id) {
