@@ -17,7 +17,7 @@ updates:
   # pip — RunPod handler
   # Update the directory to wherever your requirements.txt lives
   - package-ecosystem: pip
-    directory: /runpod-handler
+    directory: /runpod
     schedule:
       interval: weekly
       day: monday
