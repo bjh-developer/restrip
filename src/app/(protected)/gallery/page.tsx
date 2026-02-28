@@ -155,7 +155,7 @@ function DeleteConfirmModal({
         {/* Warning note if snap hasn't been delivered */}
         {isSingleSnap && selectedSnap && selectedSnap.delivery_status !== "sent" && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-800 flex items-start gap-2">
+            <p className="text-xs text-amber-800 flex items-start gap-2 justify-center text-center">
               <span className="text-amber-600 mt-0.5">⚠</span>
               <span>This memory will not be delivered anymore.</span>
             </p>
