@@ -738,8 +738,6 @@ export default function UploadPage() {
    */
   const handleRotationChange = useCallback((degrees: number) => {
     setRotation(degrees);
-    setCrop(undefined);
-    setCompletedCrop(undefined);
   }, []);
 
   const handlePeriodSelect = useCallback(
@@ -1160,7 +1158,7 @@ export default function UploadPage() {
                   className="gap-2"
                 >
                   <CropIcon size={16} />
-                  {croppedImage ? "Re-crop / Adjust" : "Manual Crop"}
+                  {croppedImage ? "Re-crop" : "Manual Crop"}
                 </Button>
               </div>
             )}
@@ -1305,11 +1303,6 @@ export default function UploadPage() {
         <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle>Crop &amp; Straighten your photo strip</DialogTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Use the rotation slider to straighten a slanted strip, then drag
-              the crop handles. Clicking <strong>Manual Crop</strong> again
-              always restores the full original image.
-            </p>
           </DialogHeader>
 
           <div className="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
