@@ -1,0 +1,46 @@
+name: RunPod Handler CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "runpod/**"
+      - "*.py"
+      - "requirements.txt"
+  push:
+    branches: [main]
+    paths:
+      - "runpod/**"
+      - "*.py"
+      - "requirements.txt"
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install dev dependencies
+        run: pip install ruff pytest pytest-cov
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=. --cov-report=summary
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}

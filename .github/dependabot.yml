@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # npm — Next.js frontend
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      # Skip major version bumps — too risky to auto-update
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "frontend"
+
+  # pip — RunPod handler
+  # Update the directory to wherever your requirements.txt lives
+  - package-ecosystem: pip
+    directory: /runpod-handler
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "runpod"
+
+  # GitHub Actions — keep action versions up to date
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - "dependencies"
+      - "ci"
