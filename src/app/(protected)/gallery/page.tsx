@@ -1245,7 +1245,7 @@ export default function GalleryPage() {
             {/* Caption overlay */}
             {lightboxSectionSnaps[lightboxIndex].caption && (
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
-                <p className="text-white text-sm font-caption">
+                <p className="text-white text-lg font-caption">
                   {lightboxSectionSnaps[lightboxIndex].caption}
                 </p>
                 <p className="text-white/60 text-xs mt-1">
