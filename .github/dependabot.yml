@@ -24,6 +24,10 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "opencv-python-headless"
+        versions: [">=4.11.0"]  # ignore anything above 4.10.x
+      - dependency-name: "numpy"
+        versions: [">=2.0.0"]   # ignore numpy 2.x entirely
     labels:
       - "dependencies"
       - "runpod"
