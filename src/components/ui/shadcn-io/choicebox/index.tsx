@@ -16,7 +16,7 @@ import {
 export type ChoiceboxProps = ComponentProps<typeof RadioGroup>;
 
 export const Choicebox = ({ className, ...props }: ChoiceboxProps) => (
-  <RadioGroup className={cn("w-full", className)} {...(props as any)} />
+  <RadioGroup className={cn("w-full", className)} {...props} />
 );
 
 export type ChoiceboxItemProps = RadioGroupPrimitive.RadioGroupItemProps;
@@ -33,6 +33,7 @@ export const ChoiceboxItem = ({
       '[&[data-state="checked"]]:border-primary',
       '[&[data-state="checked"]]:bg-primary-foreground',
     )}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {...(props as any)}
   >
     <Card
@@ -52,7 +53,7 @@ export const ChoiceboxItemHeader = ({
   className,
   ...props
 }: ComponentProps<typeof CardHeader>) => (
-  <CardHeader className={cn("flex-1 p-0", className)} {...(props as any)} />
+  <CardHeader className={cn("flex-1 p-0", className)} {...props} />
 );
 
 export type ChoiceboxItemTitleProps = ComponentProps<typeof CardTitle>;
@@ -63,7 +64,7 @@ export const ChoiceboxItemTitle = ({
 }: ChoiceboxItemTitleProps) => (
   <CardTitle
     className={cn("flex items-center gap-2 text-sm", className)}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -75,7 +76,7 @@ export const ChoiceboxItemSubtitle = ({
 }: ChoiceboxItemSubtitleProps) => (
   <span
     className={cn("font-normal text-muted-foreground text-xs", className)}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -87,7 +88,7 @@ export const ChoiceboxItemDescription = ({
   className,
   ...props
 }: ChoiceboxItemDescriptionProps) => (
-  <CardDescription className={cn("text-sm", className)} {...(props as any)} />
+  <CardDescription className={cn("text-sm", className)} {...props} />
 );
 
 export type ChoiceboxItemContentProps = ComponentProps<typeof CardContent>;
@@ -101,7 +102,7 @@ export const ChoiceboxItemContent = ({
       "flex aspect-square size-4 shrink-0 items-center justify-center rounded-full border border-input p-0 text-primary shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:ring-destructive/40",
       className,
     )}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -113,7 +114,7 @@ export const ChoiceboxItemIndicator = ({
   className,
   ...props
 }: ChoiceboxItemIndicatorProps) => (
-  <RadioGroupPrimitive.Indicator asChild {...(props as any)}>
+  <RadioGroupPrimitive.Indicator asChild {...props}>
     <CircleIcon className={cn("size-2 fill-primary", className)} />
   </RadioGroupPrimitive.Indicator>
 );

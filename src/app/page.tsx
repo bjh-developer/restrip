@@ -12,7 +12,6 @@
 
 import React from "react";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowRight, Camera, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
@@ -45,8 +44,7 @@ try {
 // =============================================================================
 
 export default function LandingPage() {
-  const router = useRouter();
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
 
   /**
    * Load UserJot feedback widget SDK.

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import { Shield, Trash2, Eye, Lock } from "lucide-react";
+import { Shield, Eye, Lock } from "lucide-react";
+import Link from "next/link";
 import { loadUserJot } from "../../../lib/userjot";
 
 export default function PrivacyPage() {
@@ -144,12 +145,12 @@ export default function PrivacyPage() {
 
         {/* Back Link */}
         <div className="mt-16 text-center">
-          <a
+          <Link
             href="/"
             className="inline-block bg-blush-pink text-soft-black rounded-lg px-8 py-3 font-body font-semibold hover:shadow-lg transition-all hover:bg-yellow-cream"
           >
             Back to Upload
-          </a>
+          </Link>
         </div>
       </div>
     </div>

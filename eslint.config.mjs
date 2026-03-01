@@ -11,6 +11,14 @@ const eslintConfig = defineConfig([
       // the app uses a lot of contractions and apostrophes in UI text;
       // escaping each would be noisy, so disable the rule globally.
       "react/no-unescaped-entities": "off",
+      // Allow intentionally-unused variables / args prefixed with _
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "ignoreRestSiblings": true,
+      }],
     },
   },
   // Override default ignores of eslint-config-next.
