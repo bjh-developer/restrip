@@ -40,7 +40,7 @@ import runpod
 from metrics import push_metric
 
 
-# ── Structured JSON logging ───────────────────────────────────────────────────
+# ── Structured JSON logging ──
 
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -62,7 +62,7 @@ logger.addHandler(_handler)
 logger.propagate = False
 
 
-# ── Type aliases ──────────────────────────────────────────────────────────────
+# ── Type aliases ──
 
 ImageArray = NDArray[np.uint8]
 PointsArray = NDArray[np.float32]
@@ -83,7 +83,7 @@ class ErrorResult(TypedDict):
 ProcessingResult = Union[SuccessResult, ErrorResult]
 
 
-# ── Model initialisation ──────────────────────────────────────────────────────
+# ── Model initialisation ──
 
 MODEL_PATH = "runs/segment/train/weights/best.pt"
 
@@ -95,7 +95,7 @@ else:
     logger.info("Skipping model load (not in RunPod environment)")
 
 
-# ── Pure utility functions ────────────────────────────────────────────────────
+# ── Pure utility functions ──
 
 def order_points(pts: PointsArray) -> PointsArray:
     """
@@ -196,7 +196,7 @@ def _encode_image_to_base64(image: ImageArray) -> str:
     return base64.b64encode(buffer.tobytes()).decode("utf-8")
 
 
-# ── Image processing functions ────────────────────────────────────────────────
+# ── Image processing functions ───
 
 def straighten_transparent_crop(iso_crop: ImageArray) -> ImageArray:
     """
@@ -352,7 +352,7 @@ def detect_crop_photostrip(image_data: Union[str, bytes]) -> ProcessingResult:
         }
 
 
-# ── Handler entry point ───────────────────────────────────────────────────────
+# ── Handler entry point ───
 
 def handler(event: dict) -> ProcessingResult:
     """
