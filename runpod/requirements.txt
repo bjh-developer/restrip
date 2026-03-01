@@ -17,3 +17,7 @@ ultralytics>=8.0.0
 # Note: Adjust based on your CUDA version or use CPU version
 torch>=2.0.0
 torchvision>=0.15.0
+
+# Observability
+prometheus-client==0.20.0
+requests==2.31.0

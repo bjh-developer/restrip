@@ -297,6 +297,7 @@ const UploadImage = React.memo(
         <DropzoneContent>
           {previewSrc && (
             <div className="w-full flex items-center justify-center py-4 relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt="Preview of uploaded image"
                 className="max-w-full max-h-96 object-contain rounded-md"
@@ -385,8 +386,6 @@ export default function UploadPage() {
   // Period selection state
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
-  const [customDate, setCustomDate] = useState<Date | undefined>();
-  const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [scheduledSendTime, setScheduledSendTime] = useState<
     Date | undefined
   >();
@@ -612,15 +611,7 @@ export default function UploadPage() {
 
       if (!sendTime) {
         setScheduledSendTime(undefined);
-        setCustomDate(undefined);
-        setCustomPeriod(undefined);
         return;
-      }
-
-      if (period === "custom date") {
-        setCustomDate(sendTime);
-      } else if (period === "custom period") {
-        setCustomPeriod(sendTime.toISOString());
       }
 
       setScheduledSendTime(sendTime);
@@ -1236,7 +1227,7 @@ export default function UploadPage() {
                     size={16}
                     className="text-warm-beige"
                   />
-                  One day, you'll open this and smile...
+                  One day, you&apos;ll open this and smile...
                 </>
               ) : !turnstileToken ? (
                 "Completing CAPTCHA..."
@@ -1253,6 +1244,7 @@ export default function UploadPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=bjh21&button_colour=fff2c9&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
                   alt="Buy me a coffee"
@@ -1322,6 +1314,7 @@ export default function UploadPage() {
                 }}
                 onComplete={(c) => setCompletedCrop(c)}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   ref={imgRef}
                   src={originalImage}

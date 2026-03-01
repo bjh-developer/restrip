@@ -1,9 +1,22 @@
+/**
+ * telegram-bot — Supabase Edge Function (webhook mode)
+ *
+ * Receives Telegram Bot API updates via HTTP POST and routes them through
+ * grammY. The only command handled is /start, which processes deep-links
+ * of the form:  t.me/<bot>?start=snap_{snapId}_{token}
+ *
+ * That deep-link is generated on the ReStrip web app and lets a user
+ * associate their Telegram chat_id with a snap row in the database so that
+ * the delivery worker can send the photostrip when send_time is reached.
+ */
 import { Bot } from "npm:grammy@1.39.2";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Environment variables — loaded at module start; bot token is required immediately.
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+// Shared secret set during webhook registration to verify requests come from Telegram.
 const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 
 if (!TELEGRAM_BOT_TOKEN) {
@@ -11,12 +24,21 @@ if (!TELEGRAM_BOT_TOKEN) {
 }
 
 const bot = new Bot(TELEGRAM_BOT_TOKEN);
+// Service-role client bypasses RLS so the bot can read/write any snap row.
 const supabase = createClient(SUPABASE_URL || "", SUPABASE_SERVICE_ROLE_KEY || "");
 
-// Initialize bot
+// bot.init() fetches bot metadata (username, id) from Telegram.
+// Must be awaited at module level before any updates are dispatched.
 await bot.init();
 
+// =============================================================================
+// /start command handler
+// =============================================================================
+// Handles deep-link activations: /start snap_{snapId}_{token}
+// This is the only entry point for associating a Telegram chat with a snap.
+
 bot.command("start", async (ctx) => {
+  // ctx.match contains everything after "/start " in the incoming message.
   const startPayload = ctx.match;
   
   if (!startPayload || !startPayload.startsWith('snap_')) {
@@ -26,7 +48,8 @@ bot.command("start", async (ctx) => {
     );
   }
 
-  // Parse snap_{id}_{token} format
+  // Parse snap_{id}_{token}: strip the "snap_" prefix, split on "_",
+  // pop the last segment as the verification token, join the rest as the snap ID.
   const parts = startPayload.substring(5).split("_"); // remove "snap_" prefix
   if (parts.length < 2) {
     return ctx.reply(
@@ -51,12 +74,14 @@ bot.command("start", async (ctx) => {
       );
     }
 
+    // Verify the token matches the one stored on the snap to prevent enumeration.
     if (!snap.telegram_link_token || snap.telegram_link_token !== token) {
       return ctx.reply(
         "❌ Invalid or expired link.\n\nPlease use the correct link from your ReStrip account."
       );
     }
 
+    // Guard against duplicate linking: acknowledge without overwriting the existing chat_id.
     if (snap.telegram_chat_id) {
       return ctx.reply(
         "✅ This memory is already linked! You'll receive it when it's time."
@@ -89,11 +114,18 @@ bot.command("start", async (ctx) => {
   }
 });
 
+// =============================================================================
+// Webhook entry point
+// =============================================================================
+// Telegram sends all bot updates as POST to this URL.
+// GET requests (e.g. uptime probes) receive a plain 200 OK.
+
 Deno.serve(async (req) => {
   console.log('Request received:', req.method);
   
   if (req.method === "POST") {
-    // Verify secret token from Telegram
+    // Validate the shared secret set during webhook registration.
+    // Rejects any request that did not originate from Telegram.
     const secretToken = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
     if (WEBHOOK_SECRET && secretToken !== WEBHOOK_SECRET) {
       console.error('Invalid secret token');
@@ -104,13 +136,15 @@ Deno.serve(async (req) => {
       const update = await req.json();
       console.log('Received update:', JSON.stringify(update));
       
-      // Process the update with grammY
+      // Dispatch the update to the registered grammY command handlers.
       await bot.handleUpdate(update);
       
       return new Response('OK', { status: 200 });
     } catch (err) {
       console.error("Error handling update:", err);
-      return new Response('OK', { status: 200 }); // Still return 200 to prevent Telegram retries
+      // Always return 200 — a non-200 response causes Telegram to retry the
+      // same update repeatedly, flooding the endpoint.
+      return new Response('OK', { status: 200 });
     }
   }
   

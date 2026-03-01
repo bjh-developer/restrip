@@ -36,7 +36,6 @@ import {
   PanelLeftOpen,
   ZoomIn,
   ZoomOut,
-  Maximize,
 } from "lucide-react";
 import type {
   Book,
@@ -533,7 +532,10 @@ function ExportPicker({
   // Reset selection when opened
   useEffect(() => {
     if (open) {
-      setSelectedPages(new Set(pages.map((_, i) => i)));
+      // avoid synchronous setState in effect
+      setTimeout(() => {
+        setSelectedPages(new Set(pages.map((_, i) => i)));
+      }, 0);
     }
   }, [open, pages]);
 
@@ -841,6 +843,7 @@ export default function CanvasEditorPage() {
   const apiSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** Persist all pages to the API (debounced) */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const persistToApi = useCallback(() => {
     if (apiSaveTimerRef.current) clearTimeout(apiSaveTimerRef.current);
     apiSaveTimerRef.current = setTimeout(() => {

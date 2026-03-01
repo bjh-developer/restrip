@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter, Caveat } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-// @ts-ignore
 import "../styles/globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";

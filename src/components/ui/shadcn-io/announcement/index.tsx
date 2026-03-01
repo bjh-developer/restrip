@@ -20,7 +20,7 @@ export const Announcement = ({
       className,
     )}
     variant={variant}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -36,7 +36,7 @@ export const AnnouncementTag = ({
       "group-[.announcement-themed]:bg-background/60",
       className,
     )}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -48,6 +48,6 @@ export const AnnouncementTitle = ({
 }: AnnouncementTitleProps) => (
   <div
     className={cn("flex items-center gap-1 truncate py-1", className)}
-    {...(props as any)}
+    {...props}
   />
 );

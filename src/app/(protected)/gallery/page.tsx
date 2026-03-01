@@ -357,12 +357,14 @@ export default function GalleryPage() {
 
   // Cleanup object URLs on unmount
   useEffect(() => {
+    const objectUrls = objectUrlsRef.current;
+    const loadedSnapIds = loadedSnapIdsRef.current;
     return () => {
-      for (const url of objectUrlsRef.current.values()) {
+      for (const url of objectUrls.values()) {
         URL.revokeObjectURL(url);
       }
-      objectUrlsRef.current.clear();
-      loadedSnapIdsRef.current.clear();
+      objectUrls.clear();
+      loadedSnapIds.clear();
     };
   }, []);
 
@@ -768,8 +770,6 @@ export default function GalleryPage() {
   // =========================================================================
   // Lightbox navigation
   // =========================================================================
-
-  const openLightbox = (index: number) => setLightboxIndex(index);
 
   const navigateLightbox = (direction: -1 | 1) => {
     if (lightboxIndex === null) return;

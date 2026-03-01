@@ -56,7 +56,7 @@ export const Banner = ({
           inset && "rounded-lg",
           className,
         )}
-        {...(props as any)}
+        {...props}
       >
         {children}
       </div>
@@ -78,7 +78,7 @@ export const BannerIcon = ({
       "rounded-full border border-background/20 bg-background/10 p-1 shadow-sm",
       className,
     )}
-    {...(props as any)}
+    {...props}
   >
     <Icon size={16} />
   </div>
@@ -87,7 +87,7 @@ export const BannerIcon = ({
 export type BannerTitleProps = HTMLAttributes<HTMLParagraphElement>;
 
 export const BannerTitle = ({ className, ...props }: BannerTitleProps) => (
-  <p className={cn("flex-1 text-sm", className)} {...(props as any)} />
+  <p className={cn("flex-1 text-sm", className)} {...props} />
 );
 
 export type BannerActionProps = ComponentProps<typeof Button>;
@@ -105,7 +105,7 @@ export const BannerAction = ({
     )}
     size={size}
     variant={variant}
-    {...(props as any)}
+    {...props}
   />
 );
 
@@ -134,7 +134,7 @@ export const BannerClose = ({
       onClick={handleClick}
       size={size}
       variant={variant}
-      {...(props as any)}
+      {...props}
     >
       <XIcon size={18} />
     </Button>

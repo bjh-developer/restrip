@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
-import { Shield, Trash2, Eye, Lock } from "lucide-react";
+import { Shield, Eye, Lock } from "lucide-react";
+import Link from "next/link";
 import { loadUserJot } from "../../../lib/userjot";
 
 export default function PrivacyPage() {
@@ -13,19 +14,19 @@ export default function PrivacyPage() {
       icon: Eye,
       title: "Your photos are yours",
       description:
-        "We don't claim ownership. We don't use them for marketing. They belong to you, and only you.",
+        "We don&apos;t claim ownership. We don&apos;t use them for marketing. They belong to you, and only you.",
     },
     {
       icon: Lock,
       title: "No AI training",
       description:
-        "Your photos will never be used to train AI models. We don't feed our machine learning with your memories.",
+        "Your photos will never be used to train AI models. We don&apos;t feed our machine learning with your memories.",
     },
     {
       icon: Shield,
       title: "No selling",
       description:
-        "We never sell your data. Not now, not ever. Your memories aren't for sale.",
+        "We never sell your data. Not now, not ever. Your memories aren&apos;t for sale.",
     },
   ];
 
@@ -90,7 +91,7 @@ export default function PrivacyPage() {
             </h2>
             <p className="font-body text-grey">
               We use your information for one purpose: to deliver your surprise
-              email on the date you choose. That's it. No marketing. No
+              email on the date you choose. That&apos;s it. No marketing. No
               analytics. No selling.
             </p>
           </section>
@@ -144,12 +145,12 @@ export default function PrivacyPage() {
 
         {/* Back Link */}
         <div className="mt-16 text-center">
-          <a
+          <Link
             href="/"
             className="inline-block bg-blush-pink text-soft-black rounded-lg px-8 py-3 font-body font-semibold hover:shadow-lg transition-all hover:bg-yellow-cream"
           >
             Back to Upload
-          </a>
+          </Link>
         </div>
       </div>
     </div>

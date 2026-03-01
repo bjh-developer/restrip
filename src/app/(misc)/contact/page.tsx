@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Mail, Instagram, Linkedin, MessageCircle } from "lucide-react";
+import Link from "next/link";
 import { loadUserJot } from "../../../lib/userjot";
 
 export default function ContactPage() {
@@ -81,7 +82,7 @@ export default function ContactPage() {
           </div>
 
           <p className="font-body text-grey mb-8">
-            Have feedback? Want to see what's coming next? Our feedback board is
+            Have feedback? Want to see what&apos;s coming next? Our feedback board is
             where ideas happen.
           </p>
 
@@ -109,12 +110,12 @@ export default function ContactPage() {
 
         {/* Footer CTA */}
         <div className="mt-16 text-center">
-          <a
+          <Link
             href="/"
             className="inline-block bg-blush-pink text-soft-black rounded-lg px-8 py-3 font-body font-semibold hover:shadow-lg transition-all hover:bg-yellow-cream"
           >
             Back to Upload
-          </a>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,8 +1,8 @@
 # Default
-*  @bjh-developer @JunHam
+*  @bjh-developer @JunHammy
 
 # Frontend components
-/src/   @bjh-developer @JunHam @Yay @Nareshix @unkn0wnperson @Keonnnnn
+/src/   @bjh-developer @JunHammy @yanganyi @Nareshix @unkn0wnperson @Keonnnnn
 
 # RunPod handler
 /runpod/    @bjh-developer @Choco-Bloop
@@ -11,10 +11,10 @@
 /supabase/  @bjh-developer
 
 # Auth and security
-/src/proxy.ts   @bjh-developer @Yay
-/src/lib/simple-encryption.ts   @bjh-developer @Yay
-/src/lib/rate-limit.ts  @bjh-developer @Yay
-/src/lib/turnstile.ts   @bjh-developer @Yay
+/src/proxy.ts   @bjh-developer @yanganyi
+/src/lib/simple-encryption.ts   @bjh-developer @yanganyi
+/src/lib/rate-limit.ts  @bjh-developer @yanganyi
+/src/lib/turnstile.ts   @bjh-developer @yanganyi
 
 # CI/CD config
 /.github/   @bjh-developer

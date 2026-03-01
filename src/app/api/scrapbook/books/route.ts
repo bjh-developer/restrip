@@ -54,7 +54,7 @@ interface BookWithPages extends BookRow {
 // GET /api/scrapbook/books
 // -----------------------------------------------------------------------------
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
 ): Promise<NextResponse<{ books: BookWithPages[] } | { error: string }>> {
   try {
     const { userId } = await auth();

@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
-import { BadgeInfo, Brush, CircleAlert, Check, ArrowLeft, Crop as CropIcon, RotateCcw } from "lucide-react";
+import { Brush, CircleAlert, Check, Crop as CropIcon, RotateCcw } from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
@@ -266,6 +266,7 @@ const UploadImage = React.memo(
         <DropzoneContent>
           {previewSrc && (
             <div className="w-full flex items-center justify-center py-4 relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 alt="Preview of uploaded image"
                 className="max-w-full max-h-96 object-contain rounded-md"
@@ -350,8 +351,6 @@ export default function NewMemoryPage() {
   const [scheduledSendTime, setScheduledSendTime] = useState<
     Date | undefined
   >();
-  const [customDate, setCustomDate] = useState<Date | undefined>();
-  const [customPeriod, setCustomPeriod] = useState<string | undefined>();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
 
@@ -465,13 +464,9 @@ export default function NewMemoryPage() {
       const sendTime = computeScheduledSendTime(period, timezone, date);
       if (!sendTime) {
         setScheduledSendTime(undefined);
-        setCustomDate(undefined);
-        setCustomPeriod(undefined);
         return;
       }
 
-      if (period === "custom date") setCustomDate(sendTime);
-      if (period === "custom period") setCustomPeriod(sendTime.toISOString());
       setScheduledSendTime(sendTime);
       setFieldErrors((prev) => ({ ...prev, period: undefined }));
     },
@@ -817,6 +812,7 @@ export default function NewMemoryPage() {
                   }}
                   onComplete={(c) => setCompletedCrop(c)}
                 >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     ref={imgRef}
                     src={originalImage}
