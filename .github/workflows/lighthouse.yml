@@ -52,6 +52,6 @@ jobs:
             🚀 Preview deployed: ${{ steps.deploy.outputs.url }}
 
       - name: Run Lighthouse CI
-        run: npx lhci autorun --collect.url=${{ steps.deploy.outputs.url }}
+        run: npx @lhci/cli autorun --collect.url=${{ steps.deploy.outputs.url }}
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
