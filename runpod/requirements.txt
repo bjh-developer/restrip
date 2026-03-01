@@ -8,7 +8,7 @@ uvicorn>=0.24.0
 # Image Processing
 Pillow==12.1.1
 numpy==1.26.4
-opencv-python-headless==4.13.0.92
+opencv-python-headless==4.10.0.84
 
 # YOLO Model (required for photostrip detection)
 ultralytics>=8.0.0
