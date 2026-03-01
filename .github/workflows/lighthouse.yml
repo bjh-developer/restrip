@@ -38,7 +38,7 @@ jobs:
         id: deploy
         run: |
           OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} 2>&1)
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -E "https://.*\.vercel\.app" | tail -1)
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oE "https://[a-zA-Z0-9._-]+\.vercel\.app" | tail -1)
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
