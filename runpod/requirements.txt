@@ -19,6 +19,6 @@ torch>=2.0.0
 torchvision>=0.15.0
 
 # Observability
-prometheus-client==0.20.0
+prometheus-client==0.24.1
 requests==2.32.4
 metrics
