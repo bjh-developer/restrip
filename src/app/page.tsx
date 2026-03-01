@@ -73,10 +73,12 @@ export default function LandingPage() {
           </p>
 
           <div className="mb-4 flex flex-wrap items-center justify-center gap-4">
-            <Status status="online">
-              <StatusIndicator />
-              <StatusLabel />
-            </Status>
+            <Link href="https://status.restrip.app/" target="_blank" rel="noopener noreferrer">
+              <Status status="online">
+                <StatusIndicator />
+                <StatusLabel />
+              </Status>
+            </Link>
           </div>
 
           {/* Dual CTA Cards */}

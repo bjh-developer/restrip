@@ -18,8 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy model weights directory
 COPY runpod/runs/segment/train/weights/best.pt /app/runs/segment/train/weights/best.pt
 
-# Copy handler script
+# Copy handler and metrics scripts
 COPY runpod/handler.py .
+COPY runpod/metrics.py .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
