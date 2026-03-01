@@ -37,7 +37,8 @@ jobs:
       - name: Deploy preview to Vercel
         id: deploy
         run: |
-          PREVIEW_URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --env NODE_ENV=preview 2>&1 | tail -1)
+          OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} 2>&1)
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -E "https://.*\.vercel\.app" | tail -1)
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
