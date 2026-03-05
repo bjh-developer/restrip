@@ -25,7 +25,7 @@ jobs:
               - "package-lock.json"
 
   lint-and-typecheck:
-    name: Lint & Type Check
+    name: Lint & Type Check (internal)
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' && github.actor != 'dependabot[bot]'
@@ -40,7 +40,7 @@ jobs:
       - run: npx eslint . --max-warnings=0
 
   build:
-    name: Build Check
+    name: Build Check (internal)
     runs-on: ubuntu-latest
     needs: [detect-changes, lint-and-typecheck]
     if: |
@@ -69,7 +69,7 @@ jobs:
           NEXT_PUBLIC_CLERK_SIGN_UP_URL: ${{ secrets.NEXT_PUBLIC_CLERK_SIGN_UP_URL }}
 
   npm-audit:
-    name: npm Audit
+    name: npm Audit (internal)
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true'
@@ -80,3 +80,56 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm audit --audit-level=high
+
+  # ── Status reporter jobs (always run, match branch protection check names) ──
+
+  lint-status:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    needs: [detect-changes, lint-and-typecheck]
+    if: always()
+    steps:
+      - name: Report status
+        run: |
+          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+            echo "No frontend changes — skipping"
+          elif [[ "${{ needs.lint-and-typecheck.result }}" == "success" ]]; then
+            echo "Lint passed"
+          else
+            echo "Lint failed"
+            exit 1
+          fi
+
+  build-status:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build]
+    if: always()
+    steps:
+      - name: Report status
+        run: |
+          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+            echo "No frontend changes — skipping"
+          elif [[ "${{ needs.build.result }}" == "success" ]]; then
+            echo "Build passed"
+          else
+            echo "Build failed"
+            exit 1
+          fi
+
+  audit-status:
+    name: npm Audit
+    runs-on: ubuntu-latest
+    needs: [detect-changes, npm-audit]
+    if: always()
+    steps:
+      - name: Report status
+        run: |
+          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+            echo "No frontend changes — skipping"
+          elif [[ "${{ needs.npm-audit.result }}" == "success" ]]; then
+            echo "Audit passed"
+          else
+            echo "Audit failed"
+            exit 1
+          fi
