@@ -204,6 +204,7 @@ export default function GalleryPage() {
   const {
     data: galleryData,
     isLoading: swrLoading,
+    isValidating: swrValidating,
     error: swrError,
     mutate: mutateGallery,
   } = useSWR("/api/gallery", galleryFetcher, {
@@ -223,6 +224,10 @@ export default function GalleryPage() {
 
   // Track which snap IDs have had image loading initiated (avoids double-loading on revalidation)
   const loadedSnapIdsRef = useRef<Set<string>>(new Set());
+
+  // Incremented by handleRefresh to force the image-loading effect to re-run even
+  // when galleryData's object reference doesn't change after SWR revalidation.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -353,7 +358,7 @@ export default function GalleryPage() {
         await Promise.all(batch.map((id) => loadSnapImage(id, cachedIds)));
       }
     })();
-  }, [galleryData, loadSnapImage]);
+  }, [galleryData, loadSnapImage, refreshKey]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -368,14 +373,18 @@ export default function GalleryPage() {
     };
   }, []);
 
-  // Manual refresh — clear local image state and force SWR revalidation
+  // Manual refresh — clear cached image data and force SWR revalidation.
+  // We preserve snap metadata (just null out image_url) so the count in the
+  // header doesn't flash to "0 memories" while images are reloading.
   const handleRefresh = useCallback(() => {
     for (const url of objectUrlsRef.current.values()) {
       URL.revokeObjectURL(url);
     }
     objectUrlsRef.current.clear();
     loadedSnapIdsRef.current.clear();
-    setSnaps([]);
+    setSnaps((prev) => prev.map((s) => ({ ...s, image_url: null })));
+    setShowMasonry(false);
+    setRefreshKey((k) => k + 1); // force image-loading effect to re-run
     mutateGallery();
   }, [mutateGallery]);
 
@@ -848,6 +857,17 @@ export default function GalleryPage() {
                 )}
               </button>
 
+              {/* Refresh button */}
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={swrValidating}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition disabled:opacity-50"
+                aria-label="Refresh gallery"
+              >
+                <RefreshCw className={`w-4 h-4 ${swrValidating ? 'animate-spin' : ''}`} />
+              </button>
+
               {/* Menu button */}
               <div className="relative">
                 <button
@@ -873,25 +893,10 @@ export default function GalleryPage() {
                         router.push("/new");
                         setMobileMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey"
                     >
                       <Plus className="w-4 h-4" />
                       New Memory
-                    </button>
-
-                    {/* Refresh option */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRefresh();
-                        setMobileMenuOpen(false);
-                      }}
-                      disabled={isLoading}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black hover:bg-mist-grey/30 transition border-b border-mist-grey disabled:opacity-50"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                      Refresh
                     </button>
 
                     {/* Group by label */}
@@ -993,11 +998,11 @@ export default function GalleryPage() {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={swrValidating}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition disabled:opacity-50"
               title="Refresh gallery"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${swrValidating ? 'animate-spin' : ''}`} />
             </button>
 
             <button
