@@ -258,25 +258,8 @@ serve(async () => {
     ).toISOString();
 
     // -------------------------------------------------------------------------
-    // Step 1 — Reconcile delivery statuses
+    // Step 1 — Recover stale locks
     // -------------------------------------------------------------------------
-    // If Resend already delivered a "scheduled" email but our DB was never
-    // updated (previous run timed out after calling the API), mark those rows
-    // as "sent" now so they are not re-processed.
-    const { error: reconcileError } = await supabase
-      .from("snaps")
-      .update({
-        delivery_status: "sent",
-        delivered_at: nowIso,
-        error_message: null,
-      })
-      .eq("delivery_method", "email")
-      .eq("delivery_status", "scheduled")
-      .lte("send_time", nowIso);
-    if (reconcileError) {
-      console.error("Failed to reconcile scheduled email statuses:", reconcileError);
-    }
-
     // Recover snaps claimed ("scheduling") by a previous invocation that never
     // finished — reset to "pending" so they are retried on the next run.
     const { error: recoverError } = await supabase
