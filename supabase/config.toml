@@ -1,0 +1,22 @@
+# Supabase project configuration
+
+[project]
+# Your Supabase project reference ID
+project_id = "cervbsflzlvngmbuzmhq"
+
+# =============================================================================
+# Edge Function configuration
+# =============================================================================
+# Each [functions.<name>] block configures a single edge function.
+# verify_jwt = false  → public endpoint (no Supabase JWT required)
+# verify_jwt = true   → private endpoint (default; requires valid JWT)
+#
+# To add a new function: add a [functions.<name>] block below.
+# The deploy step in CI uses `supabase functions deploy` which reads these
+# settings automatically — no workflow changes needed.
+
+[functions.restrip-memories]
+verify_jwt = true   # private — called by cron only
+
+[functions.telegram-bot]
+verify_jwt = false  # public — Telegram webhooks do not carry a Supabase JWT
