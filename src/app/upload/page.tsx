@@ -1305,32 +1305,39 @@ export default function UploadPage() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4 relative">
+          <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4 relative overflow-hidden">
             {originalImage && (
-              <ReactCrop
-                crop={crop}
-                onChange={(c, pct) => {
-                  setCrop(pct);
-                }}
-                onComplete={(c) => setCompletedCrop(c)}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  ref={imgRef}
-                  src={originalImage}
-                  alt="Rotate and crop"
-                  onLoad={onImageLoad}
-                  style={{
-                    maxHeight: "55vh",
-                    maxWidth: "100%",
-                    width: "auto",
-                    height: "auto",
-                    objectFit: "contain",
-                    transform: `rotate(${rotation}deg)`,
-                    transition: "transform 0.05s linear",
+              <div className="relative flex items-center justify-center">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c, pct) => {
+                    setCrop(pct);
                   }}
-                />
-              </ReactCrop>
+                  onComplete={(c) => setCompletedCrop(c)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    ref={imgRef}
+                    src={originalImage}
+                    alt="Rotate and crop"
+                    onLoad={onImageLoad}
+                    style={{
+                      maxHeight: "calc(90vh - 340px)",
+                      maxWidth: "100%",
+                      width: "auto",
+                      height: "auto",
+                      objectFit: "contain",
+                      transform: `rotate(${rotation}deg)`,
+                      transition: "transform 0.05s linear",
+                    }}
+                  />
+                </ReactCrop>
+                {isCropping && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-sm z-10">
+                    <Spinner variant="pinwheel" className="text-warm-beige" size={40} />
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1342,7 +1349,7 @@ export default function UploadPage() {
             >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveManualCrop}>
+            <Button type="button" onClick={handleSaveManualCrop} disabled={isCropping}>
               Apply Crop
             </Button>
           </DialogFooter>
