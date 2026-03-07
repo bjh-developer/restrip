@@ -42,7 +42,7 @@
     "react": "19.2.0",
     "react-day-picker": "^9.11.2",
     "react-dom": "19.2.0",
-    "react-dropzone": "^14.3.8",
+    "react-dropzone": "^14.4.1",
     "react-image-crop": "^11.0.10",
     "resend": "^6.9.3",
     "swr": "^2.4.1",
