@@ -1020,14 +1020,14 @@ export default function UploadPage() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
-            All Set! 🎉
-          </h1>
           {telegramBotLink ? (
             <>
+              <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+                Start Telegram Bot! 🎉
+              </h1>
               <p className="text-grey mb-4">
                 Your memory will be delivered via Telegram in time to come.
-                Start the bot below to confirm you will receive it.
+                Start the bot below (even if you used it before).
               </p>
               <button
                 type="button"
@@ -1047,10 +1047,15 @@ export default function UploadPage() {
               </button>
             </>
           ) : (
-            <p className="text-grey mb-4">
-              Your memory will be delivered to your email address in time to
-              come.
-            </p>
+            <>
+              <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+                All Set! 🎉
+              </h1>
+              <p className="text-grey mb-4">
+                Your memory will be delivered to your email address in time to
+                come.
+              </p>
+            </>
           )}
           <button
             type="button"
@@ -1334,7 +1339,11 @@ export default function UploadPage() {
                 </ReactCrop>
                 {isCropping && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-sm z-10">
-                    <Spinner variant="pinwheel" className="text-warm-beige" size={40} />
+                    <Spinner
+                      variant="pinwheel"
+                      className="text-warm-beige"
+                      size={40}
+                    />
                   </div>
                 )}
               </div>
@@ -1349,7 +1358,11 @@ export default function UploadPage() {
             >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveManualCrop} disabled={isCropping}>
+            <Button
+              type="button"
+              onClick={handleSaveManualCrop}
+              disabled={isCropping}
+            >
               Apply Crop
             </Button>
           </DialogFooter>
