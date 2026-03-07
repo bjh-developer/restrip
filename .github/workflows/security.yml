@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@c3e599b7163e8198a55467f3133db0e7b2a492cb # v3.93.7
         with:
           path: ./
           base: ${{ github.event.pull_request.base.sha }}
@@ -53,7 +53,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Semgrep scan
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: >
             p/typescript

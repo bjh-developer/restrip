@@ -183,9 +183,15 @@ export async function POST(
     const encryptedBuffer = Buffer.from(encryptedImage, "base64");
 
     // Generate unique storage path with .enc extension
+    // Sanitize userId to prevent path traversal — Clerk IDs are alphanumeric but
+    // stripping anything outside [a-zA-Z0-9_-] ensures no '../' can sneak through.
+    const safeUserId = userId.replace(/[^a-zA-Z0-9_\-]/g, "");
+    if (!safeUserId) {
+      return NextResponse.json({ error: "Invalid user identity" }, { status: 400 });
+    }
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 9);
-    const filePath = `${userId}/${timestamp}-${randomId}.enc`;
+    const filePath = `${safeUserId}/${timestamp}-${randomId}.enc`;
 
     // Upload encrypted image to Supabase Storage
     const { data: uploadData, error: storageError } = await supabaseAdmin.storage
