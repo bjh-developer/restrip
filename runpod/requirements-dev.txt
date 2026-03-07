@@ -8,8 +8,8 @@ pytest-cov
 ruff
 
 # Ultralytics without torch (mocked in tests anyway)
-ultralytics>=8.0.0
+ultralytics>=8.1.0
 
 # CPU-only torch for CI — much lighter than full CUDA version
-torch>=2.0.0 --index-url https://download.pytorch.org/whl/cpu
+torch>=2.8.0 --index-url https://download.pytorch.org/whl/cpu
 torchvision>=0.15.0 --index-url https://download.pytorch.org/whl/cpu

@@ -11,11 +11,11 @@ numpy==1.26.4
 opencv-python-headless==4.10.0.84
 
 # YOLO Model (required for photostrip detection)
-ultralytics>=8.0.0
+ultralytics>=8.1.0
 
 # PyTorch (required by ultralytics)
 # Note: Adjust based on your CUDA version or use CPU version
-torch>=2.0.0
+torch>=2.8.0
 torchvision>=0.15.0
 
 # Observability

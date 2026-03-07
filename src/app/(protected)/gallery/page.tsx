@@ -80,8 +80,15 @@ interface DisplaySnap extends SnapRecord {
 /** Number of images to load concurrently to avoid memory pressure */
 const LOAD_BATCH_SIZE = 4;
 
+/** Only allow same-origin relative paths through the SWR fetcher to prevent SSRF. */
+const ALLOWED_API_PREFIX = "/api/";
+
 /** SWR fetcher for gallery metadata */
 const galleryFetcher = async (url: string): Promise<{ snaps: SnapRecord[] }> => {
+  // Guard: only allow relative same-origin API paths — never external URLs
+  if (!url.startsWith(ALLOWED_API_PREFIX)) {
+    throw new Error("Invalid API URL");
+  }
   const res = await fetch(url);
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -284,6 +291,12 @@ export default function GalleryPage() {
 
         // 2. Fall back to network fetch
         if (!blob) {
+          // Validate snapId is a UUID to prevent path traversal in the fetch URL
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (!UUID_REGEX.test(snapId)) {
+            console.error(`[Gallery] Rejected invalid snap ID format: ${snapId}`);
+            return;
+          }
           const res = await fetch(`/api/images/${snapId}`);
           if (!res.ok) {
             console.error(`[Gallery] Image fetch failed for ${snapId}: ${res.status}`);

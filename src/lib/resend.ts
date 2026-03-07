@@ -174,10 +174,18 @@ async function decryptEmailPayload(snap: SnapRow): Promise<{
   imageBase64: string;
 }> {
   const supabase = getSupabaseAdmin();
+  // Sanitize the storage path sourced from the database to prevent path traversal.
+  // Remove any '../' or '..\ ' sequences and strip leading slashes.
+  const safePath = snap.storage_path
+    .replace(/\.\.[/\\]/g, "")
+    .replace(/^[/\\]+/, "");
+  if (!safePath || safePath !== snap.storage_path) {
+    throw new Error(`Unsafe storage path rejected: ${snap.storage_path}`);
+  }
   const { data: imageBlob, error: dlError } = await supabase
     .storage
     .from("encrypted-images")
-    .download(snap.storage_path);
+    .download(safePath);
   if (dlError || !imageBlob) {
     throw new Error(`Failed to download image: ${dlError?.message}`);
   }

@@ -25,5 +25,10 @@ COPY runpod/metrics.py .
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+# Run as non-root user to reduce container escape risk
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
 # Command to run the handler
 CMD ["python", "-u", "handler.py"]
