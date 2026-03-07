@@ -18,7 +18,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
-import { Brush, CircleAlert, Check, Crop as CropIcon, RotateCcw } from "lucide-react";
+import {
+  Brush,
+  CircleAlert,
+  Check,
+  Crop as CropIcon,
+  RotateCcw,
+} from "lucide-react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import imageCompression from "browser-image-compression";
@@ -629,17 +635,17 @@ export default function NewMemoryPage() {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <Check className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
-            All Set! 🎉
-          </h1>
-          <p className="text-grey mb-2">
-            Your photo strip has been saved to your gallery.
-          </p>
           {telegramBotLink ? (
             <>
+              <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+                Start Telegram Bot! 🎉
+              </h1>
+              <p className="text-grey mb-2">
+                Your photo strip has been saved to your gallery.
+              </p>
               <p className="text-grey mb-4">
                 To receive your memory, please start the Telegram bot by
-                clicking the button below.
+                clicking the button below (even if you've used it before).
               </p>
               <button
                 type="button"
@@ -659,9 +665,17 @@ export default function NewMemoryPage() {
               </button>
             </>
           ) : (
-            <p className="text-grey mb-4">
-              Your memory will be delivered to you soon...
-            </p>
+            <>
+              <h1 className="font-display text-3xl font-bold text-soft-black mb-3">
+                All Set! 🎉
+              </h1>
+              <p className="text-grey mb-2">
+                Your photo strip has been saved to your gallery.
+              </p>
+              <p className="text-grey mb-4">
+                Your memory will be delivered to you soon...
+              </p>
+            </>
           )}
           <div className="flex gap-3 justify-center">
             <button
@@ -751,103 +765,106 @@ export default function NewMemoryPage() {
               </p>
             )}
           </div>
-
           {/* Caption */}
+          {/* manual crop dialog */}
+          <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
+            <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+              <DialogHeader className="p-4 border-b shrink-0">
+                <DialogTitle>
+                  Crop &amp; Straighten your photo strip
+                </DialogTitle>
+              </DialogHeader>
 
-        {/* manual crop dialog */}
-        <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
-          <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
-            <DialogHeader className="p-4 border-b shrink-0">
-              <DialogTitle>Crop &amp; Straighten your photo strip</DialogTitle>
-            </DialogHeader>
-
-            <div className="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
-              {/* Auto-crop toggle inside dialog */}
-              {originalImage && (
-                <AutoCropSwitch
-                  autoCropEnabled={autoCropEnabled}
-                  onToggle={handleAutoCropToggle}
-                  isProcessing={isCropping}
-                  imageUploaded={!!originalImage || !!croppedImage}
+              <div className="px-4 pt-3 pb-2 border-b shrink-0 flex flex-col gap-2">
+                {/* Auto-crop toggle inside dialog */}
+                {originalImage && (
+                  <AutoCropSwitch
+                    autoCropEnabled={autoCropEnabled}
+                    onToggle={handleAutoCropToggle}
+                    isProcessing={isCropping}
+                    imageUploaded={!!originalImage || !!croppedImage}
+                  />
+                )}
+                <div className="flex items-center justify-between">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="rotation-slider"
+                  >
+                    Rotation: {rotation > 0 ? `+${rotation}` : rotation}°
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetCropInDialog}
+                    className="gap-1.5 text-xs h-7 px-2"
+                  >
+                    <RotateCcw size={13} />
+                    Reset
+                  </Button>
+                </div>
+                <input
+                  id="rotation-slider"
+                  type="range"
+                  min={-180}
+                  max={180}
+                  step={0.5}
+                  value={rotation}
+                  onChange={(e) => handleRotationChange(Number(e.target.value))}
+                  className="w-full accent-pastel-blue"
                 />
-              )}
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium" htmlFor="rotation-slider">
-                  Rotation: {rotation > 0 ? `+${rotation}` : rotation}°
-                </label>
+                <div className="flex justify-between text-xs text-muted-foreground select-none">
+                  <span>−180°</span>
+                  <span>0°</span>
+                  <span>+180°</span>
+                </div>
+              </div>
+
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4 relative">
+                {originalImage && (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c, pct) => {
+                      setCrop(pct);
+                    }}
+                    onComplete={(c) => setCompletedCrop(c)}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      ref={imgRef}
+                      src={originalImage}
+                      alt="Rotate and crop"
+                      onLoad={onImageLoad}
+                      style={{
+                        maxHeight: "55vh",
+                        maxWidth: "100%",
+                        width: "auto",
+                        height: "auto",
+                        objectFit: "contain",
+                        transform: `rotate(${rotation}deg)`,
+                        transition: "transform 0.05s linear",
+                      }}
+                    />
+                  </ReactCrop>
+                )}
+              </div>
+
+              <DialogFooter className="p-4 border-t bg-white gap-2 shrink-0">
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleResetCropInDialog}
-                  className="gap-1.5 text-xs h-7 px-2"
+                  variant="outline"
+                  onClick={() => setIsManualCropping(false)}
                 >
-                  <RotateCcw size={13} />
-                  Reset
+                  Cancel
                 </Button>
-              </div>
-              <input
-                id="rotation-slider"
-                type="range"
-                min={-180}
-                max={180}
-                step={0.5}
-                value={rotation}
-                onChange={(e) => handleRotationChange(Number(e.target.value))}
-                className="w-full accent-pastel-blue"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground select-none">
-                <span>−180°</span>
-                <span>0°</span>
-                <span>+180°</span>
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 w-full flex items-center justify-center bg-zinc-100/50 p-4 relative">
-              {originalImage && (
-                <ReactCrop
-                  crop={crop}
-                  onChange={(c, pct) => {
-                    setCrop(pct);
-                  }}
-                  onComplete={(c) => setCompletedCrop(c)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    ref={imgRef}
-                    src={originalImage}
-                    alt="Rotate and crop"
-                    onLoad={onImageLoad}
-                    style={{
-                      maxHeight: "55vh",
-                      maxWidth: "100%",
-                      width: "auto",
-                      height: "auto",
-                      objectFit: "contain",
-                      transform: `rotate(${rotation}deg)`,
-                      transition: "transform 0.05s linear",
-                    }}
-                  />
-                </ReactCrop>
-              )}
-            </div>
-
-            <DialogFooter className="p-4 border-t bg-white gap-2 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsManualCropping(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSaveManualCrop}>
-                Apply Crop
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-          {/* Caption */}          <div>
+                <Button type="button" onClick={handleSaveManualCrop}>
+                  Apply Crop
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Caption */}{" "}
+          <div>
             <label className="block text-sm font-medium text-soft-black mb-2">
               Caption
             </label>
@@ -868,7 +885,6 @@ export default function NewMemoryPage() {
               </p>
             )}
           </div>
-
           {/* Period Picker */}
           <div>
             <label className="block text-sm font-medium text-soft-black mb-1">
@@ -881,7 +897,6 @@ export default function NewMemoryPage() {
               </p>
             )}
           </div>
-
           {/* Delivery Method */}
           <div>
             <label className="block text-sm font-medium text-soft-black mb-2">
@@ -897,7 +912,6 @@ export default function NewMemoryPage() {
               </p>
             )}
           </div>
-
           {/* Submit button */}
           <button
             type="submit"
@@ -917,12 +931,12 @@ export default function NewMemoryPage() {
               "Create Memory"
             )}
           </button>
-
           {/* Validation errors summary */}
           {validationErrors.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs text-red-600 text-center">
-                Oops—that didn't work. Please fix the errors above and try again.
+                Oops—that didn't work. Please fix the errors above and try
+                again.
               </p>
             </div>
           )}
