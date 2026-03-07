@@ -37,7 +37,7 @@ jobs:
 
       - name: Deploy preview to Vercel
         run: |
-          OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --no-git --yes 2>&1) || true
+          OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes 2>&1) || true
           echo "=== VERCEL OUTPUT ==="
           echo "$OUTPUT"
           echo "=== END OUTPUT ==="
