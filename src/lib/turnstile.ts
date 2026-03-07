@@ -37,7 +37,7 @@ export async function verifyTurnstileToken(
     process.env.NODE_ENV === "production" ||
     process.env.VERCEL_ENV === "production";
 
-  // skip only in non-prod to allow testing. skibidi i guess
+  // skip only in non-prod to allow testing
   if (!secretKey) {
     if (isProduction) {
       console.error(
