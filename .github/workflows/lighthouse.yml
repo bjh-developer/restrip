@@ -37,9 +37,16 @@ jobs:
 
       - name: Deploy preview to Vercel
         run: |
-          OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --no-git --yes 2>&1)
+          OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --no-git --yes 2>&1) || true
+          echo "=== VERCEL OUTPUT ==="
           echo "$OUTPUT"
+          echo "=== END OUTPUT ==="
           PREVIEW_URL=$(echo "$OUTPUT" | grep -oE "https://[a-zA-Z0-9._-]+\.vercel\.app" | tail -1)
+          echo "Preview URL: $PREVIEW_URL"
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Failed to extract preview URL"
+            exit 1
+          fi
           echo "url=$PREVIEW_URL" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
