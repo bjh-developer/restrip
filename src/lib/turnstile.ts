@@ -33,13 +33,19 @@ export async function verifyTurnstileToken(
   remoteIp?: string,
 ): Promise<boolean> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
+  const isProduction =
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL_ENV === "production";
 
-  // Skip verification if Turnstile is not configured (development)
+  // skip only in non-prod to allow testing
   if (!secretKey) {
-    console.warn(
-      "⚠️ TURNSTILE_SECRET_KEY not set — skipping CAPTCHA verification. " +
-      "Set it in production to enable CAPTCHA protection."
-    );
+    if (isProduction) {
+      console.error(
+        "[Turnstile] TURNSTILE_SECRET_KEY not set in production; rejecting request.",
+      );
+      return false;
+    }
+    console.warn("[Turnstile] TURNSTILE_SECRET_KEY not set; skipping verification in non-production.");
     return true;
   }
 

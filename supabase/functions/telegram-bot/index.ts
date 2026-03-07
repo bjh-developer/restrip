@@ -22,6 +22,9 @@ const WEBHOOK_SECRET = Deno.env.get("TELEGRAM_WEBHOOK_SECRET");
 if (!TELEGRAM_BOT_TOKEN) {
   throw new Error("TELEGRAM_BOT_TOKEN not set");
 }
+if (!WEBHOOK_SECRET) {
+  throw new Error("TELEGRAM_WEBHOOK_SECRET not set");
+}
 
 const bot = new Bot(TELEGRAM_BOT_TOKEN);
 // Service-role client bypasses RLS so the bot can read/write any snap row.
@@ -127,7 +130,7 @@ Deno.serve(async (req) => {
     // Validate the shared secret set during webhook registration.
     // Rejects any request that did not originate from Telegram.
     const secretToken = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
-    if (WEBHOOK_SECRET && secretToken !== WEBHOOK_SECRET) {
+    if (secretToken !== WEBHOOK_SECRET) {
       console.error('Invalid secret token');
       return new Response('Unauthorized', { status: 401 });
     }
