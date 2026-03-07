@@ -135,17 +135,21 @@ function parseScheduledTime(dateString: string): Date | null {
  * Verify and consume the nonce to prevent replay attacks.
  *
  * @param nonce - The unique nonce generated during upload
+ * @param clientIp - The IP address of the client making the request
  * @returns Whether the nonce is valid and has been consumed
  *
- * The nonce is a cryptographically random single-use token with a short expiry.
- * IP binding is intentionally omitted: edge proxies may assign different IPs to
- * the /api/upload and /api/create-snap legs of the same browser session.
+ * The nonce must match an unused record in the database for the same IP and must not be expired.
+ * If valid, it will be marked as used to prevent reuse.
  */
-async function verifyAndConsumeNonce(nonce: string): Promise<boolean> {
+async function verifyAndConsumeNonce(
+  nonce: string,
+  clientIp: string,
+): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from("upload_nonces")
     .update({ used: true })
     .eq("nonce", nonce)
+    .eq("client_ip", clientIp)
     .eq("used", false)
     .gt("expires_at", new Date().toISOString())
     .select()
@@ -234,7 +238,7 @@ export async function POST(
       );
     }
 
-    const nonceValid = await verifyAndConsumeNonce(uploadNonce);
+    const nonceValid = await verifyAndConsumeNonce(uploadNonce, clientIp);
     if (!nonceValid) {
       return NextResponse.json(
         { error: "Invalid or expired upload token. Please start over." },
