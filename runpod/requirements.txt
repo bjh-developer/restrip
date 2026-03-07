@@ -19,4 +19,4 @@ torch>=2.8.0
 torchvision>=0.15.0
 
 # Observability
-requests==2.32.4
+requests==2.32.5
