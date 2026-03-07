@@ -149,7 +149,7 @@ export default function PrivacyPage() {
             href="/"
             className="inline-block bg-blush-pink text-soft-black rounded-lg px-8 py-3 font-body font-semibold hover:shadow-lg transition-all hover:bg-yellow-cream"
           >
-            Back to Upload
+            Back to Home
           </Link>
         </div>
       </div>
