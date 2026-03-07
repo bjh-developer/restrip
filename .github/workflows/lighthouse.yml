@@ -14,17 +14,17 @@ jobs:
   deploy-and-audit:
     name: Deploy Preview & Lighthouse Audit
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
       pull-requests: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
@@ -36,11 +36,10 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy preview to Vercel
+        id: deploy
         run: |
           OUTPUT=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes 2>&1) || true
-          echo "=== VERCEL OUTPUT ==="
           echo "$OUTPUT"
-          echo "=== END OUTPUT ==="
           PREVIEW_URL=$(echo "$OUTPUT" | grep -oE "https://[a-zA-Z0-9._-]+\.vercel\.app" | tail -1)
           echo "Preview URL: $PREVIEW_URL"
           if [ -z "$PREVIEW_URL" ]; then
