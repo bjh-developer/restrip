@@ -30,6 +30,14 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
+          // Override Vercel's auto-generated report-only CSP (which defaults to
+          // 'script-src none' when it can't statically detect nonce-bearing scripts).
+          // Setting an empty report-only policy suppresses the false-positive console
+          // noise; enforcement is handled entirely by our nonce-based CSP in proxy.ts.
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: "",
+          },
         ],
       },
     ];
