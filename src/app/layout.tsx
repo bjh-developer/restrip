@@ -60,7 +60,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get("x-nonce") ?? "";
 
   return (
-    <ClerkProvider nonce={nonce}>
+    <ClerkProvider nonce={nonce} dynamic>
       <html lang="en" className="h-full">
         <head>
           <link rel="icon" href="/favicon.ico" sizes="any" />

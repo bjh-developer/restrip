@@ -50,17 +50,15 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
 
   const csp = [
     "default-src 'self'",
-    // Nonce for all scripts we control (Next.js applies it via x-nonce header).
-    // 'unsafe-inline' is silently ignored when a nonce is present; kept only
-    // as a last-resort fallback for very old browsers that predate CSP level 2.
-    // 'self' permits same-origin scripts (Vercel Analytics/Speed Insights inject
-    // their bundles from /_vercel/... dynamically without a nonce).
-    // 'strict-dynamic' propagates trust from nonce-bearing scripts to any
-    // scripts they load dynamically — required for Turnstile (which lazy-loads
-    // its worker chunks from the nonce-stamped api.js) and Clerk sub-scripts.
-    // Per Cloudflare docs: stamp the nonce on api.js, use strict-dynamic, done.
-    // Clerk's FAPI host is kept as a fallback for browsers without strict-dynamic.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https://clerk.restrip.app`,
+    // Per Clerk docs: 'self' 'strict-dynamic' 'nonce-...' https:
+    // strict-dynamic propagates nonce trust to dynamically-created scripts (Clerk
+    // sub-scripts, Turnstile worker chunks). Host allowlists are ignored in browsers
+    // that support strict-dynamic; https: remains as a silent fallback for older
+    // browsers. 'unsafe-inline' is ignored when a nonce is present (old-browser fallback).
+    // Per Clerk docs the dynamic prop on <ClerkProvider> is required so that Next.js
+    // forces dynamic rendering — preventing a cached nonce from going stale vs the
+    // per-request CSP header.
+    `script-src 'self' 'strict-dynamic' 'nonce-${nonce}' https: 'unsafe-inline'`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline required for Tailwind + styled-jsx
     "img-src 'self' data: blob: https: https://img.clerk.com",
     "font-src 'self' data:",
