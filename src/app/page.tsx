@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ArrowRight, Camera, ChevronDown, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
@@ -41,6 +41,7 @@ try {
 export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
+  const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
@@ -145,7 +146,7 @@ export default function LandingPage() {
                 enableBlur={true}
                 baseRotation={0}
                 blurStrength={10}
-                onRevealStart={() => setIsAboutRevealed(true)}
+                onRevealStart={handleRevealStart}
               >
                 We live in a world where memories are fleeting, photo strips
                 pile up, and feelings fade. ReStrip slows time down. You capture

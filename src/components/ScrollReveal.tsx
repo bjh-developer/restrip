@@ -212,8 +212,9 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
       }
     }
 
-    // Recalculate scroll positions after setup
-    ScrollTrigger.refresh();
+    // Recalculate scroll positions after setup — deferred so a running
+    // scroll gesture is not interrupted by the temporary position reset.
+    requestAnimationFrame(() => ScrollTrigger.refresh());
 
     // Cleanup: kill only this component's triggers
     return () => {
