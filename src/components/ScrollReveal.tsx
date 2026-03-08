@@ -68,9 +68,13 @@ interface ScrollRevealProps {
    * Default: "bottom bottom"
    */
   wordAnimationEnd?: string;
-}
 
-/** Default animation configuration values */
+  /**
+   * Called once when the scroll-reveal animation first enters view
+   * (i.e. the user has scrolled enough to start revealing text).
+   */
+  onRevealStart?: () => void;
+}
 const DEFAULTS = {
   opacity: 0.1,
   rotation: 3,
@@ -125,6 +129,7 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
   textClassName = "",
   rotationEnd = DEFAULTS.rotationEnd,
   wordAnimationEnd = DEFAULTS.wordAnimationEnd,
+  onRevealStart,
 }) => {
   const containerRef = useRef<HTMLHeadingElement>(null);
   const splitText = useWordSplit(children);
@@ -176,6 +181,7 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
           start: "top bottom-=20%",
           end: wordAnimationEnd,
           scrub: true,
+          onEnter: () => onRevealStart?.(),
         },
       },
     );
@@ -222,6 +228,7 @@ const ScrollReveal: React.FC<ScrollRevealProps> = ({
     wordAnimationEnd,
     blurStrength,
     splitText,
+    onRevealStart,
   ]);
 
   return (
