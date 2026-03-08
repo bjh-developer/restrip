@@ -2,7 +2,7 @@
  * Period Picker Component
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   Popover,
   PopoverContent,
@@ -25,7 +25,9 @@ import type { DateRange } from "react-day-picker";
 export type PeriodOption = "surprise" | "custom period" | "custom date";
 
 interface PeriodPickerProps {
-  onSelect: (period: PeriodOption, customDate?: Date) => void;
+  onSelect: (period: PeriodOption, customDate?: Date, range?: { from: Date; to: Date }) => void;
+  prefillDate?: Date;
+  prefillRange?: { from: Date; to: Date };
 }
 
 interface PeriodConfig {
@@ -107,13 +109,42 @@ function isPastLastSlotInTimezone(date: Date, timezone: string): boolean {
 }
 
 export const PeriodPicker = React.memo(
-  ({ onSelect }: PeriodPickerProps) => {
-    const [selected, setSelected] = useState<PeriodOption>("surprise");
-    const [showCustomDate, setShowCustomDate] = useState(false);
-    const [showCustomPeriod, setShowCustomPeriod] = useState(false);
-    const [customDate, setCustomDate] = useState<string>("");
-    const [customPeriod, setCustomPeriod] = useState<CustomPeriodState | undefined>();
-    const [randomDate, setRandomDate] = useState<Date | undefined>();
+  ({ onSelect, defaultValue, prefillDate, prefillRange }: PeriodPickerProps & { defaultValue?: PeriodOption }) => {
+    const [selected, setSelected] = useState<PeriodOption>(defaultValue ?? "surprise");
+    const [showCustomDate, setShowCustomDate] = useState(defaultValue === "custom date");
+    const [showCustomPeriod, setShowCustomPeriod] = useState(defaultValue === "custom period");
+    const [customDate, setCustomDate] = useState<string>(prefillDate ? prefillDate.toISOString() : "");
+    const [customPeriod, setCustomPeriod] = useState<CustomPeriodState | undefined>(prefillRange);
+    const [randomDate, setRandomDate] = useState<Date | undefined>(
+      prefillRange
+        ? (prefillDate ?? new Date((prefillRange.from.getTime() + prefillRange.to.getTime()) / 2))
+        : undefined
+    );
+
+    // Tracks whether the user has interacted with any picker control.
+    // defaultValue/prefillDate/prefillRange are treated as one-time initializers:
+    // once the user edits, subsequent prop changes no longer override their choices.
+    const hasUserEdited = useRef(false);
+
+    // Sync visual state when defaultValue/prefill props change after mount (e.g. DB prefill).
+    // Guarded by hasUserEdited so user edits are never overwritten by late-arriving prop updates.
+    useEffect(() => {
+      if (hasUserEdited.current) return;
+
+      if (defaultValue !== undefined && defaultValue !== selected) {
+        setSelected(defaultValue);
+        setShowCustomPeriod(defaultValue === "custom period");
+        setShowCustomDate(defaultValue === "custom date");
+      }
+      if (prefillDate) setCustomDate(prefillDate.toISOString());
+      if (prefillRange) {
+        setCustomPeriod(prefillRange);
+        setRandomDate(
+          prefillDate ??
+            new Date((prefillRange.from.getTime() + prefillRange.to.getTime()) / 2),
+        );
+      }
+    }, [defaultValue, prefillDate, prefillRange, selected]);
 
     const today = new Date();
 
@@ -132,15 +163,11 @@ export const PeriodPicker = React.memo(
 
     const handlePeriodSelect = useCallback(
       (period: PeriodOption) => {
+        hasUserEdited.current = true;
         setSelected(period);
         setShowCustomPeriod(period === "custom period");
         setShowCustomDate(period === "custom date");
-
-        if (period === "surprise") {
-          onSelect(period);
-        } else {
-          onSelect(period);
-        }
+        onSelect(period);
       },
       [onSelect],
     );
@@ -148,6 +175,7 @@ export const PeriodPicker = React.memo(
     const handleCustomDateChange = useCallback(
       (date: Date | undefined) => {
         if (!date) return;
+        hasUserEdited.current = true;
         setCustomDate(date.toISOString());
         onSelect("custom date", date);
       },
@@ -173,10 +201,11 @@ export const PeriodPicker = React.memo(
           return;
         }
 
+        hasUserEdited.current = true;
         setCustomPeriod({ from: range.from, to: range.to });
         const randomDeliveryDate = getRandomDateInRange(range.from, range.to);
         setRandomDate(randomDeliveryDate);
-        onSelect("custom period", randomDeliveryDate);
+        onSelect("custom period", randomDeliveryDate, { from: range.from, to: range.to });
       },
       [onSelect],
     );
@@ -184,7 +213,6 @@ export const PeriodPicker = React.memo(
     return (
       <div className="space-y-4 w-full">
         <Choicebox
-          defaultValue="surprise"
           value={selected}
           onValueChange={(value) => handlePeriodSelect(value as PeriodOption)}
         >

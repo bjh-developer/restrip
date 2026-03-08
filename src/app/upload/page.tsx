@@ -25,6 +25,11 @@ import {
   RotateCcw,
   Check,
   ArrowLeft,
+  BookImage,
+  Share,
+  Trash,
+  HandCoins,
+  CircleUserRound,
 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import ReactCrop, {
@@ -35,6 +40,7 @@ import ReactCrop, {
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,7 +66,6 @@ import {
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
-import { loadUserJot } from "../../lib/userjot";
 
 // =============================================================================
 // Constants
@@ -77,9 +82,6 @@ const MAX_IMAGE_DIMENSION = 2048;
 
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
-
-/** UserJot widget configuration ID */
-const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
 
 // =============================================================================
 // Types
@@ -158,11 +160,8 @@ async function compressImage(base64Image: string): Promise<string> {
 
     // Skip compression for small images
     if (sizeInMB <= COMPRESSION_THRESHOLD_MB) {
-      console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
       return base64Image;
     }
-
-    console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
 
     // Convert to File object (required by imageCompression library)
     const file = new File([blob], "image.jpg", { type: blob.type });
@@ -183,8 +182,7 @@ async function compressImage(base64Image: string): Promise<string> {
       reader.onerror = reject;
       reader.readAsDataURL(compressedBlob);
     });
-  } catch (error) {
-    console.error("⚠️ Compression failed, using original:", error);
+  } catch {
     return base64Image;
   }
 }
@@ -286,7 +284,6 @@ const UploadImage = React.memo(
       <Dropzone
         accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
         onDrop={handleDrop}
-        onError={console.error}
         src={files}
         multiple={false}
         className={
@@ -367,6 +364,107 @@ const AutoCropSwitch = React.memo(
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
+/**
+ * CTA modal encouraging anonymous users to create a free account.
+ * Shows value propositions and offers two paths: sign up or continue.
+ */
+function AccountCTAModal({
+  open,
+  onCreateAccount,
+  onContinue,
+  onClose,
+}: {
+  open: boolean;
+  onCreateAccount: () => void;
+  onContinue: (rememberChoice: boolean) => void;
+  onClose: () => void;
+}) {
+  const [rememberChoice, setRememberChoice] = useState(false);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cta-title"
+    >
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-300">
+        {/* Icon */}
+        <div className="w-14 h-14 rounded-full bg-blush-pink/30 flex items-center justify-center mx-auto mb-4">
+          <span className="text-base" aria-label="Circle User Round"><CircleUserRound size={30} /></span>
+        </div>
+
+        {/* Title */}
+        <h2
+          id="cta-title"
+          className="font-display text-xl font-bold text-soft-black text-center mb-2"
+        >
+          Keep Your Memories Safe
+        </h2>
+
+        {/* Subtitle */}
+        <p className="text-grey text-sm text-center mb-4">
+          Create a free account to unlock:
+        </p>
+
+        {/* Features */}
+        <ul className="space-y-2.5 mb-5 text-sm text-soft-black">
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><BookImage size={18} /></span>
+            <span>Your own photo strip gallery</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><Share size={18} /></span>
+            <span>Shareable scrapbooks for friends &amp; family</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><Trash size={18} /></span>
+            <span>Delete unwanted memories anytime</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><HandCoins size={18} /></span>
+            <span>Completely free — no catches, ever</span>
+          </li>
+        </ul>
+
+        {/* Primary CTA */}
+        <button
+          type="button"
+          onClick={onCreateAccount}
+          className="w-full py-2.5 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-semibold mb-2"
+        >
+          Create Free Account
+        </button>
+
+        {/* Secondary CTA */}
+        <button
+          type="button"
+          onClick={() => onContinue(rememberChoice)}
+          className="w-full py-2.5 bg-white border border-mist-grey text-soft-black rounded-lg hover:bg-mist-grey/30 transition text-sm font-medium mb-3"
+        >
+          Continue without account
+        </button>
+
+        {/* Remember choice */}
+        <label className="flex items-center gap-2 justify-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rememberChoice}
+            onChange={(e) => setRememberChoice(e.target.checked)}
+            className="rounded border-mist-grey text-soft-black focus:ring-soft-black h-3.5 w-3.5"
+          />
+          <span className="text-xs text-grey">Don&apos;t show this again</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -379,14 +477,27 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
  * and error display.
  */
 export default function UploadPage() {
+  const router = useRouter();
+
   // -------------------------------------------------------------------------
   // State
   // -------------------------------------------------------------------------
+
+  // CTA modal state
+  const [showCTAModal, setShowCTAModal] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const compressionAbortRef = useRef(0);
 
   // Period selection state
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
   const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
+  const [customPeriodRange, setCustomPeriodRange] = useState<
+    { from: Date; to: Date } | undefined
+  >();
+  const [customSelectedDate, setCustomSelectedDate] = useState<
     Date | undefined
   >();
 
@@ -418,7 +529,9 @@ export default function UploadPage() {
   // Form state
   const [caption, setCaption] = useState<string>("");
   const [resetKey, setResetKey] = useState(0);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<
+    { user: string; detail?: string }[]
+  >([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<
@@ -441,7 +554,8 @@ export default function UploadPage() {
    * Handles image upload from dropzone.
    * Resets crop state and clears validation errors.
    */
-  const handleImageUpload = useCallback((base64Image: string) => {
+  const handleImageUpload = useCallback(async (base64Image: string) => {
+    const uploadId = ++compressionAbortRef.current;
     setOriginalImage(base64Image);
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
@@ -452,6 +566,19 @@ export default function UploadPage() {
     setCompletedCrop(undefined);
     setSavedCropPct(undefined);
     setRotation(0);
+
+    // Compress image immediately on upload to keep size manageable
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImage(base64Image);
+      if (compressionAbortRef.current === uploadId && compressed !== base64Image) {
+        setOriginalImage(compressed);
+      }
+    } finally {
+      if (compressionAbortRef.current === uploadId) {
+        setIsCompressing(false);
+      }
+    }
   }, []);
 
   /**
@@ -478,7 +605,6 @@ export default function UploadPage() {
     }
 
     const data = await response.json();
-    console.log("📥 Crop API response:", data);
 
     if (!data.photostrip) {
       throw new Error("No photostrip detected in image");
@@ -500,7 +626,6 @@ export default function UploadPage() {
 
       // Use cached result if available
       if (croppedImage) {
-        console.log("📦 Using cached cropped image from memory");
         // if user triggered from manual dialog close it immediately
         if (isManualCropping) setIsManualCropping(false);
         return;
@@ -510,7 +635,6 @@ export default function UploadPage() {
       try {
         const croppedResult = await processImageWithRunPod(originalImage);
         setCroppedImage(croppedResult);
-        console.log("✅ Image cropped successfully");
 
         // if we're currently in manual crop dialog, close it once auto-crop finishes
         if (isManualCropping) {
@@ -520,10 +644,11 @@ export default function UploadPage() {
         // // Refresh scroll triggers after image changes
         // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
-        console.error("❌ Failed to crop image:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error occurred";
-        alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
+        const detail = error instanceof Error ? error.message : String(error);
+        setValidationErrors([{
+          user: "Oops, auto-crop failed. You can crop manually instead.",
+          detail,
+        }]);
         setAutoCropEnabled(false);
       } finally {
         setIsCropping(false);
@@ -553,10 +678,12 @@ export default function UploadPage() {
         setSavedCropPct(crop);
         setIsManualCropping(false);
         setAutoCropEnabled(false);
-        console.log("✅ Manual crop saved");
       } catch (e) {
-        console.error("Failed to crop", e);
-        alert("Something went wrong while cropping. Please try again.");
+        setIsManualCropping(false);
+        setValidationErrors([{
+          user: "Sorry, could not apply the crop. Please try again.",
+          detail: e instanceof Error ? e.message : String(e),
+        }]);
       }
     } else {
       // If user clicked apply without moving the crop box, or dimensions are 0
@@ -603,8 +730,12 @@ export default function UploadPage() {
   }, []);
 
   const handlePeriodSelect = useCallback(
-    (period: PeriodOption, date?: Date) => {
+    (period: PeriodOption, date?: Date, range?: { from: Date; to: Date }) => {
       setSelectedPeriod(period);
+      if (range) setCustomPeriodRange(range);
+      else setCustomPeriodRange(undefined);
+      if (period === "custom date") setCustomSelectedDate(date);
+      else setCustomSelectedDate(undefined);
 
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const sendTime = computeScheduledSendTime(period, timezone, date);
@@ -736,10 +867,11 @@ export default function UploadPage() {
    *
    * Process flow:
    * 1. Validate all form fields
-   * 2. Compress image if needed
-   * 3. Upload to server for encryption
-   * 4. Save snap metadata to database
-   * 5. Show success confirmation / open Telegram
+   * 2. Check if CTA modal should show (for anonymous users)
+   * 3. Compress image if needed
+   * 4. Upload to server for encryption
+   * 5. Save snap metadata to database
+   * 6. Show success confirmation / open Telegram
    */
   const handleStartProcessing = async (): Promise<void> => {
     setValidationErrors([]);
@@ -764,33 +896,40 @@ export default function UploadPage() {
       return;
     }
 
-    // Validate Turnstile CAPTCHA token
-    if (!turnstileToken) {
-      alert("⚠️ Please complete the CAPTCHA verification before submitting.");
+    // Validate Turnstile CAPTCHA token (skipped in development)
+    if (process.env.NODE_ENV !== "development" && !turnstileToken) {
+      setValidationErrors([{ user: "Are you a robot? Please complete the CAPTCHA verification before submitting." }]);
       return;
     }
 
-    // Start processing without pre-opening any tabs
+    // Show CTA modal for anonymous users (unless they opted out)
+    try {
+      if (localStorage.getItem("skipAccountCTA") !== "true") {
+        setShowCTAModal(true);
+        return;
+      }
+    } catch {
+      // localStorage unavailable — proceed without modal
+    }
+
+    // User previously chose to skip — proceed directly
+    await performUpload();
+  };
+
+  /**
+   * Performs the actual upload after validation and CTA decision.
+   */
+  const performUpload = async (): Promise<void> => {
     setValidationErrors([]);
     setIsProcessing(true);
 
     try {
-      console.log("✅ All inputs valid. Starting processing...");
-
-      // Select image source.
-      // If a manual crop or auto crop resulted in croppedImage, use that.
-      // Otherwise use original.
       const imageToUpload = croppedImage ? croppedImage : originalImage;
 
-      // Step 1: Compress image
-      console.log("🗜️ Compressing image...");
+      // Compress image (no-op if already under threshold from early compression)
       const compressedImage = await compressImage(imageToUpload!);
-      console.log("✅ Image compressed");
 
-      console.log(`📅 Scheduled for: ${scheduledSendTime?.toLocaleString()}`);
-
-      // Step 2: Upload and encrypt
-      console.log("🔐 Uploading to server for encryption...");
+      // Upload and encrypt
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -808,10 +947,8 @@ export default function UploadPage() {
 
       const { storagePath, encryptedCaption, captionIv, imageIv, uploadNonce } =
         await uploadResponse.json();
-      console.log("✅ Encrypted and stored at:", storagePath);
 
-      // Step 3: Save metadata to database
-      console.log("💾 Saving snap metadata...");
+      // Save metadata to database
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -834,7 +971,6 @@ export default function UploadPage() {
       }
 
       const snapData = await createSnapResponse.json();
-      console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
       // Show success page for both email and telegram
       if (snapData.snap?.id) {
@@ -849,16 +985,16 @@ export default function UploadPage() {
         throw new Error("No snap ID returned");
       }
     } catch (error) {
-      console.error("❌ Processing failed:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Processing failed";
-      setValidationErrors([errorMessage]);
+      const detail = error instanceof Error ? error.message : String(error);
+      setValidationErrors([{
+        user: "Oopsie! Something went wrong while saving your memory. Please try again. If this keeps happening, contact support.",
+        detail,
+      }]);
     } finally {
       setIsProcessing(false);
 
       // Reset Turnstile widget to generate a new token for next submission
       if (turnstileWidgetId && window.turnstile) {
-        console.log("Resetting Turnstile widget...");
         window.turnstile.reset(turnstileWidgetId);
         setTurnstileToken(null);
       }
@@ -881,19 +1017,61 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
+  /**
+   * Saves form state to DB and redirects to sign-up.
+   * After sign-up, user is redirected to /new with form data pre-filled.
+   */
+  const handleCreateAccount = async (): Promise<void> => {
+    const imageToSave = croppedImage ?? originalImage;
+    try {
+      const res = await fetch("/api/pending-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: imageToSave,
+          caption,
+          selectedPeriod,
+          scheduledSendTime: scheduledSendTime?.toISOString(),
+          customSelectedDate: customSelectedDate?.toISOString(),
+          customPeriodRange: customPeriodRange
+            ? { from: customPeriodRange.from.toISOString(), to: customPeriodRange.to.toISOString() }
+            : undefined,
+          deliveryMethod,
+          deliveryAddress,
+        }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        setShowCTAModal(false);
+        router.push(`/sign-up?redirect_url=/new&prefill_token=${token}`);
+        return;
+      }
+    } catch {
+      // API unavailable — fall through to redirect without token
+    }
+    setShowCTAModal(false);
+    router.push("/sign-up?redirect_url=/new");
+  };
+
+  /**
+   * User chose to continue without account.
+   * Optionally remembers the choice and proceeds with upload.
+   */
+  const handleContinueWithoutAccount = async (rememberChoice: boolean): Promise<void> => {
+    if (rememberChoice) {
+      try {
+        localStorage.setItem("skipAccountCTA", "true");
+      } catch {
+        // localStorage unavailable
+      }
+    }
+    setShowCTAModal(false);
+    await performUpload();
+  };
+
   // -------------------------------------------------------------------------
   // Effects
   // -------------------------------------------------------------------------
-
-  // /**
-  //  * Refresh ScrollTrigger when image changes.
-  //  */
-  // useEffect(() => {
-  //   if (originalImage) {
-  //     const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
-  //     return () => clearTimeout(timeoutId);
-  //   }
-  // }, [originalImage]);
 
   /**
    * Initialize with surprise period on mount.
@@ -902,34 +1080,18 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
-  // /**
-  //  * Reset errors and refresh ScrollTrigger on mount.
-  //  */
-  // useEffect(() => {
-  //   setValidationErrors([]);
-  //   setFieldErrors({});
-
-  //   const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
-  //   return () => clearTimeout(timeoutId);
-  // }, []);
-
-  /**
-   * Load UserJot feedback widget SDK.
-   */
-  useEffect(() => {
-    return loadUserJot(USERJOT_CONFIG_ID);
-  }, []);
-
   /**
    * Load Cloudflare Turnstile CAPTCHA script and initialize widget.
    * Uses explicit rendering for SPA compatibility.
    * @see https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
    */
   useEffect(() => {
+    // Skip Turnstile in development — it doesn't work on localhost
+    if (process.env.NODE_ENV === "development") return;
+
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
     if (!siteKey) {
-      console.warn("Turnstile site key not configured");
       return;
     }
 
@@ -938,44 +1100,36 @@ export default function UploadPage() {
     // Function to render/re-render the Turnstile widget
     const renderWidget = () => {
       if (!window.turnstile) {
-        console.warn("Turnstile not loaded yet");
         return;
       }
 
       const container = document.getElementById("turnstile-widget");
       if (!container) {
-        console.error("Turnstile container not found");
         return;
       }
 
       // Remove old widget if it exists
       if (widgetId && window.turnstile) {
-        console.log("Removing old widget:", widgetId);
         try {
           window.turnstile.remove(widgetId);
-        } catch (e) {
-          console.warn("Failed to remove old widget:", e);
+        } catch {
+          // ignore
         }
       }
 
-      console.log("Initializing Turnstile widget...");
       widgetId = window.turnstile.render(container, {
         sitekey: siteKey,
         callback: (token: string) => {
-          console.log("✅ Turnstile token received");
           setTurnstileToken(token);
         },
         "error-callback": () => {
-          console.error("❌ Turnstile error");
           setTurnstileToken(null);
         },
         "expired-callback": () => {
-          console.warn("⚠️ Turnstile token expired");
           setTurnstileToken(null);
         },
         theme: "light",
       });
-      console.log("Turnstile widget rendered with ID:", widgetId);
       setTurnstileWidgetId(widgetId);
     };
 
@@ -985,7 +1139,6 @@ export default function UploadPage() {
 
     // Check if Turnstile is already loaded
     if (window.turnstile) {
-      console.log("Turnstile already loaded, rendering widget");
       renderWidget();
     } else {
       // Load Turnstile script with explicit rendering
@@ -1000,8 +1153,8 @@ export default function UploadPage() {
       if (widgetId && window.turnstile) {
         try {
           window.turnstile.remove(widgetId);
-        } catch (e) {
-          console.warn("Failed to remove widget on unmount:", e);
+        } catch {
+          // ignore
         }
       }
       delete (window as unknown as Record<string, unknown>)[callbackName];
@@ -1101,16 +1254,16 @@ export default function UploadPage() {
           <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
             {/* Upload Area */}
             <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mb-1">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 1. take photo/upload your photo strip
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={imageRef}>
+            <div className="flex gap-4 justify-center" ref={imageRef}>
               <UploadImage
                 key={resetKey}
                 displayImage={croppedImage ? croppedImage : undefined}
                 onImageUpload={handleImageUpload}
-                isLoading={isCropping}
+                isLoading={isCropping || isCompressing}
                 error={!!fieldErrors.image}
               />
             </div>
@@ -1139,12 +1292,12 @@ export default function UploadPage() {
             )}
 
             {/* Journal Caption */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 2. write a caption
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
+            <div className="flex gap-4 justify-center" ref={captionRef}>
               <Textarea
                 placeholder="Write a message to your future self..."
                 value={caption}
@@ -1153,6 +1306,7 @@ export default function UploadPage() {
                   if (validationErrors.length > 0) {
                     setValidationErrors([]);
                   }
+
                   setFieldErrors((prev) => ({ ...prev, caption: undefined }));
                 }}
                 className={
@@ -1169,12 +1323,12 @@ export default function UploadPage() {
             )}
 
             {/* Period Picker */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 3. deliver random email in/on
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={periodRef}>
+            <div className="flex gap-4 justify-center" ref={periodRef}>
               <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
             {fieldErrors.period && (
@@ -1184,12 +1338,12 @@ export default function UploadPage() {
             )}
 
             {/* Delivery Method */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 4. where to send your memory
               </h3>
             </div>
-            <div className="mt-4 flex gap-4 justify-center" ref={deliveryRef}>
+            <div className="flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker
                 onSelect={handleDeliveryMethodSelect}
                 error={!!fieldErrors.deliveryAddress}
@@ -1205,25 +1359,32 @@ export default function UploadPage() {
 
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
-              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-                {validationErrors.map((error, index) => (
-                  <p key={index} className="text-red-700 text-sm">
-                    {error}
-                  </p>
+              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
+                {validationErrors.map(({ user, detail }, index) => (
+                  <div key={index}>
+                    <p className="text-red-700 text-sm">{user}</p>
+                    {detail && (
+                      <p className="mt-1 font-mono text-xs text-red-400 break-all">
+                        Error: {detail}
+                      </p>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* Turnstile CAPTCHA Widget */}
-            <div className="mt-6 flex justify-center">
-              <div id="turnstile-widget"></div>
-            </div>
+            {/* Turnstile CAPTCHA Widget — hidden in development */}
+            {process.env.NODE_ENV !== "development" && (
+              <div className="mt-6 flex justify-center">
+                <div id="turnstile-widget"></div>
+              </div>
+            )}
 
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing || !turnstileToken}
-              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isProcessing || (process.env.NODE_ENV !== "development" && !turnstileToken)}
+              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? (
                 <>
@@ -1234,33 +1395,23 @@ export default function UploadPage() {
                   />
                   One day, you&apos;ll open this and smile...
                 </>
-              ) : !turnstileToken ? (
+              ) : !turnstileToken && process.env.NODE_ENV !== "development" ? (
                 "Completing CAPTCHA..."
               ) : (
                 "Deliver to the Future!"
               )}
             </button>
-
-            {/* Buy Me a Coffee Button */}
-            <div className="mt-6 flex justify-center items-center w-full">
-              <a
-                href="https://www.buymeacoffee.com/bjh21"
-                className="hover:-translate-y-0.5 transition-all inline-block"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=bjh21&button_colour=fff2c9&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
-                  alt="Buy me a coffee"
-                  className="h-[40px] w-auto md:h-[50px]"
-                  loading="lazy"
-                />
-              </a>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* Account CTA Modal */}
+      <AccountCTAModal
+        open={showCTAModal}
+        onCreateAccount={handleCreateAccount}
+        onContinue={handleContinueWithoutAccount}
+        onClose={() => setShowCTAModal(false)}
+      />
 
       <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
         <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">

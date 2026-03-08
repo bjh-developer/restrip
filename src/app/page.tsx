@@ -10,9 +10,8 @@
 
 "use client";
 
-import React from "react";
-import { useEffect } from "react";
-import { ArrowRight, Camera, Images } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Camera, ChevronDown, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
 import ScrollReveal from "../components/ScrollReveal";
@@ -23,11 +22,7 @@ import {
 } from "../components/ui/shadcn-io/status";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
-import { loadUserJot } from "../lib/userjot";
 import Link from "next/link";
-
-/** UserJot widget configuration ID */
-const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
 
 // =============================================================================
 // GSAP Plugin Registration
@@ -45,13 +40,7 @@ try {
 
 export default function LandingPage() {
   const { isSignedIn } = useUser();
-
-  /**
-   * Load UserJot feedback widget SDK.
-   */
-  useEffect(() => {
-    return loadUserJot(USERJOT_CONFIG_ID);
-  }, []);
+  const [isAboutRevealed, setIsAboutRevealed] = useState(false);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
@@ -59,20 +48,27 @@ export default function LandingPage() {
       <main className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="max-w-2xl w-full text-center">
           {/* Branding */}
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-3 text-soft-black">
+          <h1 className="font-display text-5xl md:text-6xl font-bold mb-2 text-soft-black">
             ReStrip
           </h1>
           <ShinyText
-            text="Photo strips that come back to you."
+            text="Photo booth strips that come back to you."
+            speed={8}
+            delay={0}
+            color="#1C1C1C"
+            shineColor="#FFC9D1"
+            spread={120}
+            direction="left"
+            yoyo={false}
+            pauseOnHover={false}
             disabled={false}
-            speed={15}
-            className="font-display text-2xl md:text-3xl font-semibold text-soft-black mb-4"
+            className="font-display text-xl md:text-3xl font-bold mb-3"
           />
-          <p className="font-body text-grey mb-4 max-w-md mx-auto">
+          <p className="font-body text-grey mb-6 max-w-md mx-auto">
             A time machine, home and scrapbook for your photo booth strips.
           </p>
 
-          <div className="mb-4 flex flex-wrap items-center justify-center gap-4">
+          <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
             <Link
               href="https://status.restrip.app/"
               target="_blank"
@@ -90,10 +86,10 @@ export default function LandingPage() {
             {/* Quick Send Card */}
             <Link
               href="/upload"
-              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
                   <Camera className="w-5 h-5 text-soft-black" />
                 </div>
                 <h2 className="font-display text-lg font-semibold text-soft-black">
@@ -104,7 +100,7 @@ export default function LandingPage() {
                 Upload your photo strip, pick a future period, and we'll send
                 you a surprise. No account needed.
               </p>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
+              <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 Get started
                 <ArrowRight className="w-4 h-4" />
               </span>
@@ -113,10 +109,10 @@ export default function LandingPage() {
             {/* Gallery Card */}
             <Link
               href="/gallery"
-              className="group bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-pastel-blue/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
                   <Images className="w-5 h-5 text-soft-black" />
                 </div>
                 <h2 className="font-display text-lg font-semibold text-soft-black">
@@ -126,20 +122,30 @@ export default function LandingPage() {
               <p className="text-sm text-grey mb-4">
                 Sign in for gallery and scrapbook, safekeeping your memories.
               </p>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
+              <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 {isSignedIn ? "Open gallery" : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>
             </Link>
           </div>
+          {/* Scroll nudge — visible until the about card enters the viewport */}
+          <div
+            className={`flex justify-center mt-8 transition-opacity duration-500 ${
+              isAboutRevealed ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+          >
+            <ChevronDown className="w-5 h-5 text-grey/40 animate-bounce" />
+          </div>
+
           {/* About Section */}
-          <div className="max-w-2xl mx-auto mt-6">
-            <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
+          <div className="max-w-2xl mx-auto mt-2">
+            <div className="text-center bg-white rounded-lg shadow-card p-8 transition-shadow">
               <ScrollReveal
                 baseOpacity={0}
                 enableBlur={true}
                 baseRotation={0}
                 blurStrength={10}
+                onRevealStart={() => setIsAboutRevealed(true)}
               >
                 We live in a world where memories are fleeting, photo strips
                 pile up, and feelings fade. ReStrip slows time down. You capture

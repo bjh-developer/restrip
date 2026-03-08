@@ -15,8 +15,8 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
 import {
   Brush,
@@ -47,6 +47,7 @@ import {
 } from "../../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -256,13 +257,16 @@ const UploadImage = React.memo(
     );
 
     const previewSrc = displayImage ?? filePreview;
+    // Pass a non-undefined src when we have a preview image so DropzoneContent
+    // renders even when no file was dropped (e.g. prefill from sessionStorage).
+    const dropzoneSrc = files ?? (previewSrc ? ([] as File[]) : undefined);
 
     return (
       <Dropzone
         accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
         onDrop={handleDrop}
         onError={console.error}
-        src={files}
+        src={dropzoneSrc}
         multiple={false}
         className={
           error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
@@ -335,8 +339,9 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
 // Main Page Component
 // =============================================================================
 
-export default function NewMemoryPage() {
+function NewMemoryPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUser();
 
   // Form state
@@ -358,7 +363,11 @@ export default function NewMemoryPage() {
     Date | undefined
   >();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
+  const [prefillKey, setPrefillKey] = useState(0);
+  const [prefillPeriodDate, setPrefillPeriodDate] = useState<Date | undefined>();
+  const [prefillPeriodRange, setPrefillPeriodRange] = useState<{ from: Date; to: Date } | undefined>();
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [isPrefilling, setIsPrefilling] = useState(false);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -366,6 +375,7 @@ export default function NewMemoryPage() {
   const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<z.ZodIssue[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitError, setSubmitError] = useState<{ user: string; detail?: string } | null>(null);
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -403,8 +413,11 @@ export default function NewMemoryPage() {
         setCroppedImage(`data:image/png;base64,${data.photostrip}`);
         if (isManualCropping) setIsManualCropping(false);
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Unknown error";
-        alert(`Failed to crop: ${msg}`);
+        const detail = error instanceof Error ? error.message : String(error);
+        setSubmitError({
+          user: "Oops, auto-crop failed. You can crop manually instead.",
+          detail,
+        });
         setAutoCropEnabled(false);
       } finally {
         setIsCropping(false);
@@ -455,8 +468,11 @@ export default function NewMemoryPage() {
         setIsManualCropping(false);
         setAutoCropEnabled(false);
       } catch (e) {
-        console.error("Failed to crop", e);
-        alert("Something went wrong while cropping. Please try again.");
+        setIsManualCropping(false);
+        setSubmitError({
+          user: "Sorry, could not apply the crop. Please try again.",
+          detail: e instanceof Error ? e.message : String(e),
+        });
       }
     } else {
       setIsManualCropping(false);
@@ -464,7 +480,7 @@ export default function NewMemoryPage() {
   }, [completedCrop, crop, rotation]);
 
   const handlePeriodSelect = useCallback(
-    (period: PeriodOption, date?: Date) => {
+    (period: PeriodOption, date?: Date, _range?: { from: Date; to: Date }) => {
       setSelectedPeriod(period);
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const sendTime = computeScheduledSendTime(period, timezone, date);
@@ -497,6 +513,68 @@ export default function NewMemoryPage() {
   useEffect(() => {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
+
+  /**
+   * Restore form state from DB if redirected from /upload sign-up flow.
+   * Reads prefill_token from URL, fetches saved form data, and fills state.
+   */
+  useEffect(() => {
+    const token = searchParams.get("prefill_token");
+    if (!token) return;
+
+    const controller = new AbortController();
+    setIsPrefilling(true);
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/pending-upload?token=${encodeURIComponent(token)}`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) return;
+        const { formData: data } = await res.json();
+        if (!data) return;
+
+        // Only update URL and state after a successful fetch
+        const url = new URL(window.location.href);
+        url.searchParams.delete("prefill_token");
+        window.history.replaceState({}, "", url.pathname + url.search);
+
+        if (data.image) setOriginalImage(data.image);
+        if (data.caption) setCaption(data.caption);
+        if (data.selectedPeriod) {
+          setSelectedPeriod(data.selectedPeriod);
+          if (data.scheduledSendTime) {
+            setScheduledSendTime(new Date(data.scheduledSendTime));
+          }
+          // Restore calendar display state for custom date / custom period
+          if (data.selectedPeriod === "custom date" && data.customSelectedDate) {
+            setPrefillPeriodDate(new Date(data.customSelectedDate));
+          } else if (data.selectedPeriod === "custom period" && data.customPeriodRange) {
+            setPrefillPeriodRange({
+              from: new Date(data.customPeriodRange.from),
+              to: new Date(data.customPeriodRange.to),
+            });
+            if (data.scheduledSendTime) {
+              setPrefillPeriodDate(new Date(data.scheduledSendTime));
+            }
+          }
+        }
+        if (data.deliveryMethod) setDeliveryMethod(data.deliveryMethod);
+        if (data.deliveryAddress) setDeliveryAddress(data.deliveryAddress);
+        // Bump key to remount pickers so their internal defaultValue is applied
+        setPrefillKey((k) => k + 1);
+      } catch (err) {
+        // Swallow AbortError (unmount) — ignore other fetch failures
+        if (err instanceof Error && err.name === "AbortError") return;
+      } finally {
+        if (!controller.signal.aborted) setIsPrefilling(false);
+      }
+    })();
+
+    return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // =========================================================================
   // Form submission
@@ -543,7 +621,7 @@ export default function NewMemoryPage() {
 
     // Guard: Ensure user is authenticated
     if (!user || !user.primaryEmailAddress?.emailAddress) {
-      alert("Session expired. Please sign in again.");
+      setSubmitError({ user: "Your session has expired :/ Please sign in again." });
       router.push("/sign-in");
       return;
     }
@@ -568,16 +646,15 @@ export default function NewMemoryPage() {
     setIsSubmitting(true);
     setValidationErrors([]);
     setFieldErrors({});
+    setSubmitError(null);
 
     try {
       // Step 1: Compress image
-      console.log("📦 Compressing image...");
       const compressed = await compressImage(imageToSubmit!);
 
       // Step 2: Upload image to storage
       const userEmail = user.primaryEmailAddress.emailAddress;
 
-      console.log("☁️ Uploading encrypted image...");
       const uploadResponse = await fetch("/api/upload/authenticated", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -598,7 +675,6 @@ export default function NewMemoryPage() {
       }
 
       const responseData = await uploadResponse.json();
-      console.log("✅ Memory created successfully!");
 
       // Invalidate gallery SWR cache so the new memory appears immediately on next visit
       mutate("/api/gallery");
@@ -613,12 +689,11 @@ export default function NewMemoryPage() {
 
       setIsSuccess(true);
     } catch (error) {
-      console.error("❌ Upload error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to create memory. Please try again.",
-      );
+      const detail = error instanceof Error ? error.message : String(error);
+      setSubmitError({
+        user: "Ohno! Something went wrong while saving your memory. Please try again.",
+        detail,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -723,13 +798,47 @@ export default function NewMemoryPage() {
           </h1>
         </div>
 
+        {isPrefilling && (
+          <div className="space-y-6">
+            {/* Image Upload skeleton */}
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+            </div>
+            {/* Caption skeleton */}
+            <div>
+              <Skeleton className="h-4 w-16 mb-2" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </div>
+            {/* Period picker skeleton */}
+            <div>
+              <Skeleton className="h-4 w-28 mb-2" />
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-xl" />
+                ))}
+              </div>
+            </div>
+            {/* Delivery method skeleton */}
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </div>
+            </div>
+            {/* Submit button skeleton */}
+            <Skeleton className="h-11 w-full rounded-lg" />
+          </div>
+        )}
+
         <form
           ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
             handleStartProcessing();
           }}
-          className="space-y-6"
+          className={`space-y-6${isPrefilling ? " invisible h-0 overflow-hidden" : ""}`}
         >
           {/* Image Upload */}
           <div>
@@ -890,7 +999,13 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-1">
               When to deliver
             </label>
-            <PeriodPicker onSelect={handlePeriodSelect} />
+            <PeriodPicker
+              key={prefillKey}
+              defaultValue={selectedPeriod}
+              prefillDate={prefillPeriodDate}
+              prefillRange={prefillPeriodRange}
+              onSelect={handlePeriodSelect}
+            />
             {fieldErrors.period && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
                 <CircleAlert className="w-3 h-3" />
@@ -903,6 +1018,8 @@ export default function NewMemoryPage() {
               How to deliver
             </label>
             <DeliveryMethodPicker
+              key={prefillKey}
+              defaultValue={deliveryMethod}
               onSelect={handleDeliveryMethodSelect}
               hideEmailInput
             />
@@ -935,13 +1052,30 @@ export default function NewMemoryPage() {
           {validationErrors.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs text-red-600 text-center">
-                Oops—that didn't work. Please fix the errors above and try
+                Oops—that didn&apos;t work. Please fix the errors above and try
                 again.
               </p>
+            </div>
+          )}
+          {/* Runtime / submission errors */}
+          {submitError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
+              <p className="text-sm text-red-700">{submitError.user}</p>
+              {submitError.detail && (
+                <p className="font-mono text-xs text-red-400 break-all">Error: {submitError.detail}</p>
+              )}
             </div>
           )}
         </form>
       </div>
     </div>
+  );
+}
+
+export default function NewMemoryPage() {
+  return (
+    <Suspense>
+      <NewMemoryPageContent />
+    </Suspense>
   );
 }

@@ -249,6 +249,9 @@ export default function CanvasPage() {
   // Delete confirmation modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
+  // Action error (delete failures)
+  const [actionError, setActionError] = useState<{ user: string; detail?: string } | null>(null);
+
   /** Create a new book and navigate to the editor */
   const handleCreate = useCallback(
     async (title: string, color: string) => {
@@ -331,10 +334,9 @@ export default function CanvasPage() {
 
     // Show error message if any deletions failed
     if (failedIds.size > 0) {
-      alert(
-        `Failed to delete ${failedIds.size} ${failedIds.size === 1 ? "book" : "books"}. ` +
-          `The failed items remain selected for retry.`,
-      );
+      setActionError({
+        user: `Ohno! ${failedIds.size} ${failedIds.size === 1 ? "scrapbook" : "scrapbooks"} couldn't be deleted. The failed items remain selected for retry.`,
+      });
     }
   }, [selectedIds, mutateBooks]);
 
@@ -355,6 +357,15 @@ export default function CanvasPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Action error banner */}
+      {actionError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm">
+          <p className="text-red-800">{actionError.user}</p>
+          {actionError.detail && (
+            <p className="mt-1 font-mono text-xs text-red-400 break-all">Error: {actionError.detail}</p>
+          )}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
