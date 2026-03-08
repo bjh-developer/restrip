@@ -1133,19 +1133,15 @@ export default function UploadPage() {
       setTurnstileWidgetId(widgetId);
     };
 
-    // Define onload callback before loading script
-    const callbackName = `onTurnstileLoad_${Date.now()}`;
-    (window as unknown as Record<string, unknown>)[callbackName] = renderWidget;
+    // The Turnstile api.js is loaded by the server-rendered <script> tag in
+    // upload/layout.tsx with a nonce, so strict-dynamic propagates trust to
+    // all scripts Turnstile loads dynamically.
+    // Register the fixed global callback Turnstile will call on load.
+    (window as unknown as Record<string, unknown>).__onTurnstileLoad = renderWidget;
 
-    // Check if Turnstile is already loaded
+    // If the script already finished loading before this effect ran, render now.
     if (window.turnstile) {
       renderWidget();
-    } else {
-      // Load Turnstile script with explicit rendering
-      const script = document.createElement("script");
-      script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
-      script.defer = true;
-      document.head.appendChild(script);
     }
 
     return () => {
@@ -1157,7 +1153,7 @@ export default function UploadPage() {
           // ignore
         }
       }
-      delete (window as unknown as Record<string, unknown>)[callbackName];
+      delete (window as unknown as Record<string, unknown>).__onTurnstileLoad;
     };
   }, [isSuccess]);
 

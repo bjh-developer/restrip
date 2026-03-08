@@ -14,11 +14,14 @@
  *   'nonce-${nonce}'  → enforced in all modern browsers (CSP level 2+);
  *                       Next.js applies the nonce to every script tag it emits
  *                       via the x-nonce request header.
- *   Clerk host        → clerk.restrip.app is the only external script domain;
- *                       required because Clerk's React SDK loads its JS bundle
- *                       from this FAPI proxy domain inside an async effect.
+ *   'strict-dynamic'  → propagates trust from nonce-bearing scripts to all
+ *                       scripts they dynamically load; required for Turnstile
+ *                       (api.js lazy-loads worker chunks) and Clerk sub-scripts.
+ *                       Host allowlists are ignored in browsers that support it.
  *   'unsafe-inline'   → silently ignored when a nonce is present; kept only as
  *                       a last-resort fallback for very old browsers
+ *   Clerk host        → clerk.restrip.app kept as a fallback for browsers that
+ *                       don't support strict-dynamic
  *
  * Protected routes: /gallery/*, /new, /scrapbook/* (require authenticated session)
  * Public routes: /, /upload, /privacy-policy, /contact, /sign-in, /sign-up
@@ -52,8 +55,12 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     // as a last-resort fallback for very old browsers that predate CSP level 2.
     // 'self' permits same-origin scripts (Vercel Analytics/Speed Insights inject
     // their bundles from /_vercel/... dynamically without a nonce).
-    // Clerk's FAPI proxy domain is the only external script host we allow.
-    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://clerk.restrip.app`,
+    // 'strict-dynamic' propagates trust from nonce-bearing scripts to any
+    // scripts they load dynamically — required for Turnstile (which lazy-loads
+    // its worker chunks from the nonce-stamped api.js) and Clerk sub-scripts.
+    // Per Cloudflare docs: stamp the nonce on api.js, use strict-dynamic, done.
+    // Clerk's FAPI host is kept as a fallback for browsers without strict-dynamic.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https://clerk.restrip.app`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline required for Tailwind + styled-jsx
     "img-src 'self' data: blob: https: https://img.clerk.com",
     "font-src 'self' data:",
