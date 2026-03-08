@@ -10,14 +10,15 @@
  *    its internal bootstrap scripts.
  * 4. Enforce Clerk session authentication on protected routes.
  *
- * CSP strategy — three layers for full browser coverage:
- *   'nonce-${nonce}'  → enforced in all modern browsers (CSP level 2+)
- *   'strict-dynamic'  → propagates trust from nonce-bearing scripts to their
- *                       dynamic imports; host allowlists are ignored in browsers
- *                       that support strict-dynamic
+ * CSP strategy:
+ *   'nonce-${nonce}'  → enforced in all modern browsers (CSP level 2+);
+ *                       Next.js applies the nonce to every script tag it emits
+ *                       via the x-nonce request header.
+ *   Clerk host        → clerk.restrip.app is the only external script domain;
+ *                       required because Clerk's React SDK loads its JS bundle
+ *                       from this FAPI proxy domain inside an async effect.
  *   'unsafe-inline'   → silently ignored when a nonce is present; kept only as
  *                       a last-resort fallback for very old browsers
- *   https:            → same fallback role for browsers without strict-dynamic
  *
  * Protected routes: /gallery/*, /new, /scrapbook/* (require authenticated session)
  * Public routes: /, /upload, /privacy-policy, /contact, /sign-in, /sign-up
@@ -46,10 +47,11 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
 
   const csp = [
     "default-src 'self'",
-    // nonce + strict-dynamic for modern browsers; unsafe-inline + https: as
-    // silent fallbacks for browsers that predate CSP level 2.
-    // cdn.jsdelivr.net deliberately excluded — it is a known JSONP bypass host.
-    `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`,
+    // Nonce for all scripts we control (Next.js applies it via x-nonce header).
+    // 'unsafe-inline' is silently ignored when a nonce is present; kept only
+    // as a last-resort fallback for very old browsers that predate CSP level 2.
+    // Clerk's FAPI proxy domain is the only external script host we allow.
+    `script-src 'nonce-${nonce}' 'unsafe-inline' https://clerk.restrip.app`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline required for Tailwind + styled-jsx
     "img-src 'self' data: blob: https: https://img.clerk.com",
     "font-src 'self' data:",
