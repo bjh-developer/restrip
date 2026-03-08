@@ -59,14 +59,21 @@ export default function LandingPage() {
       <main className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="max-w-2xl w-full text-center">
           {/* Branding */}
-          <h1 className="font-display text-5xl md:text-6xl font-bold mb-3 text-soft-black">
+          <h1 className="font-display text-5xl md:text-6xl font-bold mb-4 text-soft-black">
             ReStrip
           </h1>
           <ShinyText
-            text="Photo strips that come back to you."
+            text="Photo booth strips that come back to you."
+            speed={8}
+            delay={0}
+            color="#1C1C1C"
+            shineColor="#FFC9D1"
+            spread={120}
+            direction="left"
+            yoyo={false}
+            pauseOnHover={false}
             disabled={false}
-            speed={15}
-            className="font-display text-2xl md:text-3xl font-semibold text-soft-black mb-4"
+            className="font-display text-xl md:text-3xl font-semibold mb-4"
           />
           <p className="font-body text-grey mb-4 max-w-md mx-auto">
             A time machine, home and scrapbook for your photo booth strips.
