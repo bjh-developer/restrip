@@ -4,44 +4,11 @@ import json
 import requests
 from requests.auth import HTTPBasicAuth
 
-# Better Stack
-BETTERSTACK_SOURCE_TOKEN = os.getenv("BETTERSTACK_SOURCE_TOKEN")
-BETTERSTACK_URL = "https://in.logs.betterstack.com"
 
 # Grafana Cloud Loki
 LOKI_URL = os.getenv("LOKI_URL")
 LOKI_USERNAME = os.getenv("LOKI_USERNAME")
 LOKI_API_KEY = os.getenv("GRAFANA_API_KEY")
-
-
-def push_log(request_id: str, duration_ms: float, status: str, error: str = None):
-    """Push structured log to Better Stack."""
-    if not BETTERSTACK_SOURCE_TOKEN:
-        return
-
-    payload = {
-        "dt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "request_id": request_id,
-        "duration_ms": duration_ms,
-        "status": status,
-        "service": "runpod-handler",
-        "level": "error" if error else "info",
-    }
-    if error:
-        payload["error"] = error
-
-    try:
-        requests.post(
-            BETTERSTACK_URL,
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {BETTERSTACK_SOURCE_TOKEN}",
-                "Content-Type": "application/json",
-            },
-            timeout=3
-        )
-    except Exception as e:
-        print(f"Better Stack push error: {e}")
 
 
 def push_loki(request_id: str, duration_ms: float, status: str, error: str = None):
@@ -90,5 +57,4 @@ def push_loki(request_id: str, duration_ms: float, status: str, error: str = Non
 
 def push_metric(request_id: str, duration_ms: float, status: str, error: str = None):
     """Push to Better Stack and Grafana Cloud Loki."""
-    push_log(request_id, duration_ms, status, error)
     push_loki(request_id, duration_ms, status, error)

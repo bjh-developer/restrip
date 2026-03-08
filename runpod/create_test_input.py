@@ -36,4 +36,4 @@ def create_test_input(image_path, output_json="test_input.json"):
 
 if __name__ == '__main__':
     # Change this to your test image path
-    create_test_input("test_files/IMG_1287.JPG", "test_input.json")
+    create_test_input("test_files/IMG_1286.JPG", "test_input.json")
