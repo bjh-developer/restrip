@@ -265,6 +265,9 @@ export default function GalleryPage() {
   // Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Action error (delete failures)
+  const [actionError, setActionError] = useState<{ user: string; detail?: string } | null>(null);
+
   // Lightbox focus trap
   const lightboxRef = useRef<HTMLDivElement>(null);
 
@@ -528,8 +531,11 @@ export default function GalleryPage() {
         false,
       );
     } catch (err) {
-      console.error("Delete error:", err);
-      alert(err instanceof Error ? err.message : "Failed to delete snap");
+      const detail = err instanceof Error ? err.message : String(err);
+      setActionError({
+        user: "Ohno! Couldn't delete that memory. Please try again.",
+        detail,
+      });
     } finally {
       setDeletingIds((prev) => {
         const next = new Set(prev);
@@ -621,10 +627,10 @@ export default function GalleryPage() {
           return `${id}: ${reason instanceof Error ? reason.message : String(reason)}`;
         })
         .join(", ");
-      alert(
-        `Failed to delete ${failedIds.size} ${failedIds.size === 1 ? "memory" : "memories"}. ` +
-        `The failed items remain selected for retry. Details: ${failedMessages}`
-      );
+      setActionError({
+        user: `Oops! ${failedIds.size} ${failedIds.size === 1 ? "memory" : "memories"} couldn't be deleted. The failed items remain selected for retry.`,
+        detail: failedMessages,
+      });
     }
   };
 
@@ -1049,9 +1055,17 @@ export default function GalleryPage() {
       )}
 
       {/* Error state */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-          {error}
+      {(error || actionError) && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm">
+          {error && <p className="text-red-800">{error}</p>}
+          {actionError && (
+            <div>
+              <p className="text-red-800">{actionError.user}</p>
+              {actionError.detail && (
+                <p className="mt-1 font-mono text-xs text-red-400 break-all">Error: {actionError.detail}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

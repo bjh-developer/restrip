@@ -160,11 +160,8 @@ async function compressImage(base64Image: string): Promise<string> {
 
     // Skip compression for small images
     if (sizeInMB <= COMPRESSION_THRESHOLD_MB) {
-      console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, skipping compression`);
       return base64Image;
     }
-
-    console.log(`📷 Image is ${sizeInMB.toFixed(2)}MB, compressing...`);
 
     // Convert to File object (required by imageCompression library)
     const file = new File([blob], "image.jpg", { type: blob.type });
@@ -185,8 +182,7 @@ async function compressImage(base64Image: string): Promise<string> {
       reader.onerror = reject;
       reader.readAsDataURL(compressedBlob);
     });
-  } catch (error) {
-    console.error("⚠️ Compression failed, using original:", error);
+  } catch {
     return base64Image;
   }
 }
@@ -288,7 +284,6 @@ const UploadImage = React.memo(
       <Dropzone
         accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
         onDrop={handleDrop}
-        onError={console.error}
         src={files}
         multiple={false}
         className={
@@ -534,7 +529,9 @@ export default function UploadPage() {
   // Form state
   const [caption, setCaption] = useState<string>("");
   const [resetKey, setResetKey] = useState(0);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<
+    { user: string; detail?: string }[]
+  >([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<
@@ -608,7 +605,6 @@ export default function UploadPage() {
     }
 
     const data = await response.json();
-    console.log("📥 Crop API response:", data);
 
     if (!data.photostrip) {
       throw new Error("No photostrip detected in image");
@@ -630,7 +626,6 @@ export default function UploadPage() {
 
       // Use cached result if available
       if (croppedImage) {
-        console.log("📦 Using cached cropped image from memory");
         // if user triggered from manual dialog close it immediately
         if (isManualCropping) setIsManualCropping(false);
         return;
@@ -640,7 +635,6 @@ export default function UploadPage() {
       try {
         const croppedResult = await processImageWithRunPod(originalImage);
         setCroppedImage(croppedResult);
-        console.log("✅ Image cropped successfully");
 
         // if we're currently in manual crop dialog, close it once auto-crop finishes
         if (isManualCropping) {
@@ -650,10 +644,11 @@ export default function UploadPage() {
         // // Refresh scroll triggers after image changes
         // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
-        console.error("❌ Failed to crop image:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error occurred";
-        alert(`Failed to crop image: ${errorMessage}\n\nPlease try again.`);
+        const detail = error instanceof Error ? error.message : String(error);
+        setValidationErrors([{
+          user: "Oops, auto-crop failed. You can crop manually instead.",
+          detail,
+        }]);
         setAutoCropEnabled(false);
       } finally {
         setIsCropping(false);
@@ -683,10 +678,12 @@ export default function UploadPage() {
         setSavedCropPct(crop);
         setIsManualCropping(false);
         setAutoCropEnabled(false);
-        console.log("✅ Manual crop saved");
       } catch (e) {
-        console.error("Failed to crop", e);
-        alert("Something went wrong while cropping. Please try again.");
+        setIsManualCropping(false);
+        setValidationErrors([{
+          user: "Sorry, could not apply the crop. Please try again.",
+          detail: e instanceof Error ? e.message : String(e),
+        }]);
       }
     } else {
       // If user clicked apply without moving the crop box, or dimensions are 0
@@ -901,7 +898,7 @@ export default function UploadPage() {
 
     // Validate Turnstile CAPTCHA token (skipped in development)
     if (process.env.NODE_ENV !== "development" && !turnstileToken) {
-      alert("⚠️ Please complete the CAPTCHA verification before submitting.");
+      setValidationErrors([{ user: "Are you a robot? Please complete the CAPTCHA verification before submitting." }]);
       return;
     }
 
@@ -927,19 +924,12 @@ export default function UploadPage() {
     setIsProcessing(true);
 
     try {
-      console.log("✅ All inputs valid. Starting processing...");
-
       const imageToUpload = croppedImage ? croppedImage : originalImage;
 
       // Compress image (no-op if already under threshold from early compression)
-      console.log("🗜️ Compressing image...");
       const compressedImage = await compressImage(imageToUpload!);
-      console.log("✅ Image compressed");
-
-      console.log(`📅 Scheduled for: ${scheduledSendTime?.toLocaleString()}`);
 
       // Upload and encrypt
-      console.log("🔐 Uploading to server for encryption...");
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -957,10 +947,8 @@ export default function UploadPage() {
 
       const { storagePath, encryptedCaption, captionIv, imageIv, uploadNonce } =
         await uploadResponse.json();
-      console.log("✅ Encrypted and stored at:", storagePath);
 
       // Save metadata to database
-      console.log("💾 Saving snap metadata...");
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -983,7 +971,6 @@ export default function UploadPage() {
       }
 
       const snapData = await createSnapResponse.json();
-      console.log("🎉 Snap saved successfully:", snapData.snap?.id);
 
       // Show success page for both email and telegram
       if (snapData.snap?.id) {
@@ -998,16 +985,16 @@ export default function UploadPage() {
         throw new Error("No snap ID returned");
       }
     } catch (error) {
-      console.error("❌ Processing failed:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Processing failed";
-      setValidationErrors([errorMessage]);
+      const detail = error instanceof Error ? error.message : String(error);
+      setValidationErrors([{
+        user: "Oopsie! Something went wrong while saving your memory. Please try again. If this keeps happening, contact support.",
+        detail,
+      }]);
     } finally {
       setIsProcessing(false);
 
       // Reset Turnstile widget to generate a new token for next submission
       if (turnstileWidgetId && window.turnstile) {
-        console.log("Resetting Turnstile widget...");
         window.turnstile.reset(turnstileWidgetId);
         setTurnstileToken(null);
       }
@@ -1105,7 +1092,6 @@ export default function UploadPage() {
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
     if (!siteKey) {
-      console.warn("Turnstile site key not configured");
       return;
     }
 
@@ -1114,44 +1100,36 @@ export default function UploadPage() {
     // Function to render/re-render the Turnstile widget
     const renderWidget = () => {
       if (!window.turnstile) {
-        console.warn("Turnstile not loaded yet");
         return;
       }
 
       const container = document.getElementById("turnstile-widget");
       if (!container) {
-        console.error("Turnstile container not found");
         return;
       }
 
       // Remove old widget if it exists
       if (widgetId && window.turnstile) {
-        console.log("Removing old widget:", widgetId);
         try {
           window.turnstile.remove(widgetId);
-        } catch (e) {
-          console.warn("Failed to remove old widget:", e);
+        } catch {
+          // ignore
         }
       }
 
-      console.log("Initializing Turnstile widget...");
       widgetId = window.turnstile.render(container, {
         sitekey: siteKey,
         callback: (token: string) => {
-          console.log("✅ Turnstile token received");
           setTurnstileToken(token);
         },
         "error-callback": () => {
-          console.error("❌ Turnstile error");
           setTurnstileToken(null);
         },
         "expired-callback": () => {
-          console.warn("⚠️ Turnstile token expired");
           setTurnstileToken(null);
         },
         theme: "light",
       });
-      console.log("Turnstile widget rendered with ID:", widgetId);
       setTurnstileWidgetId(widgetId);
     };
 
@@ -1161,7 +1139,6 @@ export default function UploadPage() {
 
     // Check if Turnstile is already loaded
     if (window.turnstile) {
-      console.log("Turnstile already loaded, rendering widget");
       renderWidget();
     } else {
       // Load Turnstile script with explicit rendering
@@ -1176,8 +1153,8 @@ export default function UploadPage() {
       if (widgetId && window.turnstile) {
         try {
           window.turnstile.remove(widgetId);
-        } catch (e) {
-          console.warn("Failed to remove widget on unmount:", e);
+        } catch {
+          // ignore
         }
       }
       delete (window as unknown as Record<string, unknown>)[callbackName];
@@ -1329,6 +1306,7 @@ export default function UploadPage() {
                   if (validationErrors.length > 0) {
                     setValidationErrors([]);
                   }
+
                   setFieldErrors((prev) => ({ ...prev, caption: undefined }));
                 }}
                 className={
@@ -1381,11 +1359,16 @@ export default function UploadPage() {
 
             {/* Validation Errors */}
             {validationErrors.length > 0 && (
-              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
-                {validationErrors.map((error, index) => (
-                  <p key={index} className="text-red-700 text-sm">
-                    {error}
-                  </p>
+              <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
+                {validationErrors.map(({ user, detail }, index) => (
+                  <div key={index}>
+                    <p className="text-red-700 text-sm">{user}</p>
+                    {detail && (
+                      <p className="mt-1 font-mono text-xs text-red-400 break-all">
+                        Error: {detail}
+                      </p>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

@@ -257,7 +257,7 @@ function GalleryPicker({ open, onClose, onSelect }: GalleryPickerProps) {
       .then((data) => {
         setSnaps(data.snaps ?? []);
       })
-      .catch(console.error)
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -278,7 +278,7 @@ function GalleryPicker({ open, onClose, onSelect }: GalleryPickerProps) {
           const url = URL.createObjectURL(blob!);
           setImageUrls((prev) => ({ ...prev, [snap.id]: url }));
         })
-        .catch(console.error);
+        .catch(() => {});
     });
     // Cleanup URLs on unmount
     return () => {
@@ -740,6 +740,9 @@ export default function CanvasEditorPage() {
   // Loading overlay — true while any loadPageToCanvas call is in flight
   const [isPageLoading, setIsPageLoading] = useState(true);
 
+  // Inline error banner (replaces alert())
+  const [canvasError, setCanvasError] = useState<{ user: string; detail?: string } | null>(null);
+
   // Current page shorthand
   const currentPage: BookPage | undefined = book?.pages[currentPageIdx];
 
@@ -854,9 +857,7 @@ export default function CanvasEditorPage() {
       // Then read the current state from the component
       setBook((latestBook) => {
         if (latestBook) {
-          savePagesApi(bookId, latestBook.pages).catch((err) => {
-            console.error("[Canvas] API save failed:", err);
-          });
+          savePagesApi(bookId, latestBook.pages).catch(() => {});
         }
         return latestBook;
       });
@@ -1025,8 +1026,8 @@ export default function CanvasEditorPage() {
             };
             canvas.add(textbox);
           }
-        } catch (err) {
-          console.error("Failed to load element:", el, err);
+        } catch {
+          // Skip elements that fail to load and continue with the rest
         }
       }
 
@@ -1122,7 +1123,8 @@ export default function CanvasEditorPage() {
         canvas.setActiveObject(img);
         canvas.renderAll();
       } catch (err) {
-        console.error("Failed to add photostrip:", err);
+        const detail = err instanceof Error ? err.message : String(err);
+        setCanvasError({ user: "Oops, couldn't add that photo strip to the canvas.", detail });
       }
     },
     [],
@@ -1265,7 +1267,7 @@ export default function CanvasEditorPage() {
   const handleDeletePage = useCallback(async () => {
     if (!book || !currentPage) return;
     if (book.pages.length <= 1) {
-      alert("A book must have at least one page.");
+      setCanvasError({ user: "A book must have at least one page. Duh :P" });
       return;
     }
     if (!confirm("Delete this page?")) return;
@@ -1473,6 +1475,25 @@ export default function CanvasEditorPage() {
     <div
       className={`flex flex-col flex-1 min-h-0 overflow-hidden ${fontClassNames}`}
     >
+      {/* Inline error banner */}
+      {canvasError && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex items-start justify-between gap-3">
+          <div className="space-y-0.5">
+            <p className="text-sm text-red-800">{canvasError.user}</p>
+            {canvasError.detail && (
+              <p className="font-mono text-xs text-red-400 break-all">Error: {canvasError.detail}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCanvasError(null)}
+            className="shrink-0 p-0.5 rounded hover:bg-red-100 transition"
+            aria-label="Dismiss error"
+          >
+            <X className="w-4 h-4 text-red-500" />
+          </button>
+        </div>
+      )}
       {/* Top Toolbar */}
       <div className="bg-white border-b border-mist-grey px-3 py-3 flex items-center justify-between">
         {/* Left: Back + Title */}

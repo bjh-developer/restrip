@@ -375,6 +375,7 @@ function NewMemoryPageContent() {
   const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<z.ZodIssue[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitError, setSubmitError] = useState<{ user: string; detail?: string } | null>(null);
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -412,8 +413,11 @@ function NewMemoryPageContent() {
         setCroppedImage(`data:image/png;base64,${data.photostrip}`);
         if (isManualCropping) setIsManualCropping(false);
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Unknown error";
-        alert(`Failed to crop: ${msg}`);
+        const detail = error instanceof Error ? error.message : String(error);
+        setSubmitError({
+          user: "Oops, auto-crop failed. You can crop manually instead.",
+          detail,
+        });
         setAutoCropEnabled(false);
       } finally {
         setIsCropping(false);
@@ -464,8 +468,11 @@ function NewMemoryPageContent() {
         setIsManualCropping(false);
         setAutoCropEnabled(false);
       } catch (e) {
-        console.error("Failed to crop", e);
-        alert("Something went wrong while cropping. Please try again.");
+        setIsManualCropping(false);
+        setSubmitError({
+          user: "Sorry, could not apply the crop. Please try again.",
+          detail: e instanceof Error ? e.message : String(e),
+        });
       }
     } else {
       setIsManualCropping(false);
@@ -614,7 +621,7 @@ function NewMemoryPageContent() {
 
     // Guard: Ensure user is authenticated
     if (!user || !user.primaryEmailAddress?.emailAddress) {
-      alert("Session expired. Please sign in again.");
+      setSubmitError({ user: "Your session has expired :/ Please sign in again." });
       router.push("/sign-in");
       return;
     }
@@ -639,16 +646,15 @@ function NewMemoryPageContent() {
     setIsSubmitting(true);
     setValidationErrors([]);
     setFieldErrors({});
+    setSubmitError(null);
 
     try {
       // Step 1: Compress image
-      console.log("📦 Compressing image...");
       const compressed = await compressImage(imageToSubmit!);
 
       // Step 2: Upload image to storage
       const userEmail = user.primaryEmailAddress.emailAddress;
 
-      console.log("☁️ Uploading encrypted image...");
       const uploadResponse = await fetch("/api/upload/authenticated", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -669,7 +675,6 @@ function NewMemoryPageContent() {
       }
 
       const responseData = await uploadResponse.json();
-      console.log("✅ Memory created successfully!");
 
       // Invalidate gallery SWR cache so the new memory appears immediately on next visit
       mutate("/api/gallery");
@@ -684,12 +689,11 @@ function NewMemoryPageContent() {
 
       setIsSuccess(true);
     } catch (error) {
-      console.error("❌ Upload error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to create memory. Please try again.",
-      );
+      const detail = error instanceof Error ? error.message : String(error);
+      setSubmitError({
+        user: "Ohno! Something went wrong while saving your memory. Please try again.",
+        detail,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1048,9 +1052,18 @@ function NewMemoryPageContent() {
           {validationErrors.length > 0 && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs text-red-600 text-center">
-                Oops—that didn't work. Please fix the errors above and try
+                Oops—that didn&apos;t work. Please fix the errors above and try
                 again.
               </p>
+            </div>
+          )}
+          {/* Runtime / submission errors */}
+          {submitError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
+              <p className="text-sm text-red-700">{submitError.user}</p>
+              {submitError.detail && (
+                <p className="font-mono text-xs text-red-400 break-all">Error: {submitError.detail}</p>
+              )}
             </div>
           )}
         </form>
