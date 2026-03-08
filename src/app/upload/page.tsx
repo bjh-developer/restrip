@@ -25,6 +25,11 @@ import {
   RotateCcw,
   Check,
   ArrowLeft,
+  BookImage,
+  Share,
+  Trash,
+  HandCoins,
+  CircleUserRound,
 } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import ReactCrop, {
@@ -35,6 +40,7 @@ import ReactCrop, {
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -367,6 +373,107 @@ const AutoCropSwitch = React.memo(
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
+/**
+ * CTA modal encouraging anonymous users to create a free account.
+ * Shows value propositions and offers two paths: sign up or continue.
+ */
+function AccountCTAModal({
+  open,
+  onCreateAccount,
+  onContinue,
+  onClose,
+}: {
+  open: boolean;
+  onCreateAccount: () => void;
+  onContinue: (rememberChoice: boolean) => void;
+  onClose: () => void;
+}) {
+  const [rememberChoice, setRememberChoice] = useState(false);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-black/40"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cta-title"
+    >
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-300">
+        {/* Icon */}
+        <div className="w-14 h-14 rounded-full bg-blush-pink/30 flex items-center justify-center mx-auto mb-4">
+          <span className="text-base" aria-label="Circle User Round"><CircleUserRound size={30} /></span>
+        </div>
+
+        {/* Title */}
+        <h2
+          id="cta-title"
+          className="font-display text-xl font-bold text-soft-black text-center mb-2"
+        >
+          Keep Your Memories Safe
+        </h2>
+
+        {/* Subtitle */}
+        <p className="text-grey text-sm text-center mb-4">
+          Create a free account to unlock:
+        </p>
+
+        {/* Features */}
+        <ul className="space-y-2.5 mb-5 text-sm text-soft-black">
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><BookImage size={18} /></span>
+            <span>Your own photo strip gallery</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><Share size={18} /></span>
+            <span>Shareable scrapbooks for friends &amp; family</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><Trash size={18} /></span>
+            <span>Delete unwanted memories anytime</span>
+          </li>
+          <li className="flex items-start gap-2.5">
+            <span className="text-base leading-5"><HandCoins size={18} /></span>
+            <span>Completely free — no catches, ever</span>
+          </li>
+        </ul>
+
+        {/* Primary CTA */}
+        <button
+          type="button"
+          onClick={onCreateAccount}
+          className="w-full py-2.5 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-semibold mb-2"
+        >
+          Create Free Account
+        </button>
+
+        {/* Secondary CTA */}
+        <button
+          type="button"
+          onClick={() => onContinue(rememberChoice)}
+          className="w-full py-2.5 bg-white border border-mist-grey text-soft-black rounded-lg hover:bg-mist-grey/30 transition text-sm font-medium mb-3"
+        >
+          Continue without account
+        </button>
+
+        {/* Remember choice */}
+        <label className="flex items-center gap-2 justify-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rememberChoice}
+            onChange={(e) => setRememberChoice(e.target.checked)}
+            className="rounded border-mist-grey text-soft-black focus:ring-soft-black h-3.5 w-3.5"
+          />
+          <span className="text-xs text-grey">Don&apos;t show this again</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -379,14 +486,27 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
  * and error display.
  */
 export default function UploadPage() {
+  const router = useRouter();
+
   // -------------------------------------------------------------------------
   // State
   // -------------------------------------------------------------------------
+
+  // CTA modal state
+  const [showCTAModal, setShowCTAModal] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const compressionAbortRef = useRef(0);
 
   // Period selection state
   const [selectedPeriod, setSelectedPeriod] =
     useState<PeriodOption>("surprise");
   const [scheduledSendTime, setScheduledSendTime] = useState<
+    Date | undefined
+  >();
+  const [customPeriodRange, setCustomPeriodRange] = useState<
+    { from: Date; to: Date } | undefined
+  >();
+  const [customSelectedDate, setCustomSelectedDate] = useState<
     Date | undefined
   >();
 
@@ -441,7 +561,8 @@ export default function UploadPage() {
    * Handles image upload from dropzone.
    * Resets crop state and clears validation errors.
    */
-  const handleImageUpload = useCallback((base64Image: string) => {
+  const handleImageUpload = useCallback(async (base64Image: string) => {
+    const uploadId = ++compressionAbortRef.current;
     setOriginalImage(base64Image);
     setCroppedImage(undefined);
     setAutoCropEnabled(false);
@@ -452,6 +573,19 @@ export default function UploadPage() {
     setCompletedCrop(undefined);
     setSavedCropPct(undefined);
     setRotation(0);
+
+    // Compress image immediately on upload to keep size manageable
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImage(base64Image);
+      if (compressionAbortRef.current === uploadId && compressed !== base64Image) {
+        setOriginalImage(compressed);
+      }
+    } finally {
+      if (compressionAbortRef.current === uploadId) {
+        setIsCompressing(false);
+      }
+    }
   }, []);
 
   /**
@@ -603,8 +737,12 @@ export default function UploadPage() {
   }, []);
 
   const handlePeriodSelect = useCallback(
-    (period: PeriodOption, date?: Date) => {
+    (period: PeriodOption, date?: Date, range?: { from: Date; to: Date }) => {
       setSelectedPeriod(period);
+      if (range) setCustomPeriodRange(range);
+      else setCustomPeriodRange(undefined);
+      if (period === "custom date") setCustomSelectedDate(date);
+      else setCustomSelectedDate(undefined);
 
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const sendTime = computeScheduledSendTime(period, timezone, date);
@@ -736,10 +874,11 @@ export default function UploadPage() {
    *
    * Process flow:
    * 1. Validate all form fields
-   * 2. Compress image if needed
-   * 3. Upload to server for encryption
-   * 4. Save snap metadata to database
-   * 5. Show success confirmation / open Telegram
+   * 2. Check if CTA modal should show (for anonymous users)
+   * 3. Compress image if needed
+   * 4. Upload to server for encryption
+   * 5. Save snap metadata to database
+   * 6. Show success confirmation / open Telegram
    */
   const handleStartProcessing = async (): Promise<void> => {
     setValidationErrors([]);
@@ -764,32 +903,46 @@ export default function UploadPage() {
       return;
     }
 
-    // Validate Turnstile CAPTCHA token
-    if (!turnstileToken) {
+    // Validate Turnstile CAPTCHA token (skipped in development)
+    if (process.env.NODE_ENV !== "development" && !turnstileToken) {
       alert("⚠️ Please complete the CAPTCHA verification before submitting.");
       return;
     }
 
-    // Start processing without pre-opening any tabs
+    // Show CTA modal for anonymous users (unless they opted out)
+    try {
+      if (localStorage.getItem("skipAccountCTA") !== "true") {
+        setShowCTAModal(true);
+        return;
+      }
+    } catch {
+      // localStorage unavailable — proceed without modal
+    }
+
+    // User previously chose to skip — proceed directly
+    await performUpload();
+  };
+
+  /**
+   * Performs the actual upload after validation and CTA decision.
+   */
+  const performUpload = async (): Promise<void> => {
     setValidationErrors([]);
     setIsProcessing(true);
 
     try {
       console.log("✅ All inputs valid. Starting processing...");
 
-      // Select image source.
-      // If a manual crop or auto crop resulted in croppedImage, use that.
-      // Otherwise use original.
       const imageToUpload = croppedImage ? croppedImage : originalImage;
 
-      // Step 1: Compress image
+      // Compress image (no-op if already under threshold from early compression)
       console.log("🗜️ Compressing image...");
       const compressedImage = await compressImage(imageToUpload!);
       console.log("✅ Image compressed");
 
       console.log(`📅 Scheduled for: ${scheduledSendTime?.toLocaleString()}`);
 
-      // Step 2: Upload and encrypt
+      // Upload and encrypt
       console.log("🔐 Uploading to server for encryption...");
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
@@ -810,7 +963,7 @@ export default function UploadPage() {
         await uploadResponse.json();
       console.log("✅ Encrypted and stored at:", storagePath);
 
-      // Step 3: Save metadata to database
+      // Save metadata to database
       console.log("💾 Saving snap metadata...");
       const createSnapResponse = await fetch("/api/create-snap", {
         method: "POST",
@@ -881,6 +1034,58 @@ export default function UploadPage() {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
 
+  /**
+   * Saves form state to DB and redirects to sign-up.
+   * After sign-up, user is redirected to /new with form data pre-filled.
+   */
+  const handleCreateAccount = async (): Promise<void> => {
+    const imageToSave = croppedImage ?? originalImage;
+    try {
+      const res = await fetch("/api/pending-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: imageToSave,
+          caption,
+          selectedPeriod,
+          scheduledSendTime: scheduledSendTime?.toISOString(),
+          customSelectedDate: customSelectedDate?.toISOString(),
+          customPeriodRange: customPeriodRange
+            ? { from: customPeriodRange.from.toISOString(), to: customPeriodRange.to.toISOString() }
+            : undefined,
+          deliveryMethod,
+          deliveryAddress,
+        }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        setShowCTAModal(false);
+        router.push(`/sign-up?redirect_url=/new&prefill_token=${token}`);
+        return;
+      }
+    } catch {
+      // API unavailable — fall through to redirect without token
+    }
+    setShowCTAModal(false);
+    router.push("/sign-up?redirect_url=/new");
+  };
+
+  /**
+   * User chose to continue without account.
+   * Optionally remembers the choice and proceeds with upload.
+   */
+  const handleContinueWithoutAccount = (rememberChoice: boolean): void => {
+    if (rememberChoice) {
+      try {
+        localStorage.setItem("skipAccountCTA", "true");
+      } catch {
+        // localStorage unavailable
+      }
+    }
+    setShowCTAModal(false);
+    performUpload();
+  };
+
   // -------------------------------------------------------------------------
   // Effects
   // -------------------------------------------------------------------------
@@ -926,6 +1131,9 @@ export default function UploadPage() {
    * @see https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
    */
   useEffect(() => {
+    // Skip Turnstile in development — it doesn't work on localhost
+    if (process.env.NODE_ENV === "development") return;
+
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
     if (!siteKey) {
@@ -1110,7 +1318,7 @@ export default function UploadPage() {
                 key={resetKey}
                 displayImage={croppedImage ? croppedImage : undefined}
                 onImageUpload={handleImageUpload}
-                isLoading={isCropping}
+                isLoading={isCropping || isCompressing}
                 error={!!fieldErrors.image}
               />
             </div>
@@ -1214,15 +1422,17 @@ export default function UploadPage() {
               </div>
             )}
 
-            {/* Turnstile CAPTCHA Widget */}
-            <div className="mt-6 flex justify-center">
-              <div id="turnstile-widget"></div>
-            </div>
+            {/* Turnstile CAPTCHA Widget — hidden in development */}
+            {process.env.NODE_ENV !== "development" && (
+              <div className="mt-6 flex justify-center">
+                <div id="turnstile-widget"></div>
+              </div>
+            )}
 
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing || !turnstileToken}
+              disabled={isProcessing || (process.env.NODE_ENV !== "development" && !turnstileToken)}
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
@@ -1261,6 +1471,14 @@ export default function UploadPage() {
           </div>
         </div>
       </div>
+
+      {/* Account CTA Modal */}
+      <AccountCTAModal
+        open={showCTAModal}
+        onCreateAccount={handleCreateAccount}
+        onContinue={handleContinueWithoutAccount}
+        onClose={() => setShowCTAModal(false)}
+      />
 
       <Dialog open={isManualCropping} onOpenChange={setIsManualCropping}>
         <DialogContent className="z-50 max-w-[95vw] md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">

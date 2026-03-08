@@ -16,7 +16,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
 import {
   Brush,
@@ -47,6 +47,7 @@ import {
 } from "../../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -256,13 +257,16 @@ const UploadImage = React.memo(
     );
 
     const previewSrc = displayImage ?? filePreview;
+    // Pass a non-undefined src when we have a preview image so DropzoneContent
+    // renders even when no file was dropped (e.g. prefill from sessionStorage).
+    const dropzoneSrc = files ?? (previewSrc ? ([] as File[]) : undefined);
 
     return (
       <Dropzone
         accept={{ "image/*": [".png", ".jpg", ".jpeg"] }}
         onDrop={handleDrop}
         onError={console.error}
-        src={files}
+        src={dropzoneSrc}
         multiple={false}
         className={
           error ? "border-red-300 focus:border-red-500 focus:ring-red-500" : ""
@@ -337,6 +341,7 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
 
 export default function NewMemoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useUser();
 
   // Form state
@@ -358,7 +363,11 @@ export default function NewMemoryPage() {
     Date | undefined
   >();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
+  const [prefillKey, setPrefillKey] = useState(0);
+  const [prefillPeriodDate, setPrefillPeriodDate] = useState<Date | undefined>();
+  const [prefillPeriodRange, setPrefillPeriodRange] = useState<{ from: Date; to: Date } | undefined>();
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
+  const [isPrefilling, setIsPrefilling] = useState(false);
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -464,7 +473,7 @@ export default function NewMemoryPage() {
   }, [completedCrop, crop, rotation]);
 
   const handlePeriodSelect = useCallback(
-    (period: PeriodOption, date?: Date) => {
+    (period: PeriodOption, date?: Date, _range?: { from: Date; to: Date }) => {
       setSelectedPeriod(period);
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const sendTime = computeScheduledSendTime(period, timezone, date);
@@ -497,6 +506,61 @@ export default function NewMemoryPage() {
   useEffect(() => {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
+
+  /**
+   * Restore form state from DB if redirected from /upload sign-up flow.
+   * Reads prefill_token from URL, fetches saved form data, and fills state.
+   */
+  useEffect(() => {
+    const token = searchParams.get("prefill_token");
+    if (!token) return;
+
+    setIsPrefilling(true);
+
+    // Remove token from URL to prevent re-fetch on navigation
+    const url = new URL(window.location.href);
+    url.searchParams.delete("prefill_token");
+    window.history.replaceState({}, "", url.pathname + url.search);
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/pending-upload?token=${encodeURIComponent(token)}`);
+        if (!res.ok) return;
+        const { formData: data } = await res.json();
+        if (!data) return;
+
+        if (data.image) setOriginalImage(data.image);
+        if (data.caption) setCaption(data.caption);
+        if (data.selectedPeriod) {
+          setSelectedPeriod(data.selectedPeriod);
+          if (data.scheduledSendTime) {
+            setScheduledSendTime(new Date(data.scheduledSendTime));
+          }
+          // Restore calendar display state for custom date / custom period
+          if (data.selectedPeriod === "custom date" && data.customSelectedDate) {
+            setPrefillPeriodDate(new Date(data.customSelectedDate));
+          } else if (data.selectedPeriod === "custom period" && data.customPeriodRange) {
+            setPrefillPeriodRange({
+              from: new Date(data.customPeriodRange.from),
+              to: new Date(data.customPeriodRange.to),
+            });
+            if (data.scheduledSendTime) {
+              setPrefillPeriodDate(new Date(data.scheduledSendTime));
+            }
+          }
+        }
+        if (data.deliveryMethod) setDeliveryMethod(data.deliveryMethod);
+        if (data.deliveryAddress) setDeliveryAddress(data.deliveryAddress);
+        // Bump key to remount pickers so their internal defaultValue is applied
+        setPrefillKey((k) => k + 1);
+      } catch {
+        // Fetch failed — ignore, user can re-fill manually
+      } finally {
+        setIsPrefilling(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // =========================================================================
   // Form submission
@@ -723,13 +787,47 @@ export default function NewMemoryPage() {
           </h1>
         </div>
 
+        {isPrefilling && (
+          <div className="space-y-6">
+            {/* Image Upload skeleton */}
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <Skeleton className="w-full aspect-[3/4] rounded-xl" />
+            </div>
+            {/* Caption skeleton */}
+            <div>
+              <Skeleton className="h-4 w-16 mb-2" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </div>
+            {/* Period picker skeleton */}
+            <div>
+              <Skeleton className="h-4 w-28 mb-2" />
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-xl" />
+                ))}
+              </div>
+            </div>
+            {/* Delivery method skeleton */}
+            <div>
+              <Skeleton className="h-4 w-24 mb-2" />
+              <div className="grid grid-cols-2 gap-2">
+                <Skeleton className="h-16 rounded-xl" />
+                <Skeleton className="h-16 rounded-xl" />
+              </div>
+            </div>
+            {/* Submit button skeleton */}
+            <Skeleton className="h-11 w-full rounded-lg" />
+          </div>
+        )}
+
         <form
           ref={formRef}
           onSubmit={(e) => {
             e.preventDefault();
             handleStartProcessing();
           }}
-          className="space-y-6"
+          className={`space-y-6${isPrefilling ? " invisible h-0 overflow-hidden" : ""}`}
         >
           {/* Image Upload */}
           <div>
@@ -890,7 +988,13 @@ export default function NewMemoryPage() {
             <label className="block text-sm font-medium text-soft-black mb-1">
               When to deliver
             </label>
-            <PeriodPicker onSelect={handlePeriodSelect} />
+            <PeriodPicker
+              key={prefillKey}
+              defaultValue={selectedPeriod}
+              prefillDate={prefillPeriodDate}
+              prefillRange={prefillPeriodRange}
+              onSelect={handlePeriodSelect}
+            />
             {fieldErrors.period && (
               <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
                 <CircleAlert className="w-3 h-3" />
@@ -903,6 +1007,8 @@ export default function NewMemoryPage() {
               How to deliver
             </label>
             <DeliveryMethodPicker
+              key={prefillKey}
+              defaultValue={deliveryMethod}
               onSelect={handleDeliveryMethodSelect}
               hideEmailInput
             />

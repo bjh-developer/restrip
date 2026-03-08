@@ -170,16 +170,18 @@ export async function POST(
 
     const body = (await request.json()) as Partial<UploadRequestBody>;
 
-    // CAPTCHA verification (Cloudflare Turnstile)
-    const turnstileValid = await verifyTurnstileToken(
-      body.turnstileToken ?? "",
-      clientIp,
-    );
-    if (!turnstileValid) {
-      return NextResponse.json(
-        { error: "CAPTCHA verification failed. Please try again." },
-        { status: 403 },
+    // CAPTCHA verification (Cloudflare Turnstile) — skipped in development
+    if (process.env.NODE_ENV !== "development") {
+      const turnstileValid = await verifyTurnstileToken(
+        body.turnstileToken ?? "",
+        clientIp,
       );
+      if (!turnstileValid) {
+        return NextResponse.json(
+          { error: "CAPTCHA verification failed. Please try again." },
+          { status: 403 },
+        );
+      }
     }
 
     const uploadNonce = randomBytes(16).toString("hex");
