@@ -15,7 +15,7 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mutate } from "swr";
 import {
@@ -339,7 +339,7 @@ AutoCropSwitch.displayName = "AutoCropSwitch";
 // Main Page Component
 // =============================================================================
 
-export default function NewMemoryPage() {
+function NewMemoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useUser();
@@ -1049,5 +1049,13 @@ export default function NewMemoryPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function NewMemoryPage() {
+  return (
+    <Suspense>
+      <NewMemoryPageContent />
+    </Suspense>
   );
 }
