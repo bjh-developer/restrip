@@ -50,8 +50,10 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     // Nonce for all scripts we control (Next.js applies it via x-nonce header).
     // 'unsafe-inline' is silently ignored when a nonce is present; kept only
     // as a last-resort fallback for very old browsers that predate CSP level 2.
+    // 'self' permits same-origin scripts (Vercel Analytics/Speed Insights inject
+    // their bundles from /_vercel/... dynamically without a nonce).
     // Clerk's FAPI proxy domain is the only external script host we allow.
-    `script-src 'nonce-${nonce}' 'unsafe-inline' https://clerk.restrip.app`,
+    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://clerk.restrip.app`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline required for Tailwind + styled-jsx
     "img-src 'self' data: blob: https: https://img.clerk.com",
     "font-src 'self' data:",
