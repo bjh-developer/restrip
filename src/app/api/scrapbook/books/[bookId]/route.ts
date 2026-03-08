@@ -18,6 +18,7 @@ import {
   DELETE_LIMIT,
   UPLOAD_LIMIT,
 } from "../../../../../lib/rate-limit";
+import { encryptData, decryptDataAsString, getServerEncryptionKey } from "../../../../../lib/simple-encryption";
 
 // -----------------------------------------------------------------------------
 // Supabase admin client
@@ -32,8 +33,29 @@ const supabaseAdmin = createClient(
 );
 
 // -----------------------------------------------------------------------------
-// Types
+// Types (DB rows have encrypted columns; client sees plaintext)
 // -----------------------------------------------------------------------------
+interface BookDbRow {
+  id: string;
+  user_id: string;
+  encrypted_title: string;
+  title_iv: string;
+  cover_color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PageDbRow {
+  id: string;
+  book_id: string;
+  page_number: number;
+  background: Record<string, unknown>;
+  encrypted_elements: string;
+  elements_iv: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface BookRow {
   id: string;
   user_id: string;
@@ -62,16 +84,16 @@ type RouteContext = { params: Promise<{ bookId: string }> };
 // -----------------------------------------------------------------------------
 // Helper: fetch book + verify ownership
 // -----------------------------------------------------------------------------
-async function getOwnedBook(bookId: string, userId: string): Promise<BookRow | null> {
+async function getOwnedBook(bookId: string, userId: string): Promise<BookDbRow | null> {
   const { data, error } = await supabaseAdmin
-    .from("scrapbook_book")
+    .from("scrapbook_books")
     .select("*")
     .eq("id", bookId)
     .single();
 
   if (error || !data) return null;
-  if ((data as BookRow).user_id !== userId) return null;
-  return data as BookRow;
+  if ((data as BookDbRow).user_id !== userId) return null;
+  return data as BookDbRow;
 }
 
 // -----------------------------------------------------------------------------
@@ -107,8 +129,30 @@ export async function GET(
       return NextResponse.json({ error: "Failed to load pages" }, { status: 500 });
     }
 
+    // Decrypt
+    const key = getServerEncryptionKey();
+    const title = book.encrypted_title && book.title_iv
+      ? await decryptDataAsString(book.encrypted_title, book.title_iv, key)
+      : "";
+
+    const decryptedPages: PageRow[] = [];
+    for (const p of (pages || []) as PageDbRow[]) {
+      const elements = p.encrypted_elements && p.elements_iv
+        ? JSON.parse(await decryptDataAsString(p.encrypted_elements, p.elements_iv, key))
+        : [];
+      decryptedPages.push({
+        id: p.id, book_id: p.book_id, page_number: p.page_number,
+        background: p.background, elements, created_at: p.created_at, updated_at: p.updated_at,
+      });
+    }
+
+    const bookRow: BookRow = {
+      id: book.id, user_id: book.user_id, title, cover_color: book.cover_color,
+      created_at: book.created_at, updated_at: book.updated_at,
+    };
+
     return NextResponse.json({
-      book: { ...book, pages: (pages || []) as PageRow[] },
+      book: { ...bookRow, pages: decryptedPages },
     });
   } catch (err) {
     console.error("[Canvas Book API] Unexpected error:", err);
@@ -141,7 +185,10 @@ export async function PATCH(
     const body = await request.json().catch(() => ({}));
     const updates: Record<string, unknown> = {};
     if (typeof body.title === "string" && body.title.trim()) {
-      updates.title = body.title.trim();
+      const key = getServerEncryptionKey();
+      const { encrypted, iv } = await encryptData(body.title.trim(), key);
+      updates.encrypted_title = encrypted;
+      updates.title_iv = iv;
     }
     if (typeof body.coverColor === "string") {
       updates.cover_color = body.coverColor;
@@ -152,7 +199,7 @@ export async function PATCH(
     }
 
     const { data, error } = await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .update(updates)
       .eq("id", bookId)
       .select()
@@ -163,7 +210,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to update book" }, { status: 500 });
     }
 
-    return NextResponse.json({ book: data as BookRow });
+    // Decrypt for the response
+    const dbRow = data as BookDbRow;
+    const key = getServerEncryptionKey();
+    const title = dbRow.encrypted_title && dbRow.title_iv
+      ? await decryptDataAsString(dbRow.encrypted_title, dbRow.title_iv, key)
+      : "";
+
+    return NextResponse.json({
+      book: {
+        id: dbRow.id, user_id: dbRow.user_id, title, cover_color: dbRow.cover_color,
+        created_at: dbRow.created_at, updated_at: dbRow.updated_at,
+      } as BookRow,
+    });
   } catch (err) {
     console.error("[Canvas Book API] Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -194,7 +253,7 @@ export async function DELETE(
 
     // Pages cascade-delete via FK constraint
     const { error } = await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .delete()
       .eq("id", bookId);
 

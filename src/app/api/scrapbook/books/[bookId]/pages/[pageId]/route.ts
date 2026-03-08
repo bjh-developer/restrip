@@ -49,7 +49,7 @@ export async function DELETE(
 
     // Verify book ownership
     const { data: book } = await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .select("id, user_id")
       .eq("id", bookId)
       .single();
@@ -98,7 +98,7 @@ export async function DELETE(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 

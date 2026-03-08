@@ -15,6 +15,7 @@ import {
   rateLimitResponse,
   UPLOAD_LIMIT,
 } from "../../../../../../lib/rate-limit";
+import { encryptData, getServerEncryptionKey } from "../../../../../../lib/simple-encryption";
 
 // -----------------------------------------------------------------------------
 // Supabase admin client
@@ -51,7 +52,7 @@ type RouteContext = { params: Promise<{ bookId: string }> };
 // -----------------------------------------------------------------------------
 async function verifyBookOwnership(bookId: string, userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
-    .from("scrapbook_book")
+    .from("scrapbook_books")
     .select("id, user_id")
     .eq("id", bookId)
     .single();
@@ -93,13 +94,18 @@ export async function POST(
       ? existingPages[0].page_number + 1
       : 1;
 
+    // Encrypt empty elements
+    const key = getServerEncryptionKey();
+    const { encrypted: encryptedElements, iv: elementsIv } = await encryptData(JSON.stringify([]), key);
+
     const { data: page, error: pageErr } = await supabaseAdmin
       .from("scrapbook_pages")
       .insert({
         book_id: bookId,
         page_number: nextPageNumber,
         background: { type: "color", color: "#FFFFFF" },
-        elements: [],
+        encrypted_elements: encryptedElements,
+        elements_iv: elementsIv,
       })
       .select()
       .single();
@@ -111,11 +117,17 @@ export async function POST(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 
-    return NextResponse.json({ page: page as PageRow }, { status: 201 });
+    // Return decrypted view
+    const pageRow: PageRow = {
+      id: page.id, book_id: page.book_id, page_number: page.page_number,
+      background: page.background, elements: [], created_at: page.created_at, updated_at: page.updated_at,
+    };
+
+    return NextResponse.json({ page: pageRow }, { status: 201 });
   } catch (err) {
     console.error("[Canvas Pages API] Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -149,13 +161,18 @@ export async function PUT(
     }
 
     // Validate and upsert each page
+    const key = getServerEncryptionKey();
     for (const pg of body.pages) {
       if (!pg.id || typeof pg.id !== "string") continue;
 
       const updates: Record<string, unknown> = {};
       if (typeof pg.page_number === "number") updates.page_number = pg.page_number;
       if (pg.background && typeof pg.background === "object") updates.background = pg.background;
-      if (Array.isArray(pg.elements)) updates.elements = pg.elements;
+      if (Array.isArray(pg.elements)) {
+        const { encrypted, iv } = await encryptData(JSON.stringify(pg.elements), key);
+        updates.encrypted_elements = encrypted;
+        updates.elements_iv = iv;
+      }
 
       if (Object.keys(updates).length === 0) continue;
 
@@ -172,7 +189,7 @@ export async function PUT(
 
     // Touch book updated_at
     await supabaseAdmin
-      .from("scrapbook_book")
+      .from("scrapbook_books")
       .update({ updated_at: new Date().toISOString() })
       .eq("id", bookId);
 
