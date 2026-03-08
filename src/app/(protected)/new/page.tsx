@@ -515,19 +515,23 @@ function NewMemoryPageContent() {
     const token = searchParams.get("prefill_token");
     if (!token) return;
 
+    const controller = new AbortController();
     setIsPrefilling(true);
-
-    // Remove token from URL to prevent re-fetch on navigation
-    const url = new URL(window.location.href);
-    url.searchParams.delete("prefill_token");
-    window.history.replaceState({}, "", url.pathname + url.search);
 
     (async () => {
       try {
-        const res = await fetch(`/api/pending-upload?token=${encodeURIComponent(token)}`);
+        const res = await fetch(
+          `/api/pending-upload?token=${encodeURIComponent(token)}`,
+          { signal: controller.signal },
+        );
         if (!res.ok) return;
         const { formData: data } = await res.json();
         if (!data) return;
+
+        // Only update URL and state after a successful fetch
+        const url = new URL(window.location.href);
+        url.searchParams.delete("prefill_token");
+        window.history.replaceState({}, "", url.pathname + url.search);
 
         if (data.image) setOriginalImage(data.image);
         if (data.caption) setCaption(data.caption);
@@ -553,12 +557,15 @@ function NewMemoryPageContent() {
         if (data.deliveryAddress) setDeliveryAddress(data.deliveryAddress);
         // Bump key to remount pickers so their internal defaultValue is applied
         setPrefillKey((k) => k + 1);
-      } catch {
-        // Fetch failed — ignore, user can re-fill manually
+      } catch (err) {
+        // Swallow AbortError (unmount) — ignore other fetch failures
+        if (err instanceof Error && err.name === "AbortError") return;
       } finally {
-        setIsPrefilling(false);
+        if (!controller.signal.aborted) setIsPrefilling(false);
       }
     })();
+
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

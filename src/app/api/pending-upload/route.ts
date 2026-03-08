@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    if (!body || typeof body !== "object") {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
       return NextResponse.json(
         { error: "Invalid request body" },
         { status: 400 },
@@ -91,39 +91,31 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    // Atomically delete and return the row — prevents TOCTOU replay
+    const { data: rows, error } = await supabaseAdmin
       .from("pending_uploads")
-      .select("form_data, expires_at")
+      .delete()
       .eq("token", token)
-      .single();
+      .select("form_data, expires_at");
 
-    if (error || !data) {
+    if (error || !rows || rows.length === 0) {
       return NextResponse.json(
         { error: "Token not found or expired" },
         { status: 404 },
       );
     }
 
-    // Check expiry
-    if (new Date(data.expires_at) < new Date()) {
-      // Clean up expired row
-      await supabaseAdmin
-        .from("pending_uploads")
-        .delete()
-        .eq("token", token);
+    const row = rows[0];
+
+    // Check expiry on the deleted row
+    if (new Date(row.expires_at) < new Date()) {
       return NextResponse.json(
         { error: "Token expired" },
         { status: 410 },
       );
     }
 
-    // Delete after retrieval to prevent replay
-    await supabaseAdmin
-      .from("pending_uploads")
-      .delete()
-      .eq("token", token);
-
-    return NextResponse.json({ formData: data.form_data });
+    return NextResponse.json({ formData: row.form_data });
   } catch (err) {
     console.error("Pending upload retrieval error:", err);
     return NextResponse.json(

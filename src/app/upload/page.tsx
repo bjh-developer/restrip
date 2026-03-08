@@ -1074,7 +1074,7 @@ export default function UploadPage() {
    * User chose to continue without account.
    * Optionally remembers the choice and proceeds with upload.
    */
-  const handleContinueWithoutAccount = (rememberChoice: boolean): void => {
+  const handleContinueWithoutAccount = async (rememberChoice: boolean): Promise<void> => {
     if (rememberChoice) {
       try {
         localStorage.setItem("skipAccountCTA", "true");
@@ -1083,7 +1083,7 @@ export default function UploadPage() {
       }
     }
     setShowCTAModal(false);
-    performUpload();
+    await performUpload();
   };
 
   // -------------------------------------------------------------------------
