@@ -1309,11 +1309,11 @@ export default function UploadPage() {
           <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
             {/* Upload Area */}
             <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mb-1">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 1. take photo/upload your photo strip
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={imageRef}>
+            <div className="flex gap-4 justify-center" ref={imageRef}>
               <UploadImage
                 key={resetKey}
                 displayImage={croppedImage ? croppedImage : undefined}
@@ -1347,12 +1347,12 @@ export default function UploadPage() {
             )}
 
             {/* Journal Caption */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 2. write a caption
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={captionRef}>
+            <div className="flex gap-4 justify-center" ref={captionRef}>
               <Textarea
                 placeholder="Write a message to your future self..."
                 value={caption}
@@ -1377,12 +1377,12 @@ export default function UploadPage() {
             )}
 
             {/* Period Picker */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 3. deliver random email in/on
               </h3>
             </div>
-            <div className="mt-6 flex gap-4 justify-center" ref={periodRef}>
+            <div className="flex gap-4 justify-center" ref={periodRef}>
               <PeriodPicker onSelect={handlePeriodSelect} />
             </div>
             {fieldErrors.period && (
@@ -1392,12 +1392,12 @@ export default function UploadPage() {
             )}
 
             {/* Delivery Method */}
-            <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mt-6">
+            <div className="mt-10">
+              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
                 4. where to send your memory
               </h3>
             </div>
-            <div className="mt-4 flex gap-4 justify-center" ref={deliveryRef}>
+            <div className="flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker
                 onSelect={handleDeliveryMethodSelect}
                 error={!!fieldErrors.deliveryAddress}
@@ -1433,7 +1433,7 @@ export default function UploadPage() {
             <button
               onClick={handleStartProcessing}
               disabled={isProcessing || (process.env.NODE_ENV !== "development" && !turnstileToken)}
-              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? (
                 <>
@@ -1444,30 +1444,12 @@ export default function UploadPage() {
                   />
                   One day, you&apos;ll open this and smile...
                 </>
-              ) : !turnstileToken ? (
+              ) : !turnstileToken && process.env.NODE_ENV !== "development" ? (
                 "Completing CAPTCHA..."
               ) : (
                 "Deliver to the Future!"
               )}
             </button>
-
-            {/* Buy Me a Coffee Button */}
-            <div className="mt-6 flex justify-center items-center w-full">
-              <a
-                href="https://www.buymeacoffee.com/bjh21"
-                className="hover:-translate-y-0.5 transition-all inline-block"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=bjh21&button_colour=fff2c9&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
-                  alt="Buy me a coffee"
-                  className="h-[40px] w-auto md:h-[50px]"
-                  loading="lazy"
-                />
-              </a>
-            </div>
           </div>
         </div>
       </div>
