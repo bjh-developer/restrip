@@ -87,7 +87,7 @@ export default function LandingPage() {
             {/* Quick Send Card */}
             <Link
               href="/upload"
-              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
@@ -101,7 +101,7 @@ export default function LandingPage() {
                 Upload your photo strip, pick a future period, and we'll send
                 you a surprise. No account needed.
               </p>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
+              <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 Get started
                 <ArrowRight className="w-4 h-4" />
               </span>
@@ -110,7 +110,7 @@ export default function LandingPage() {
             {/* Gallery Card */}
             <Link
               href="/gallery"
-              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left block"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
@@ -123,7 +123,7 @@ export default function LandingPage() {
               <p className="text-sm text-grey mb-4">
                 Sign in for gallery and scrapbook, safekeeping your memories.
               </p>
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
+              <span className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-soft-black group-hover:gap-2 transition-all">
                 {isSignedIn ? "Open gallery" : "Sign in"}
                 <ArrowRight className="w-4 h-4" />
               </span>
