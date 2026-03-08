@@ -10,8 +10,7 @@
 
 "use client";
 
-import React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowRight, Camera, ChevronDown, Images } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import ShinyText from "../components/ShinyText";
