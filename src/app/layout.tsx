@@ -30,14 +30,14 @@ const caveat = Caveat({
 export const metadata: Metadata = {
   title: "ReStrip - Photo booth strips that come back to you",
   description:
-    "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+    "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
   alternates: {
     canonical: "https://www.restrip.app",
   },
   openGraph: {
     title: "ReStrip - Photo booth strips that come back to you",
     description:
-      "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+      "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
     url: "https://www.restrip.app",
     siteName: "ReStrip",
     images: [{ url: "https://www.restrip.app/og-image.jpg" }],
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ReStrip - Photo booth strips that come back to you",
     description:
-      "ReStrip turns your photo booth strips into lasting digital memories. Scan, save and rediscover your favourite photo strip moments.",
+      "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
     images: ["https://www.restrip.app/og-image.jpg"],
   },
 };
