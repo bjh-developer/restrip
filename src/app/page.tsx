@@ -23,11 +23,7 @@ import {
 } from "../components/ui/shadcn-io/status";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
-import { loadUserJot } from "../lib/userjot";
 import Link from "next/link";
-
-/** UserJot widget configuration ID */
-const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
 
 // =============================================================================
 // GSAP Plugin Registration
@@ -46,13 +42,6 @@ try {
 export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
-
-  /**
-   * Load UserJot feedback widget SDK.
-   */
-  useEffect(() => {
-    return loadUserJot(USERJOT_CONFIG_ID);
-  }, []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">

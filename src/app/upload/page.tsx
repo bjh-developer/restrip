@@ -66,7 +66,6 @@ import {
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import * as z from "zod";
-import { loadUserJot } from "../../lib/userjot";
 
 // =============================================================================
 // Constants
@@ -83,9 +82,6 @@ const MAX_IMAGE_DIMENSION = 2048;
 
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
-
-/** UserJot widget configuration ID */
-const USERJOT_CONFIG_ID = "cmjjzikhm01fr15o1n4jg1h93";
 
 // =============================================================================
 // Types
@@ -1090,40 +1086,12 @@ export default function UploadPage() {
   // Effects
   // -------------------------------------------------------------------------
 
-  // /**
-  //  * Refresh ScrollTrigger when image changes.
-  //  */
-  // useEffect(() => {
-  //   if (originalImage) {
-  //     const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 100);
-  //     return () => clearTimeout(timeoutId);
-  //   }
-  // }, [originalImage]);
-
   /**
    * Initialize with surprise period on mount.
    */
   useEffect(() => {
     handlePeriodSelect("surprise");
   }, [handlePeriodSelect]);
-
-  // /**
-  //  * Reset errors and refresh ScrollTrigger on mount.
-  //  */
-  // useEffect(() => {
-  //   setValidationErrors([]);
-  //   setFieldErrors({});
-
-  //   const timeoutId = setTimeout(() => ScrollTrigger.refresh(), 500);
-  //   return () => clearTimeout(timeoutId);
-  // }, []);
-
-  /**
-   * Load UserJot feedback widget SDK.
-   */
-  useEffect(() => {
-    return loadUserJot(USERJOT_CONFIG_ID);
-  }, []);
 
   /**
    * Load Cloudflare Turnstile CAPTCHA script and initialize widget.
