@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter, Caveat } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { headers } from "next/headers";
 import "../styles/globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -51,13 +52,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? "";
+
   return (
-    <ClerkProvider>
+    <ClerkProvider nonce={nonce}>
       <html lang="en" className="h-full">
         <head>
           <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -70,6 +73,7 @@ export default function RootLayout({
             content="1cb77938b8dbd9c71cb1ec1aa97e36430ebf1cf29bd2a917bb8f24a6f0b52bb0"
           ></meta>
           <script
+            nonce={nonce}
             src="https://analytics.ahrefs.com/analytics.js"
             data-key="bvLONNN9gpGp6wB1c+Aakw"
             async

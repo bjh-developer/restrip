@@ -238,8 +238,9 @@ export async function POST(
 
     if (dbError || !snapData) {
       console.error("Database error:", dbError);
-      // Clean up uploaded file on DB failure
-      await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([uploadData.path]);
+      // Clean up uploaded file on DB failure — use the locally constructed
+      // filePath (already sanitized) rather than the server-echoed path.
+      await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([filePath]);
       return NextResponse.json(
         { error: "Failed to save snap to database" },
         { status: 500 },
