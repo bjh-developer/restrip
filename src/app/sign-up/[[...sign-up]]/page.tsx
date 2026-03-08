@@ -2,8 +2,27 @@ import { SignUp } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  title: "Sign Up - ReStrip",
+  description:
+    "Create a ReStrip account to securely store and access your photo strips, manage your scrapbook, and enjoy personalized features.",
   alternates: {
     canonical: "https://www.restrip.app/sign-up",
+  },
+  openGraph: {
+    title: "Sign Up - ReStrip",
+    description:
+      "Create a ReStrip account to securely store and access your photo strips, manage your scrapbook, and enjoy personalized features.",
+    url: "https://www.restrip.app/sign-up",
+    siteName: "ReStrip",
+    images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sign Up - ReStrip",
+    description:
+      "Create a ReStrip account to securely store and access your photo strips, manage your scrapbook, and enjoy personalized features.",
+    images: ["https://www.restrip.app/og-image.jpg"],
   },
 };
 
