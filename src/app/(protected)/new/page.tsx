@@ -327,7 +327,7 @@ const AutoCropSwitch = React.memo(
     return (
       <div className="flex items-center gap-3 mt-3">
         <Switch
-          onClick={() => haptics.trigger(defaultPatterns.selection)}
+          onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
           id="auto-crop"
           checked={autoCropEnabled}
           onCheckedChange={onToggle}
@@ -668,7 +668,7 @@ function NewMemoryPageContent() {
     const haptics = new WebHaptics();
 
     if (!validation.success) {
-      haptics.trigger(defaultPatterns.error);
+      void haptics.trigger(defaultPatterns.error);
       setValidationErrors(validation.error.issues);
       setFieldErrors(mapValidationErrors(validation.error.issues));
       return;
@@ -736,7 +736,7 @@ function NewMemoryPageContent() {
 
   if (isSuccess) {
     const haptics = new WebHaptics();
-    haptics.trigger([
+    void haptics.trigger([
       { duration: 15, intensity: 0.4 },
       { delay: 65, duration: 60, intensity: 0.62 },
       { delay: 70, duration: 20, intensity: 1 },

@@ -43,7 +43,7 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
-  const haptics = useMemo(() => new WebHaptics(), []);
+  const haptics = useMemo(() => new WebHaptics({debug:true}), []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
@@ -88,7 +88,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
             {/* Quick Send Card */}
             <Link
-              onClick={() => haptics.trigger(defaultPatterns.selection)}
+              onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/upload"
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
@@ -112,7 +112,7 @@ export default function LandingPage() {
 
             {/* Gallery Card */}
             <Link
-              onClick={() => haptics.trigger(defaultPatterns.selection)}
+              onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/gallery"
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
