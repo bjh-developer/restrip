@@ -90,7 +90,7 @@ export default function LandingPage() {
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
                   <Camera className="w-5 h-5 text-soft-black" />
                 </div>
                 <h2 className="font-display text-lg font-semibold text-soft-black">
@@ -113,7 +113,7 @@ export default function LandingPage() {
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-warm-beige/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
                   <Images className="w-5 h-5 text-soft-black" />
                 </div>
                 <h2 className="font-display text-lg font-semibold text-soft-black">
