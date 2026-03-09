@@ -15,13 +15,14 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight, Camera, ChevronDown, Images } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useEffect, useCallback, useState } from "react";
 import ScrollReveal from "../components/ScrollReveal";
 import ShinyText from "../components/ShinyText";
 import {
   Status,
   StatusIndicator,
   StatusLabel,
+  StatusStats,
 } from "../components/ui/shadcn-io/status";
 
 // =============================================================================
@@ -42,6 +43,14 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
+  const [stats, setStats] = useState<{ count: number } | null>(null);
+
+  // retrieve stats
+  useEffect(() => {
+    void fetch("/api/stats")
+      .then((res) => res.json())
+      .then(({ count }: { count: number }) => setStats({ count }));
+  }, []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
@@ -69,18 +78,19 @@ export default function LandingPage() {
             A time machine, home and scrapbook for your photo booth strips.
           </p>
 
-          <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              href="https://status.restrip.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Status status="online">
-                <StatusIndicator />
-                <StatusLabel />
-              </Status>
-            </Link>
-          </div>
+            <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
+              <Link
+                href="https://status.restrip.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Status status="online">
+                  <StatusIndicator />
+                  <StatusLabel />
+                  <StatusStats count={stats?.count.toString()} />
+                </Status>
+              </Link>
+            </div>
 
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">

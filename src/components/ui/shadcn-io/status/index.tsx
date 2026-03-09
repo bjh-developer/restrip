@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export type StatusProps = ComponentProps<typeof Badge> & {
-  status: "online" | "offline" | "maintenance" | "degraded"
+  status: "online" | "offline" | "maintenance" | "degraded",
+  count?: string | number,
 }
 
 export const Status = ({ className, status, ...props }: StatusProps) => (
@@ -48,11 +49,17 @@ export const StatusLabel = ({ className, children, ...props }: StatusLabelProps)
   <span className={cn("text-muted-foreground", className)} {...props}>
     {children ?? (
       <>
-        <span className="hidden group-[.online]:block">Online - Scheduled memory delivery working</span>
+        <span className="hidden group-[.online]:block">Online</span>
         <span className="hidden group-[.offline]:block">Offline</span>
         <span className="hidden group-[.maintenance]:block">Maintenance</span>
         <span className="hidden group-[.degraded]:block">Degraded</span>
       </>
     )}
+  </span>
+)
+
+export const StatusStats = ({ className, count, ...props }: Omit<StatusProps, "status">) => (
+  <span className={cn("text-soft-black", className)} {...props}>
+    {count ? `${count} memories relived thus far` : ""}
   </span>
 )
