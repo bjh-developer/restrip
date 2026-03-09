@@ -90,7 +90,7 @@ export default function LandingPage() {
             <Link
               onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/upload"
-              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-shadow duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
@@ -114,7 +114,7 @@ export default function LandingPage() {
             <Link
               onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/gallery"
-              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-all duration-200 hover:-translate-y-0.5 text-left flex flex-col"
+              className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-shadow duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-blush-pink/30 flex items-center justify-center">
