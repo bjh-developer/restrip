@@ -43,7 +43,7 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
-  const haptics = useMemo(() => new WebHaptics({debug:true}), []);
+  const haptics = useMemo(() => new WebHaptics(), []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">

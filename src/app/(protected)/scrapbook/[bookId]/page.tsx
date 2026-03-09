@@ -53,6 +53,7 @@ import {
 import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
 import { getCachedImage, setCachedImage } from "../../../../lib/gallery-cache";
+import { TextMorph } from "torph/react";
 
 // =============================================================================
 // Thumbnail cache helpers (sessionStorage, keyed by pageId)
@@ -1512,16 +1513,18 @@ export default function CanvasEditorPage() {
             {book.title}
           </h1>
           <div className="w-16 flex items-center justify-start">
-            {saveStatus === "saving" && (
-              <span className="text-xs text-grey whitespace-nowrap">
-                Saving...
-              </span>
-            )}
-            {saveStatus === "saved" && (
-              <span className="text-xs text-green-600 flex items-center gap-1 whitespace-nowrap">
-                <Check className="w-3 h-3" /> Saved
-              </span>
-            )}
+            <TextMorph
+              as="span"
+              className={`text-xs whitespace-nowrap transition-colors ${
+                saveStatus === "saved" ? "text-green-600" : "text-grey"
+              }`}
+            >
+              {saveStatus === "saving"
+                ? "Saving..."
+                : saveStatus === "saved"
+                  ? "Saved"
+                  : ""}
+            </TextMorph>
           </div>
         </div>
 
