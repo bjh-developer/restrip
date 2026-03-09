@@ -15,8 +15,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight, Camera, ChevronDown, Images } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
-import { WebHaptics, defaultPatterns } from "web-haptics";
+import { useCallback, useState } from "react";
 import ScrollReveal from "../components/ScrollReveal";
 import ShinyText from "../components/ShinyText";
 import {
@@ -43,7 +42,6 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
-  const haptics = useMemo(() => new WebHaptics(), []);
 
   return (
     <div className="min-h-screen bg-warm-beige flex flex-col">
@@ -88,7 +86,6 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
             {/* Quick Send Card */}
             <Link
-              onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/upload"
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-shadow duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >
@@ -112,7 +109,6 @@ export default function LandingPage() {
 
             {/* Gallery Card */}
             <Link
-              onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
               href="/gallery"
               className="group bg-white rounded-lg shadow-card hover:shadow-card-hover p-6 transition-shadow duration-200 hover:-translate-y-0.5 text-left flex flex-col"
             >

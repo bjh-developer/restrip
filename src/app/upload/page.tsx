@@ -359,7 +359,9 @@ const AutoCropSwitch = React.memo(
               Enable auto-crop {statusText}
             </Label>
             <Switch
-              onClick={() => { void haptics.trigger(defaultPatterns.selection); }}
+              onClick={() => {
+                void haptics.trigger(defaultPatterns.selection);
+              }}
               id="feature-toggle"
               checked={autoCropEnabled}
               onCheckedChange={onToggle}
@@ -476,7 +478,9 @@ function AccountCTAModal({
             type="checkbox"
             checked={rememberChoice}
             onChange={(e) => setRememberChoice(e.target.checked)}
-            onClick={() => { void haptics.trigger(defaultPatterns.soft); }}
+            onClick={() => {
+              void haptics.trigger(defaultPatterns.soft);
+            }}
             className="rounded border-mist-grey text-soft-black focus:ring-soft-black h-3.5 w-3.5"
           />
           <span className="text-xs text-grey">Don&apos;t show this again</span>
@@ -1205,12 +1209,6 @@ export default function UploadPage() {
 
   // Show success screen if submission was successful
   if (isSuccess) {
-    const haptics = new WebHaptics();
-    void haptics.trigger([
-      { duration: 15, intensity: 0.4 },
-      { delay: 65, duration: 60, intensity: 0.62 },
-      { delay: 70, duration: 20, intensity: 1 },
-    ]);
     return (
       <div className="min-h-screen bg-warm-beige flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
