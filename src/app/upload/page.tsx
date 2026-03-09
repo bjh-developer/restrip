@@ -18,32 +18,6 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Brush,
-  Crop as CropIcon,
-  RotateCcw,
-  Check,
-  ArrowLeft,
-  BookImage,
-  Share,
-  Trash,
-  HandCoins,
-  CircleUserRound,
-} from "lucide-react";
-import imageCompression from "browser-image-compression";
-import ReactCrop, {
-  type Crop,
-  type PixelCrop,
-  centerCrop,
-  makeAspectCrop,
-} from "react-image-crop";
-import "react-image-crop/dist/ReactCrop.css";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,20 +26,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import imageCompression from "browser-image-compression";
+import {
+  ArrowLeft,
+  BookImage,
+  Brush,
+  Check,
+  CircleUserRound,
+  Crop as CropIcon,
+  HandCoins,
+  RotateCcw,
+  Share,
+  Trash,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import ReactCrop, {
+  centerCrop,
+  makeAspectCrop,
+  type Crop,
+  type PixelCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 
-import { PeriodPicker, type PeriodOption } from "../../components/PeriodPicker";
+import { WebHaptics, defaultPatterns } from "web-haptics";
+import * as z from "zod";
 import {
   DeliveryMethodPicker,
   type DeliveryMethod,
 } from "../../components/DeliveryMethodPicker";
-import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
+import { PeriodPicker, type PeriodOption } from "../../components/PeriodPicker";
 import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
 } from "../../components/ui/shadcn-io/dropzone";
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
-import * as z from "zod";
+import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
 
 // =============================================================================
 // Constants
@@ -339,6 +346,7 @@ const AutoCropSwitch = React.memo(
     } else if (!imageUploaded) {
       statusText = "(Upload image first)";
     }
+    const haptics = useMemo(() => new WebHaptics(), []);
 
     return (
       <div className="flex items-center gap-3 rounded-lg border bg-background p-4">
@@ -351,6 +359,7 @@ const AutoCropSwitch = React.memo(
               Enable auto-crop {statusText}
             </Label>
             <Switch
+              onClick={() => haptics.trigger(defaultPatterns.selection)}
               id="feature-toggle"
               checked={autoCropEnabled}
               onCheckedChange={onToggle}
@@ -380,6 +389,7 @@ function AccountCTAModal({
   onClose: () => void;
 }) {
   const [rememberChoice, setRememberChoice] = useState(false);
+  const haptics = useMemo(() => new WebHaptics(), []);
 
   if (!open) return null;
 
@@ -396,7 +406,9 @@ function AccountCTAModal({
       <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-300">
         {/* Icon */}
         <div className="w-14 h-14 rounded-full bg-blush-pink/30 flex items-center justify-center mx-auto mb-4">
-          <span className="text-base" aria-label="Circle User Round"><CircleUserRound size={30} /></span>
+          <span className="text-base" aria-label="Circle User Round">
+            <CircleUserRound size={30} />
+          </span>
         </div>
 
         {/* Title */}
@@ -415,19 +427,27 @@ function AccountCTAModal({
         {/* Features */}
         <ul className="space-y-2.5 mb-5 text-sm text-soft-black">
           <li className="flex items-start gap-2.5">
-            <span className="text-base leading-5"><BookImage size={18} /></span>
+            <span className="text-base leading-5">
+              <BookImage size={18} />
+            </span>
             <span>Your own photo strip gallery</span>
           </li>
           <li className="flex items-start gap-2.5">
-            <span className="text-base leading-5"><Share size={18} /></span>
+            <span className="text-base leading-5">
+              <Share size={18} />
+            </span>
             <span>Shareable scrapbooks for friends &amp; family</span>
           </li>
           <li className="flex items-start gap-2.5">
-            <span className="text-base leading-5"><Trash size={18} /></span>
+            <span className="text-base leading-5">
+              <Trash size={18} />
+            </span>
             <span>Delete unwanted memories anytime</span>
           </li>
           <li className="flex items-start gap-2.5">
-            <span className="text-base leading-5"><HandCoins size={18} /></span>
+            <span className="text-base leading-5">
+              <HandCoins size={18} />
+            </span>
             <span>Completely free — no catches, ever</span>
           </li>
         </ul>
@@ -456,6 +476,7 @@ function AccountCTAModal({
             type="checkbox"
             checked={rememberChoice}
             onChange={(e) => setRememberChoice(e.target.checked)}
+            onClick={() => haptics.trigger(defaultPatterns.soft)}
             className="rounded border-mist-grey text-soft-black focus:ring-soft-black h-3.5 w-3.5"
           />
           <span className="text-xs text-grey">Don&apos;t show this again</span>
@@ -571,7 +592,10 @@ export default function UploadPage() {
     setIsCompressing(true);
     try {
       const compressed = await compressImage(base64Image);
-      if (compressionAbortRef.current === uploadId && compressed !== base64Image) {
+      if (
+        compressionAbortRef.current === uploadId &&
+        compressed !== base64Image
+      ) {
         setOriginalImage(compressed);
       }
     } finally {
@@ -645,10 +669,12 @@ export default function UploadPage() {
         // setTimeout(() => ScrollTrigger.refresh(), 100);
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        setValidationErrors([{
-          user: "Oops, auto-crop failed. You can crop manually instead.",
-          detail,
-        }]);
+        setValidationErrors([
+          {
+            user: "Oops, auto-crop failed. You can crop manually instead.",
+            detail,
+          },
+        ]);
         setAutoCropEnabled(false);
       } finally {
         setIsCropping(false);
@@ -680,10 +706,12 @@ export default function UploadPage() {
         setAutoCropEnabled(false);
       } catch (e) {
         setIsManualCropping(false);
-        setValidationErrors([{
-          user: "Sorry, could not apply the crop. Please try again.",
-          detail: e instanceof Error ? e.message : String(e),
-        }]);
+        setValidationErrors([
+          {
+            user: "Sorry, could not apply the crop. Please try again.",
+            detail: e instanceof Error ? e.message : String(e),
+          },
+        ]);
       }
     } else {
       // If user clicked apply without moving the crop box, or dimensions are 0
@@ -891,6 +919,8 @@ export default function UploadPage() {
         validationResult.error.issues,
         selectedPeriod,
       );
+      const haptics = new WebHaptics();
+      haptics.trigger(defaultPatterns.error);
       setFieldErrors(errors);
       scrollToFirstError(errors);
       return;
@@ -898,7 +928,11 @@ export default function UploadPage() {
 
     // Validate Turnstile CAPTCHA token (skipped in development)
     if (process.env.NODE_ENV !== "development" && !turnstileToken) {
-      setValidationErrors([{ user: "Are you a robot? Please complete the CAPTCHA verification before submitting." }]);
+      setValidationErrors([
+        {
+          user: "Are you a robot? Please complete the CAPTCHA verification before submitting.",
+        },
+      ]);
       return;
     }
 
@@ -986,10 +1020,12 @@ export default function UploadPage() {
       }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setValidationErrors([{
-        user: "Oopsie! Something went wrong while saving your memory. Please try again. If this keeps happening, contact support.",
-        detail,
-      }]);
+      setValidationErrors([
+        {
+          user: "Oopsie! Something went wrong while saving your memory. Please try again. If this keeps happening, contact support.",
+          detail,
+        },
+      ]);
     } finally {
       setIsProcessing(false);
 
@@ -1034,7 +1070,10 @@ export default function UploadPage() {
           scheduledSendTime: scheduledSendTime?.toISOString(),
           customSelectedDate: customSelectedDate?.toISOString(),
           customPeriodRange: customPeriodRange
-            ? { from: customPeriodRange.from.toISOString(), to: customPeriodRange.to.toISOString() }
+            ? {
+                from: customPeriodRange.from.toISOString(),
+                to: customPeriodRange.to.toISOString(),
+              }
             : undefined,
           deliveryMethod,
           deliveryAddress,
@@ -1057,7 +1096,9 @@ export default function UploadPage() {
    * User chose to continue without account.
    * Optionally remembers the choice and proceeds with upload.
    */
-  const handleContinueWithoutAccount = async (rememberChoice: boolean): Promise<void> => {
+  const handleContinueWithoutAccount = async (
+    rememberChoice: boolean,
+  ): Promise<void> => {
     if (rememberChoice) {
       try {
         localStorage.setItem("skipAccountCTA", "true");
@@ -1137,7 +1178,8 @@ export default function UploadPage() {
     // upload/layout.tsx with a nonce, so strict-dynamic propagates trust to
     // all scripts Turnstile loads dynamically.
     // Register the fixed global callback Turnstile will call on load.
-    (window as unknown as Record<string, unknown>).__onTurnstileLoad = renderWidget;
+    (window as unknown as Record<string, unknown>).__onTurnstileLoad =
+      renderWidget;
 
     // If the script already finished loading before this effect ran, render now.
     if (window.turnstile) {
@@ -1163,6 +1205,12 @@ export default function UploadPage() {
 
   // Show success screen if submission was successful
   if (isSuccess) {
+    const haptics = new WebHaptics();
+    haptics.trigger([
+      { duration: 15, intensity: 0.4 },
+      { delay: 65, duration: 60, intensity: 0.62 },
+      { delay: 70, duration: 20, intensity: 1 },
+    ]);
     return (
       <div className="min-h-screen bg-warm-beige flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
@@ -1379,7 +1427,10 @@ export default function UploadPage() {
             {/* CTA Button */}
             <button
               onClick={handleStartProcessing}
-              disabled={isProcessing || (process.env.NODE_ENV !== "development" && !turnstileToken)}
+              disabled={
+                isProcessing ||
+                (process.env.NODE_ENV !== "development" && !turnstileToken)
+              }
               className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isProcessing ? (

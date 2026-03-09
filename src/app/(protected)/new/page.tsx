@@ -15,39 +15,7 @@
 
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { mutate } from "swr";
-import {
-  Brush,
-  CircleAlert,
-  Check,
-  Crop as CropIcon,
-  RotateCcw,
-} from "lucide-react";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import gsap from "gsap";
-import imageCompression from "browser-image-compression";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  PeriodPicker,
-  type PeriodOption,
-} from "../../../components/PeriodPicker";
-import {
-  DeliveryMethodPicker,
-  type DeliveryMethod,
-} from "../../../components/DeliveryMethodPicker";
-import { computeScheduledSendTime } from "../../../lib/delivery-scheduling";
-import {
-  Dropzone,
-  DropzoneContent,
-  DropzoneEmptyState,
-} from "../../../components/ui/shadcn-io/dropzone";
-import { Spinner } from "../../../components/ui/shadcn-io/spinner";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -55,15 +23,55 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@clerk/nextjs";
-import * as z from "zod";
+import imageCompression from "browser-image-compression";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import {
+  Brush,
+  Check,
+  CircleAlert,
+  Crop as CropIcon,
+  RotateCcw,
+} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ReactCrop, {
-  type Crop,
-  type PixelCrop,
   centerCrop,
   makeAspectCrop,
+  type Crop,
+  type PixelCrop,
 } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import { mutate } from "swr";
+import { WebHaptics, defaultPatterns } from "web-haptics";
+import * as z from "zod";
+import {
+  DeliveryMethodPicker,
+  type DeliveryMethod,
+} from "../../../components/DeliveryMethodPicker";
+import {
+  PeriodPicker,
+  type PeriodOption,
+} from "../../../components/PeriodPicker";
+import {
+  Dropzone,
+  DropzoneContent,
+  DropzoneEmptyState,
+} from "../../../components/ui/shadcn-io/dropzone";
+import { Spinner } from "../../../components/ui/shadcn-io/spinner";
+import { computeScheduledSendTime } from "../../../lib/delivery-scheduling";
 
 // =============================================================================
 // Constants
@@ -313,25 +321,30 @@ const AutoCropSwitch = React.memo(
     onToggle: (checked: boolean) => void;
     isProcessing: boolean;
     imageUploaded?: boolean;
-  }) => (
-    <div className="flex items-center gap-3 mt-3">
-      <Switch
-        id="auto-crop"
-        checked={autoCropEnabled}
-        onCheckedChange={onToggle}
-        disabled={isProcessing || !imageUploaded}
-      />
-      <Label
-        htmlFor="auto-crop"
-        className={`flex items-center gap-2 text-sm cursor-pointer ${
-          !imageUploaded ? "text-gray-400" : "text-gray-600"
-        }`}
-      >
-        <Brush className="w-4 h-4" />
-        {isProcessing ? "Processing..." : "Enable auto-crop"}
-      </Label>
-    </div>
-  ),
+  }) => {
+    const haptics = useMemo(() => new WebHaptics(), []);
+
+    return (
+      <div className="flex items-center gap-3 mt-3">
+        <Switch
+          onClick={() => haptics.trigger(defaultPatterns.selection)}
+          id="auto-crop"
+          checked={autoCropEnabled}
+          onCheckedChange={onToggle}
+          disabled={isProcessing || !imageUploaded}
+        />
+        <Label
+          htmlFor="auto-crop"
+          className={`flex items-center gap-2 text-sm cursor-pointer ${
+            !imageUploaded ? "text-gray-400" : "text-gray-600"
+          }`}
+        >
+          <Brush className="w-4 h-4" />
+          {isProcessing ? "Processing..." : "Enable auto-crop"}
+        </Label>
+      </div>
+    );
+  },
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
 
@@ -364,8 +377,12 @@ function NewMemoryPageContent() {
   >();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("email");
   const [prefillKey, setPrefillKey] = useState(0);
-  const [prefillPeriodDate, setPrefillPeriodDate] = useState<Date | undefined>();
-  const [prefillPeriodRange, setPrefillPeriodRange] = useState<{ from: Date; to: Date } | undefined>();
+  const [prefillPeriodDate, setPrefillPeriodDate] = useState<
+    Date | undefined
+  >();
+  const [prefillPeriodRange, setPrefillPeriodRange] = useState<
+    { from: Date; to: Date } | undefined
+  >();
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [isPrefilling, setIsPrefilling] = useState(false);
 
@@ -375,7 +392,10 @@ function NewMemoryPageContent() {
   const [telegramBotLink, setTelegramBotLink] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<z.ZodIssue[]>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [submitError, setSubmitError] = useState<{ user: string; detail?: string } | null>(null);
+  const [submitError, setSubmitError] = useState<{
+    user: string;
+    detail?: string;
+  } | null>(null);
 
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -548,9 +568,15 @@ function NewMemoryPageContent() {
             setScheduledSendTime(new Date(data.scheduledSendTime));
           }
           // Restore calendar display state for custom date / custom period
-          if (data.selectedPeriod === "custom date" && data.customSelectedDate) {
+          if (
+            data.selectedPeriod === "custom date" &&
+            data.customSelectedDate
+          ) {
             setPrefillPeriodDate(new Date(data.customSelectedDate));
-          } else if (data.selectedPeriod === "custom period" && data.customPeriodRange) {
+          } else if (
+            data.selectedPeriod === "custom period" &&
+            data.customPeriodRange
+          ) {
             setPrefillPeriodRange({
               from: new Date(data.customPeriodRange.from),
               to: new Date(data.customPeriodRange.to),
@@ -573,7 +599,7 @@ function NewMemoryPageContent() {
     })();
 
     return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =========================================================================
@@ -621,7 +647,9 @@ function NewMemoryPageContent() {
 
     // Guard: Ensure user is authenticated
     if (!user || !user.primaryEmailAddress?.emailAddress) {
-      setSubmitError({ user: "Your session has expired :/ Please sign in again." });
+      setSubmitError({
+        user: "Your session has expired :/ Please sign in again.",
+      });
       router.push("/sign-in");
       return;
     }
@@ -637,7 +665,10 @@ function NewMemoryPageContent() {
       deliveryMethod,
     });
 
+    const haptics = new WebHaptics();
+
     if (!validation.success) {
+      haptics.trigger(defaultPatterns.error);
       setValidationErrors(validation.error.issues);
       setFieldErrors(mapValidationErrors(validation.error.issues));
       return;
@@ -704,6 +735,12 @@ function NewMemoryPageContent() {
   // =========================================================================
 
   if (isSuccess) {
+    const haptics = new WebHaptics();
+    haptics.trigger([
+      { duration: 15, intensity: 0.4 },
+      { delay: 65, duration: 60, intensity: 0.62 },
+      { delay: 70, duration: 20, intensity: 1 },
+    ]);
     return (
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="max-w-md w-full text-center">
@@ -1062,7 +1099,9 @@ function NewMemoryPageContent() {
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1">
               <p className="text-sm text-red-700">{submitError.user}</p>
               {submitError.detail && (
-                <p className="font-mono text-xs text-red-400 break-all">Error: {submitError.detail}</p>
+                <p className="font-mono text-xs text-red-400 break-all">
+                  Error: {submitError.detail}
+                </p>
               )}
             </div>
           )}
