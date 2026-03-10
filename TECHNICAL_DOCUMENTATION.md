@@ -2,7 +2,7 @@
   <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
   <h1>ReStrip Technical Documentation</h1>
   <p><em>Photo strips that come back to you.</em></p>
-  <p><em>Last updated: 31 Jan 2026</em></p>
+  <p><em>Last updated: 10 Mar 2026</em></p>
 </div>
 
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
@@ -132,7 +132,7 @@ Apply migrations from `supabase/migrations/` in order in your Supabase SQL Edito
 11. **011_clerk_migration.sql** - Clerk authentication migration (core tables and policies)
 12. **012_ensure_encryption_columns.sql** - Ensure encryption columns exist
 13. **013_telegram_link_token.sql** - Telegram link token support
-14. **014_canvas_books.sql** - Scrapbook tables (canvas_books, canvas_pages)
+14. **014_canvas_books.sql** - Scrapbook tables (initial creation as canvas_books/canvas_pages)
 15. **015_rename_to_scrapbook.sql** - Rename canvas to scrapbook
 
 **Note:** Migration 011 creates all core tables needed for the current system. Migrations 001-009 are legacy migrations for the old passkey authentication system and are not needed.
@@ -145,7 +145,7 @@ After running migrations, verify with:
 -- Check tables exist
 SELECT table_name FROM information_schema.tables 
 WHERE table_schema = 'public' 
-AND table_name IN ('snaps', 'canvas_books', 'canvas_pages');
+AND table_name IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 
 -- Check snaps table structure
 SELECT column_name, data_type 
@@ -155,7 +155,7 @@ WHERE table_name = 'snaps';
 -- Verify RLS is enabled
 SELECT schemaname, tablename, rowsecurity 
 FROM pg_tables 
-WHERE tablename IN ('snaps', 'canvas_books', 'canvas_pages');
+WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 ```
 
 #### 5. Run Development Server
@@ -364,39 +364,33 @@ sequenceDiagram
 
 Route groups use parentheses `()` to organize files without affecting URLs.
 
-Current version without authentication
 ```
 app/
-  upload/
+  upload/                     # Public upload flow (no auth required)
     page.tsx        → URL: /upload
+    layout.tsx      → Upload-specific layout
+  (protected)/                # Auth required (Clerk middleware)
+    gallery/
+      page.tsx        → URL: /gallery
+    new/
+      page.tsx        → URL: /new
+    scrapbook/
+      page.tsx        → URL: /scrapbook
+      [bookId]/
+        page.tsx      → URL: /scrapbook/[bookId]
+    layout.tsx        → Protected layout with Clerk auth
   (misc)/
     contact/
       page.tsx        → URL: /contact
     privacy-policy/
       page.tsx        → URL: /privacy-policy
-  page.tsx        → URL: / (but auto redirects to /upload)
-```
-
-Version with authentication
-```
-app/
-  (auth)/
-    reset-password/
-      page.tsx        → URL: /reset-password
-    page.tsx          → URL: /
-  (protected)/
-    memory/
-      [id]/
-        auth/
-          page.tsx    → URL: /memory/[id]/auth
-      page.tsx        → URL: /memory
-    upload/
-      page.tsx        → URL: /upload
-  (misc)/
-    contact/
-      page.tsx        → URL: /contact
-    privacy-policy/
-      page.tsx        → URL: /privacy-policy
+  sign-in/
+    [[...sign-in]]/
+      page.tsx        → URL: /sign-in
+  sign-up/
+    [[...sign-up]]/
+      page.tsx        → URL: /sign-up
+  page.tsx              → URL: / (landing page)
 ```
 
 **Benefits:**
@@ -407,32 +401,13 @@ app/
 
 #### Key Pages
 
-**1. Authentication Page** (`src/app/(auth)/page.tsx`)
+**1. Landing Page** (`src/app/page.tsx`)
 
-Landing page with sign-in/sign-up functionality.
+Landing page with product information and call-to-action.
 
-**Features:**
+**2. Upload Page** (`src/app/upload/page.tsx`)
 
-- Passkey authentication (primary)
-- Email/password authentication (fallback)
-- Tab switcher based on passkey support
-- Email verification handling
-- Auto-redirect when authenticated
-
-**Key Logic:**
-
-```typescript
-// Redirect if authenticated
-useEffect(() => {
-  if (user && hasEncryptionKey) {
-    router.push("/upload");
-  }
-}, [user, hasEncryptionKey, router]);
-```
-
-**2. Upload Page** (`src/app/(protected)/upload/page.tsx`)
-
-Main application page with 4-step flow:
+Main application page with multi-step flow (public, no auth required):
 
 1. Upload photo strip
 2. Write caption
@@ -470,86 +445,29 @@ const SnapSchema = z
   });
 ```
 
-**3. Memory Viewing Pages** (`src/app/(protected)/memory/[id]/page.tsx`)
+**3. Gallery Page** (`src/app/(protected)/gallery/page.tsx`)
 
-Secure page for viewing delivered memories with client-side decryption.
+Browse and view all delivered memories with smart caching.
 
 **Features:**
 
-- Fetch encrypted snap metadata from server
-- Download encrypted image from Supabase Storage
-- Decrypt image and caption using master encryption key
-- Display decrypted memory with metadata
-- Handle authentication requirement for decryption
+- Paginated gallery with masonry layout
+- Server-side decryption of captions and images
+- Client-side caching via IndexedDB
+- Responsive grid layout
 
-**Key Logic:**
+**4. Scrapbook Editor** (`src/app/(protected)/scrapbook/[bookId]/page.tsx`)
 
-```typescript
-// Fetch snap metadata
-const { data: snapData } = await supabase
-  .from("snaps")
-  .select("*")
-  .eq("id", snapId)
-  .single();
+Digital photo album editor with drag-and-drop layouts.
 
-// Download encrypted image
-const { data: imageBlob } = await supabase.storage
-  .from("encrypted-images")
-  .download(snapData.storage_path);
+**Features:**
 
-// Decrypt image
-const encryptionKey = await getEncryptionKey();
-const decryptedImageBlob = await decryptImage(
-  imageBlob,
-  snapData.image_iv,
-  encryptionKey
-);
-
-// Decrypt caption
-const decryptedCaption = await decryptDataAsString(
-  snapData.encrypted_caption,
-  snapData.caption_iv,
-  encryptionKey
-);
-```
-
-**4. Re-authentication Page** (`src/app/(protected)/memory/[id]/auth/page.tsx`)
-
-Handles re-authentication when encryption key expires or is missing.
-
-- Redirects to memory page after successful authentication
-- Ensures encryption key is derived and available
-- Seamless UX for accessing delivered memories
+- Canvas-based editor (Fabric.js)
+- Drag-and-drop images, text, and stickers
+- Multiple pages per scrapbook
+- Encrypted storage of scrapbook data
 
 ### Key Components
-
-#### Auth Components
-
-**PasskeyAuth.tsx**
-
-Handles WebAuthn passkey registration and authentication.
-
-**Flow:**
-
-1. Check if email exists → Register or Login
-2. If registering, send email verification first
-3. User verifies email via link
-4. Get WebAuthn options from server
-5. Call browser WebAuthn API
-6. Verify with server
-7. Derive encryption key from PRF output
-8. Store key in sessionStorage
-
-**EmailPasswordAuth.tsx**
-
-Traditional email/password authentication.
-
-**Features:**
-
-- Sign up with email verification
-- Sign in with password
-- Password reset flow
-- Encryption key derivation from password using PBKDF2
 
 #### UI Components
 
@@ -602,99 +520,12 @@ Custom components in `src/components/ui/shadcn-io/`:
 
 ### Hooks
 
-#### useAuth Hook
+The application uses Clerk's built-in hooks for authentication state management:
 
-Centralized authentication state management.
+- `useUser()` from `@clerk/nextjs` — Current user info
+- `useAuth()` from `@clerk/nextjs` — Auth state and sign out
 
-**Provides:**
-
-```typescript
-const {
-  user, // Current user or null
-  session, // Supabase session
-  authMethod, // 'passkey' | 'password' | null
-  isLoading, // Auth check in progress
-  hasEncryptionKey, // Encryption key available
-  signOut, // Sign out function
-  setEncryptionKeyFromPRF, // Set key from passkey
-  setEncryptionKeyFromPassword, // Set key from password
-} = useAuth();
-```
-
-**Implementation:**
-
-```typescript
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
-
-  useEffect(() => {
-    // Get initial session
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        // Check for encryption key
-        const key = await getEncryptionKey();
-        if (key) setEncryptionKeySet(true);
-      }
-      setIsLoading(false);
-    };
-
-    initAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session) {
-          setUser(session.user);
-        } else {
-          setUser(null);
-          clearEncryptionKey();
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{/* ... */}}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-```
-
-#### usePasskeySupport Hook
-
-Detects if browser/device supports passkeys.
-
-```typescript
-export function usePasskeySupport() {
-  const [passkeySupported, setPasskeySupported] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const checkSupport = async () => {
-      if (!window.PublicKeyCredential) {
-        setPasskeySupported(false);
-        return;
-      }
-
-      const available =
-        await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      setPasskeySupported(available);
-      setIsLoading(false);
-    };
-
-    checkSupport();
-  }, []);
-
-  return { passkeySupported, isLoading };
-}
-```
+No custom hooks directory exists — authentication state is managed entirely by Clerk.
 
 ---
 
@@ -724,9 +555,11 @@ export async function POST(request: NextRequest) {
 
 ### Key API Routes
 
+**Note:** All passkey authentication endpoints (`/api/auth/passkey/*`) have been removed. Authentication is now handled entirely by Clerk.
+
 #### `/api/crop-image`
 
-**Purpose**: Proxy image to RunPod for AI cropping
+**Purpose**: Proxy image to RunPod or local FastAPI for AI cropping
 
 **Why a proxy?**
 
@@ -768,77 +601,55 @@ export async function POST(request: NextRequest) {
 }
 ```
 
-#### `/api/auth/passkey/register-options`
-
-Generate WebAuthn registration options.
-
-**Request:**
-
-```json
-{ "email": "user@example.com" }
-```
-
-**Response:**
-
-```json
-{
-  "options": {
-    "challenge": "...",
-    "rp": { "name": "ReStrip", "id": "localhost" },
-    "user": { "id": "...", "name": "...", "displayName": "..." },
-    "extensions": { "prf": {} }
-  },
-  "salt": "base64-salt"
-}
-```
-
-#### `/api/auth/passkey/register-verify`
-
-Verify WebAuthn registration response.
-
-**Process:**
-
-1. Verify WebAuthn response
-2. Create/sign in user with Supabase
-3. Store credential in database
-4. Return success
-
-#### `/api/auth/passkey/login-options`
-
-Generate WebAuthn authentication options.
-
-#### `/api/auth/passkey/login-verify`
-
-Verify WebAuthn authentication response.
-
 ### Middleware
 
-**Purpose**: Protect routes and manage sessions
+**Purpose**: Protect routes, manage sessions, and enforce Content Security Policy
 
-**File**: `middleware.ts`
+**File**: `src/proxy.ts`
 
 ```typescript
-export async function middleware(request: NextRequest) {
-  // Create Supabase client with cookie handling
-  const supabase = createServerClient(/* ... */);
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-  // Get session
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+const isProtectedRoute = createRouteMatcher([
+  "/gallery(.*)",
+  "/new(.*)",
+  "/scrapbook(.*)",
+]);
 
-  // Protect /upload route
-  if (request.nextUrl.pathname.startsWith("/upload")) {
-    if (!session) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+export default clerkMiddleware(async (auth, request: NextRequest) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
   }
 
+  // Generate fresh nonce for CSP
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+
+  // Set CSP header with nonce + strict-dynamic
+  const cspHeader = [
+    `default-src 'self'`,
+    `script-src 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`,
+    `style-src 'self' 'unsafe-inline'`,
+    `img-src 'self' data: blob: https:`,
+    `connect-src 'self' https://*.supabase.co https://*.clerk.accounts.dev`,
+    `frame-src 'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
+    `frame-ancestors 'none'`,
+  ].join("; ");
+
+  const response = NextResponse.next({
+    headers: { "x-nonce": nonce },
+  });
+  response.headers.set("Content-Security-Policy", cspHeader);
+
   return response;
-}
+});
 
 export const config = {
-  matcher: ["/", "/upload/:path*"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };
 ```
 
@@ -893,21 +704,24 @@ ReStrip uses **Clerk** for authentication, providing a modern OAuth-based authen
 ```typescript
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/api/upload(.*)",
+const isProtectedRoute = createRouteMatcher([
+  "/gallery(.*)",
+  "/new(.*)",
+  "/scrapbook(.*)",
 ]);
 
-export default clerkMiddleware((auth, request) => {
-  if (!isPublicRoute(request)) {
-    auth().protect();
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) {
+    await auth.protect();
   }
+  // Also generates CSP nonce per request (see Security section)
 });
 
 export const config = {
-  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
 };
 ```
 
@@ -1134,31 +948,45 @@ The codebase has migrated from client-side zero-knowledge encryption to server-s
 
 Run the current migrations in order in your Supabase SQL Editor:
 
+> [!CAUTION]
+> If you have existing data in database, make sure to do the following steps before running migration 020 and 021
+> 1. Run migration 020
+> 2. Run ```NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts``` in terminal
+> 3. Run ```SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';``` & ```SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';``` in supabase sql editor (make sure output is 0 for both)
+> 4. Run migration 021
+
+
 | Step | Migration File | Purpose |
 |------|----------------|---------|
-| 1 | `010_gallery_rls_indexes.sql` | Adds Gallery RLS policies and performance indexes |
-| 2 | `011_clerk_migration.sql` | Migrates to Clerk authentication (creates core tables, removes passkey tables) |
-| 3 | `012_ensure_encryption_columns.sql` | Ensures encryption columns exist |
-| 4 | `013_telegram_link_token.sql` | Adds Telegram link token support |
-| 5 | `014_canvas_books.sql` | Creates scrapbook tables (canvas_books, canvas_pages) |
-| 6 | `015_rename_to_scrapbook.sql` | Renames canvas references to scrapbook |
-| 7 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
-
-**Note:** Migration numbering starts at 010 because migrations 001-009 were for the legacy passkey authentication system and are no longer needed. New installations only need to run migrations 010-015.
-
-**⚠️ Important:** Do not run legacy migrations (001-009) on new installations as they create incompatible table structures. If you have an existing database with legacy migrations, contact the team for migration guidance.
-
-- **Migration 010**: Sets up gallery-specific RLS policies and indexes (required for gallery feature)
-- **Migration 011**: Creates all core tables (snaps, storage buckets, RLS policies) for the Clerk-based system
-- **Migrations 012-015**: Add additional features (Telegram linking, Scrapbook)
-
-**All migrations 010-015 must be run in order for full functionality.**
+| 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
+| 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
+| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
+| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
+| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
+| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
+| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
+| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
+| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
+| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery rls indexes |
+| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
+| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
+| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
+| 14 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables (initial) |
+| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
+| 16 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
+| 17 | `supabase/migrations/017_resend_schedule_tracking.sql` | Resend Schedule Metadata on Snaps |
+| 18 | `supabase/migrations/018_testing_workflow.sql` | Test GitHub Actions |
+| 19 | `supabase/migrations/019_pending_uploads.sql` | Pending Uploads for Sign-Up Flow |
+| 20 | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
+| 21 | `supabase/migrations/21_scrapbook_drop_plaintext.sql` | Drop Plaintext Title and Elements Column |
 
 **Tables Created:**
 
 - `snaps` - User's encrypted memories with delivery metadata
-- `canvas_books` - Scrapbook albums
-- `canvas_pages` - Scrapbook pages with JSONB elements
+- `scrapbook_books` - Scrapbooks with encrypted metadata
+- `scrapbook_pages` - Scrapbook pages with encrypted elements
+- `pending_uploads` - Temporary storage of memory metadata when user transfers from anonymous quick send to account-based memory delivery
+- `upload_nonces` - Nonce table for upload verification (to facilitate turnstile)
 
 **Storage Bucket:**
 
@@ -1201,36 +1029,38 @@ Key changes from legacy schema:
 - Added `telegram_link_token` for Telegram account linking
 - Simplified RLS (service role handles all, API validates auth)
 
-**canvas_books table:**
+**scrapbook_books table:**
 
 ```sql
-CREATE TABLE public.canvas_books (
+CREATE TABLE public.scrapbook_books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    cover_color TEXT NOT NULL,  -- One of 10 preset colors
+    encrypted_title TEXT NOT NULL,    -- AES-256-GCM encrypted title
+    title_iv TEXT NOT NULL,           -- IV for title decryption
+    cover_color TEXT NOT NULL,        -- One of 10 preset colors
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-Stores scrapbook albums. Each user can have multiple books.
+Stores scrapbook albums. Each user can have multiple books. Titles are encrypted server-side.
 
-**canvas_pages table:**
+**scrapbook_pages table:**
 
 ```sql
-CREATE TABLE public.canvas_pages (
+CREATE TABLE public.scrapbook_pages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    book_id UUID NOT NULL REFERENCES public.canvas_books(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL REFERENCES public.scrapbook_books(id) ON DELETE CASCADE,
     page_number INTEGER NOT NULL,
-    elements JSONB NOT NULL DEFAULT '[]'::jsonb,
+    encrypted_elements TEXT NOT NULL,  -- AES-256-GCM encrypted JSONB
+    elements_iv TEXT NOT NULL,         -- IV for elements decryption
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT unique_page_number UNIQUE (book_id, page_number)
 );
 ```
 
-Stores individual pages in scrapbooks. `elements` is a JSONB array containing:
+Stores individual pages in scrapbooks. `encrypted_elements` contains an AES-256-GCM encrypted JSON array of:
 - Image elements (with position, size, rotation)
 - Text elements (with content, styling, position)
 - Sticker elements (with type, position, size)
@@ -1471,35 +1301,26 @@ RUNPOD_ENDPOINT_ID=
 
 Then modify the crop-image API route to call a local Python server or skip AI cropping during development.
 
-**Option B: Run a Local Flask Server**
+**Option B: Run the Local FastAPI Server**
 
-Create a simple Flask wrapper for the handler:
+The project includes a ready-made FastAPI server for local development:
 
-```python
-# runpod/local_server.py
-from flask import Flask, request, jsonify
-from handler import handler
-
-app = Flask(__name__)
-
-@app.route('/runsync', methods=['POST'])
-def process():
-    data = request.json
-    result = handler(data)
-    return jsonify({'output': result})
-
-if __name__ == '__main__':
-    app.run(port=8000, debug=True)
-```
-
-Run the server:
+**File**: `runpod/server.py`
 
 ```bash
-pip install flask
-python local_server.py
+cd runpod
+pip install -r requirements.txt
+python server.py
 ```
 
-**Note:** The local Flask server approach requires modifying the `/api/crop-image/route.ts` to detect and handle local development mode. This is an advanced configuration that may not be necessary for most development workflows. For simpler testing, use the direct Python test approach described above.
+This starts a FastAPI server on `http://localhost:8000` that mimics the RunPod API.
+
+Configure your `.env.local` to use it:
+
+```env
+CROP_BACKEND=local
+LOCAL_CROP_URL=http://localhost:8000/crop
+```
 
 #### Troubleshooting Local RunPod
 
@@ -1532,8 +1353,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy model weights
 COPY runpod/runs/segment/train/weights/best.pt /app/runs/segment/train/weights/best.pt
 
-# Copy handler
+# Copy handler and metrics scripts
 COPY runpod/handler.py .
+COPY runpod/metrics.py .
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+
+# Run as non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 CMD ["python", "-u", "handler.py"]
 ```
@@ -1698,9 +1528,7 @@ supabase functions deploy telegram-bot
 
 ### Server-Side Encryption Key
 
-For the delivery system to work, you need a server-side encryption key that can decrypt user memories. This is the `ENCRYPTION_SECRET` environment variable.
-
-**⚠️ Security Note:** This breaks the "zero-knowledge" property for delivery. The server needs to decrypt images to send them. If you require true zero-knowledge, consider alternative delivery methods where the client decrypts.
+For the delivery system to work, the server needs the `ENCRYPTION_SECRET` environment variable to decrypt user memories before sending them.
 
 **Generating the Key:**
 
@@ -1773,8 +1601,12 @@ Authentication is handled by **Clerk** - no custom authentication endpoints need
 | `/api/upload`         | POST   | Upload image (anonymous)           |
 | `/api/upload/authenticated` | POST | Upload image (authenticated, triggers immediate email) |
 | `/api/snaps/[id]`     | GET    | Get specific memory metadata       |
+| `/api/snaps/[id]`     | PATCH  | Update memory                      |
 | `/api/snaps/[id]`     | DELETE | Delete memory                      |
 | `/api/send-memory`    | POST   | Manual email delivery/retry        |
+| `/api/pending-upload` | POST   | Track pending uploads for sign-up flow |
+| `/api/resend/webhook` | POST   | Resend email delivery webhook      |
+| `/api/stats`          | GET    | Usage statistics                   |
 
 **Send Memory Endpoint:**
 
@@ -2038,11 +1870,12 @@ export function setCachedData(key: string, data: any) {
 
 ```typescript
 colors: {
-  'blush-pink': '#FFC9D1',
+  'blush-pink': { DEFAULT: '#FFC9D1', hover: '#FFB3BD' },
   'soft-black': '#1C1C1C',
   'warm-beige': '#F3E8D8',
   'grey': '#6B6B6B',
   'pastel-blue': '#CFE7FF',
+  'mist-grey': '#EBEBEB',
   'yellow-cream': '#FFF2C9',
 }
 ```
@@ -2053,6 +1886,7 @@ colors: {
 fontFamily: {
   display: ['var(--font-display)', 'serif'],  // Playfair Display
   body: ['var(--font-body)', 'sans-serif'],    // Inter
+  caption: ['var(--font-caption)', 'cursive'], // Caveat
 }
 ```
 
@@ -2060,8 +1894,8 @@ fontFamily: {
 
 ```typescript
 boxShadow: {
-  card: '0 2px 8px rgba(0, 0, 0, 0.08)',
-  'card-hover': '0 4px 12px rgba(0, 0, 0, 0.12)',
+  card: '0 1px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
+  'card-hover': '0 3px 8px rgba(0, 0, 0, 0.09), 0 1px 3px rgba(0, 0, 0, 0.05)',
 }
 ```
 
@@ -2285,32 +2119,22 @@ if (await isRateLimited(request)) {
 
 ### Content Security Policy
 
-**File**: `next.config.ts`
+**File**: `src/proxy.ts` (dynamic, per-request nonce)
+
+CSP is enforced via nonce-based policy generated in the Clerk middleware (`proxy.ts`), not as a static header in `next.config.ts`. This allows `'strict-dynamic'` script trust propagation.
+
+Non-CSP security headers are set statically in `next.config.ts`:
 
 ```typescript
 async headers() {
   return [{
     source: '/:path*',
     headers: [
-      {
-        key: 'Content-Security-Policy',
-        value: [
-          "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' https://cdn.userjot.com",
-          "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob: https:",
-          "connect-src 'self' https://*.supabase.co",
-          "frame-ancestors 'none'",
-        ].join('; '),
-      },
-      {
-        key: 'X-Frame-Options',
-        value: 'DENY',
-      },
-      {
-        key: 'X-Content-Type-Options',
-        value: 'nosniff',
-      },
+      { key: 'X-Frame-Options', value: 'DENY' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
     ],
   }];
 }
@@ -2324,29 +2148,21 @@ async headers() {
 
 #### Authentication Issues
 
-**Issue**: "useAuth must be used within an AuthProvider"
-
-**Solution:**
-
-- Ensure `Providers.tsx` wraps app in root layout
-- Check `AuthProvider` is exported correctly
-
-**Issue**: Passkey registration fails
+**Issue**: Clerk authentication not working
 
 **Solutions:**
 
-- Check `NEXT_PUBLIC_RP_ID` matches domain
-- For localhost: use `localhost` (no port)
-- For production: use domain without https://
-- Ensure browser supports WebAuthn
+- Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are set in `.env.local`
+- Ensure Clerk application has correct redirect URLs configured
+- Check that OAuth providers (Google, etc.) are enabled in Clerk dashboard
 
-**Issue**: Email verification not working
+**Issue**: Protected routes accessible without auth
 
 **Solutions:**
 
-- Check Supabase email settings
-- Verify Site URL in Supabase dashboard
-- Check Redirect URLs include your domain
+- Verify `src/proxy.ts` middleware is properly configured
+- Check that the route is listed in `isProtectedRoute` matcher
+- Ensure middleware matcher pattern includes the route
 
 #### Build Issues
 
@@ -2370,21 +2186,13 @@ npm install
 
 #### Encryption Issues
 
-**Issue**: Encryption key not persisting
+**Issue**: Server encryption not working
 
 **Solutions:**
 
-- Check browser not in private/incognito mode
-- Verify sessionStorage is enabled
-- Check for console errors
-
-**Issue**: "Encryption key expired"
-
-**Solution:**
-
-- This is by design (10-minute timeout)
-- User must re-authenticate
-- Consider account linking for easier re-auth
+- Verify `ENCRYPTION_SECRET` is set in `.env.local`
+- Check the key was generated with `openssl rand -base64 32`
+- Ensure the key is the same across all environments that need to decrypt data
 
 #### Image Processing Issues
 
@@ -2413,56 +2221,27 @@ npm install
 
 #### Memory Viewing Issues
 
-**Issue**: Cannot decrypt memory - "Encryption key expired"
+**Issue**: Cannot view memory in gallery
 
 **Solutions:**
 
-- Re-authenticate using ANY of your registered authentication methods (passkey or password)
-- With key wrapping, you can access data via either method if you've linked accounts
-- If you lose ALL authentication methods, data cannot be recovered (by design)
-- Account linking provides redundancy for data access
+- Verify you're logged in with the correct Clerk account
+- Check the memory ID is valid
+- Ensure the snap belongs to your user account
 
-**Issue**: Memory page shows "Not found" or 404
-
-**Causes:**
-
-- Memory belongs to different user
-- Memory ID is invalid
-- Row Level Security blocking access
-
-**Solutions:**
-
-- Verify you're logged in with the correct account
-- Check memory ID in URL is correct
-- Verify snap exists in database
-
-**Issue**: Image won't decrypt or shows corrupted data
+**Issue**: Image won't load or shows corrupted data
 
 **Causes:**
 
-- Wrong encryption key being used
+- Wrong encryption key being used (different `ENCRYPTION_SECRET`)
 - IV (initialization vector) mismatch
 - Corrupted storage data
 
 **Solutions:**
 
-- Ensure you're using the same authentication method
+- Ensure `ENCRYPTION_SECRET` is the same key used to encrypt the data
 - Check `image_iv` matches the encrypted image
-- Verify storage path in database matches actual file
-
-**Issue**: "Failed to fetch wrapped key"
-
-**Causes:**
-
-- Credential ID not found in database
-- Network error
-- Database connection issue
-
-**Solutions:**
-
-- Re-authenticate to refresh credential
-- Check network connectivity
-- Verify `passkey_credentials` table has entries
+- Verify storage path in database matches actual file in Supabase Storage
 
 ### Debugging Tips
 
@@ -2479,8 +2258,8 @@ npm install
 **2. Enable Verbose Logging:**
 
 ```typescript
-// In useAuth
-console.log("Auth state:", { user, hasEncryptionKey });
+// In components
+console.log("Auth state:", { isSignedIn, user });
 
 // In API routes
 console.log("Request body:", body);
@@ -2489,8 +2268,8 @@ console.log("Response:", data);
 
 **3. Test in Different Browsers:**
 
-- Chrome (best WebAuthn support)
-- Safari (iOS/macOS passkeys)
+- Chrome
+- Safari (iOS/macOS)
 - Firefox (latest version)
 
 **4. Check Network Tab:**
