@@ -3,13 +3,8 @@
 import { useEffect } from "react";
 import { Mail, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import Link from "next/link";
-import { loadUserJot } from "../../../lib/userjot";
 
 export default function ContactPage() {
-  useEffect(() => {
-    return loadUserJot("cmik6o1zx04nt15mqotv6d58d");
-  }, []);
-
   const socials = [
     {
       icon: Mail,

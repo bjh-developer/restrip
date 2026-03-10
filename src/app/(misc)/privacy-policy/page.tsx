@@ -2,13 +2,8 @@
 import { useEffect } from "react";
 import { Shield, Eye, Lock } from "lucide-react";
 import Link from "next/link";
-import { loadUserJot } from "../../../lib/userjot";
 
 export default function PrivacyPage() {
-  useEffect(() => {
-    return loadUserJot("cmik6o1zx04nt15mqotv6d58d");
-  }, []);
-
   const principles = [
     {
       icon: Eye,
