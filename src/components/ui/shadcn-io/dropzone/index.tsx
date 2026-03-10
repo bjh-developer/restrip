@@ -81,20 +81,17 @@ export const Dropzone = ({
       key={JSON.stringify(src)}
       value={{ src, accept, maxSize, minSize, maxFiles }}
     >
-      <Button
+      <div
         className={cn(
-          "relative h-auto w-full flex-col overflow-hidden p-8",
+          "relative h-auto w-full flex-col overflow-hidden p-8 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
           isDragActive && "outline-none ring-1 ring-ring",
           className,
         )}
-        disabled={disabled}
-        type="button"
-        variant="outline"
         {...getRootProps()}
       >
-        <input {...getInputProps()} disabled={disabled} />
+        <input {...getInputProps()} disabled={disabled} aria-label="Upload photo strip image" />
         {children}
-      </Button>
+      </div>
     </DropzoneContext.Provider>
   );
 };

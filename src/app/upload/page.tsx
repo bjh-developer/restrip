@@ -1271,7 +1271,7 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-warm-beige">
+    <main className="min-h-screen bg-warm-beige">
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
         {/* Back Button */}
@@ -1296,9 +1296,9 @@ export default function UploadPage() {
           <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
             {/* Upload Area */}
             <div>
-              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
+            <h2 className="font-display text-xl font-bold text-soft-black mb-2">
                 1. take photo/upload your photo strip
-              </h3>
+              </h2>
             </div>
             <div className="flex gap-4 justify-center" ref={imageRef}>
               <UploadImage
@@ -1335,12 +1335,13 @@ export default function UploadPage() {
 
             {/* Journal Caption */}
             <div className="mt-10">
-              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
+              <h2 className="font-display text-xl font-bold text-soft-black mb-2">
                 2. write a caption
-              </h3>
+              </h2>
             </div>
             <div className="flex gap-4 justify-center" ref={captionRef}>
               <Textarea
+                aria-label="Write a caption for your memory"
                 placeholder="Write a message to your future self..."
                 value={caption}
                 onChange={(e) => {
@@ -1366,9 +1367,9 @@ export default function UploadPage() {
 
             {/* Period Picker */}
             <div className="mt-10">
-              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
+              <h2 className="font-display text-xl font-bold text-soft-black mb-2">
                 3. deliver random email in/on
-              </h3>
+              </h2>
             </div>
             <div className="flex gap-4 justify-center" ref={periodRef}>
               <PeriodPicker onSelect={handlePeriodSelect} />
@@ -1381,9 +1382,9 @@ export default function UploadPage() {
 
             {/* Delivery Method */}
             <div className="mt-10">
-              <h3 className="font-display text-xl font-bold text-soft-black mb-2">
+              <h2 className="font-display text-xl font-bold text-soft-black mb-2">
                 4. where to send your memory
-              </h3>
+              </h2>
             </div>
             <div className="flex gap-4 justify-center" ref={deliveryRef}>
               <DeliveryMethodPicker
@@ -1429,21 +1430,21 @@ export default function UploadPage() {
                 isProcessing ||
                 (process.env.NODE_ENV !== "development" && !turnstileToken)
               }
-              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full mt-8 bg-blush-pink text-soft-black rounded-md min-h-button font-body font-semibold hover:bg-yellow-cream transition-all active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 md:gap-2 px-4 py-3"
             >
               {isProcessing ? (
                 <>
                   <Spinner
                     variant="pinwheel"
-                    size={16}
-                    className="text-warm-beige"
+                    size={14}
+                    className="text-soft-black flex-shrink-0"
                   />
-                  One day, you&apos;ll open this and smile...
+                  <span className="text-xs md:text-base whitespace-nowrap">One day, you&apos;ll open this and smile...</span>
                 </>
               ) : !turnstileToken && process.env.NODE_ENV !== "development" ? (
-                "Completing CAPTCHA..."
+                <span className="text-sm md:text-base">Completing CAPTCHA...</span>
               ) : (
-                "Deliver to the Future!"
+                <span className="text-sm md:text-base">Deliver to the Future!</span>
               )}
             </button>
           </div>
@@ -1587,6 +1588,6 @@ export default function UploadPage() {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
