@@ -28,7 +28,7 @@ const supabaseAdmin = createClient(
 // Better Stack status helper
 // Maps monitor statuses → a single display status
 // -----------------------------------------------------------------------------
-type DisplayStatus = "online" | "offline" | "maintenance" | "degraded";
+type DisplayStatus = "online" | "offline" | "maintenance" | "degraded" | "error";
 
 async function getBetterStackStatus(): Promise<DisplayStatus> {
   const token = process.env.BETTERSTACK_API_TOKEN;
@@ -47,10 +47,11 @@ async function getBetterStackStatus(): Promise<DisplayStatus> {
 
   const statuses = json.data.map((m) => m.attributes.status);
 
+  if (statuses.some((s) => s === "up")) return "online";
   if (statuses.some((s) => s === "down")) return "offline";
   if (statuses.some((s) => s === "maintenance")) return "maintenance";
   if (statuses.some((s) => s === "validating" || s === "pending")) return "degraded";
-  return "online";
+  return "error";
 }
 
 // -----------------------------------------------------------------------------
