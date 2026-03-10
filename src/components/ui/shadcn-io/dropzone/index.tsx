@@ -86,9 +86,9 @@ export const Dropzone = ({
           isDragActive && "outline-none ring-1 ring-ring",
           className,
         )}
-        {...getRootProps()}
+        {...getRootProps({ "aria-label": "Upload photo strip image" })}
       >
-        <input {...getInputProps()} disabled={disabled} aria-label="Upload photo strip image" />
+        <input {...getInputProps()} disabled={disabled} />
         {children}
       </div>
     </DropzoneContext.Provider>
