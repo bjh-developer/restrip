@@ -183,7 +183,7 @@ ReStrip implements a modern authentication and security architecture using **Cle
 
 ### Frontend
 
-- **Next.js 16.0.10** — React framework with App Router and TypeScript
+- **Next.js 16.1.6** — React framework with App Router and TypeScript
 - **React 19.2.0** — UI library
 - **Tailwind CSS** — Utility-first styling
 - **Shadcn UI** — Component library (customized)
@@ -232,9 +232,7 @@ ReStrip implements a modern authentication and security architecture using **Cle
 restrip/
 ├── src/
 │   ├── app/                         # Next.js App Router
-│   │   ├── (protected)/            # Protected route group
-│   │   │   ├── upload/
-│   │   │   │   └── page.tsx        # Main upload form
+│   │   ├── (protected)/            # Protected route group (requires auth)
 │   │   │   ├── gallery/
 │   │   │   │   └── page.tsx        # Browse all memories
 │   │   │   ├── scrapbook/
@@ -243,10 +241,10 @@ restrip/
 │   │   │   │       └── page.tsx    # Scrapbook editor
 │   │   │   ├── new/
 │   │   │   │   └── page.tsx        # Create new content
-│   │   │   ├── memory/
-│   │   │   │   └── [id]/
-│   │   │   │       └── page.tsx    # View delivered memory
 │   │   │   └── layout.tsx          # Protected layout with Clerk auth
+│   │   ├── upload/                 # Upload flow (public, no auth required)
+│   │   │   ├── page.tsx            # Main upload form
+│   │   │   └── layout.tsx          # Upload layout
 │   │   ├── (misc)/                 # Miscellaneous pages
 │   │   │   ├── contact/            # Contact page
 │   │   │   └── privacy-policy/     # Privacy policy
@@ -258,12 +256,17 @@ restrip/
 │   │   │   ├── upload/             # Upload data
 │   │   │   │   └── authenticated/  # Authenticated upload
 │   │   │   ├── snaps/
-│   │   │   │   └── [id]/           # Fetch specific snap
+│   │   │   │   └── [id]/           # Fetch/update/delete specific snap
 │   │   │   ├── gallery/            # Gallery endpoints
 │   │   │   │   ├── route.ts        # List memories
 │   │   │   │   └── [id]/           # Get specific memory
 │   │   │   ├── images/
 │   │   │   │   └── [id]/           # Serve images with caching
+│   │   │   ├── pending-upload/     # Track pending uploads for sign-up flow
+│   │   │   ├── send-memory/        # Manual email delivery/retry
+│   │   │   ├── resend/
+│   │   │   │   └── webhook/        # Resend email delivery webhook
+│   │   │   ├── stats/              # Usage statistics
 │   │   │   └── scrapbook/          # Scrapbook API
 │   │   │       └── books/          # Book CRUD operations
 │   │   │           ├── route.ts    # List/create books
@@ -273,45 +276,52 @@ restrip/
 │   │   ├── page.tsx                # Landing page
 │   │   └── layout.tsx              # Root layout (ClerkProvider)
 │   ├── components/
-│   │   ├── ui/                     # shadcn UI components
-│   │   │   ├── input-group.tsx    # Input with prefix/suffix
-│   │   │   └── skeleton.tsx       # Loading skeletons
-│   │   ├── Masonry.tsx             # Gallery masonry layout
-│   │   ├── Providers.tsx           # React Context providers
+│   │   ├── ui/
+│   │   │   └── shadcn-io/          # Custom shadcn-io components
+│   │   │       ├── dropzone/       # File upload with drag-and-drop
+│   │   │       ├── spinner/        # Loading indicator (pinwheel)
+│   │   │       ├── banner/         # Dismissible announcements
+│   │   │       ├── announcement/   # Info pills
+│   │   │       ├── choicebox/      # Selection component
+│   │   │       └── status/         # Status indicator
+│   │   ├── emails/
+│   │   │   └── MemoryEmail.tsx     # React Email template for delivery
+│   │   ├── CaptionForm.tsx         # Caption input form
+│   │   ├── Providers.tsx           # React Context providers (ClerkProvider)
 │   │   ├── PeriodPicker.tsx        # Date/period selection
-│   │   ├── DeliveryMethodPicker.tsx
+│   │   ├── DeliveryMethodPicker.tsx # Email/Telegram selection
 │   │   ├── ScrollReveal.tsx        # GSAP scroll animations
 │   │   └── ShinyText.tsx           # Animated text effect
-│   ├── hooks/
 │   ├── lib/
-│   │   ├── simple-encryption.ts    # Server-side encryption utils
-│   │   ├── rate-limit.ts           # API rate limiting
+│   │   ├── simple-encryption.ts    # Server-side AES-256-GCM encryption
+│   │   ├── rate-limit.ts           # API rate limiting (token bucket)
 │   │   ├── turnstile.ts            # CAPTCHA verification
-│   │   ├── gallery-cache.ts        # Client-side gallery caching
+│   │   ├── resend.ts               # Resend email delivery integration
+│   │   ├── delivery-scheduling.ts  # Schedule computation (surprise, custom, date)
+│   │   ├── fonts.ts                # Google Fonts configuration (14 fonts)
+│   │   ├── gallery-cache.ts        # Client-side gallery caching (IndexedDB)
 │   │   ├── scrapbook-api.ts        # Scrapbook API client
 │   │   ├── scrapbook-types.ts      # TypeScript types for scrapbook
 │   │   ├── stickers.ts             # Sticker assets helper
 │   │   ├── userjot.ts              # UserJot integration
-│   │   ├── supabase/
-│   │   │   ├── client.ts           # Browser Supabase client
-│   │   │   └── server.ts           # Server Supabase client
 │   │   ├── utils.ts                # General utilities (cn, etc.)
 │   │   └── validators/
 │   │       └── index.ts            # Zod schemas
-│   ├── proxy.ts                    # Clerk middleware for route protection
+│   ├── proxy.ts                    # Clerk middleware + CSP nonce generation
 │   └── types/
 │       └── global.d.ts             # Global TypeScript types
 ├── components/ui/                   # Legacy shadcn UI location
 ├── public/                         # Static assets
 │   └── stickers/                   # Scrapbook sticker assets
 ├── supabase/                       # Database migrations & Edge Functions
-│   ├── migrations/                 # SQL migration files (010-015)
+│   ├── migrations/                 # SQL migration files (001-021)
 │   └── functions/                  # Edge Functions (delivery system)
 ├── runpod/                         # AI Image Processing (Python)
 │   ├── handler.py                  # RunPod serverless handler (YOLO model)
 │   ├── server.py                   # Local FastAPI server (dev alternative)
+│   ├── metrics.py                  # Metrics collection for RunPod
 │   ├── requirements.txt            # Python dependencies
-│   └── Dockerfile                  # Docker config
+│   └── tests/                      # Python tests
 ├── next.config.ts                  # Next.js configuration
 ├── tailwind.config.ts              # Tailwind CSS config
 ├── tsconfig.json                   # TypeScript config
@@ -330,10 +340,11 @@ restrip/
 
 - Warm Beige: \`#F3E8D8\` (background)
 - Soft Black: \`#1C1C1C\` (text)
-- Blush Pink: \`#FFC9D1\` (primary CTA)
+- Blush Pink: \`#FFC9D1\` (primary CTA, hover: \`#FFB3BD\`)
 - Yellow Cream: \`#FFF2C9\` (hover state)
 - Pastel Blue: \`#CFE7FF\` (accent)
-- Grey: \`#6B7280\` (secondary text)
+- Mist Grey: \`#EBEBEB\` (borders/dividers)
+- Grey: \`#6B6B6B\` (secondary text)
 
 **Components:**
 
@@ -424,27 +435,29 @@ CREATE POLICY "Service role full access"
 
 ```sql
 -- Scrapbook / Digital Photo Albums
-CREATE TABLE public.canvas_books (
+CREATE TABLE public.scrapbook_books (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id TEXT NOT NULL,                      -- Clerk user ID
-    title TEXT NOT NULL,
+    encrypted_title TEXT NOT NULL,              -- AES-256-GCM encrypted title
+    title_iv TEXT NOT NULL,                     -- IV for title decryption
     cover_color TEXT NOT NULL,                  -- One of 10 preset colors
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE public.canvas_pages (
+CREATE TABLE public.scrapbook_pages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    book_id UUID NOT NULL REFERENCES public.canvas_books(id) ON DELETE CASCADE,
+    book_id UUID NOT NULL REFERENCES public.scrapbook_books(id) ON DELETE CASCADE,
     page_number INTEGER NOT NULL,
-    elements JSONB NOT NULL DEFAULT '[]'::jsonb, -- Array of page elements (images, text, stickers)
+    encrypted_elements TEXT NOT NULL,           -- AES-256-GCM encrypted JSONB elements
+    elements_iv TEXT NOT NULL,                  -- IV for elements decryption
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT unique_page_number UNIQUE (book_id, page_number)
 );
 
-CREATE INDEX idx_canvas_books_user_id ON public.canvas_books(user_id);
-CREATE INDEX idx_canvas_pages_book_id ON public.canvas_pages(book_id);
+CREATE INDEX idx_scrapbook_books_user_id ON public.scrapbook_books(user_id);
+CREATE INDEX idx_scrapbook_pages_book_id ON public.scrapbook_pages(book_id);
 ```
 
 ### Storage Buckets (Supabase Storage)
@@ -565,7 +578,7 @@ Inspired by photobooth culture and the magic of surprise. Built with love for no
 
 - The Next.js team for an amazing framework
 - Supabase for making backend development accessible
-- The WebAuthn/FIDO Alliance for modern authentication standards
+- Clerk for seamless authentication
 - Ultralytics for YOLO11 and computer vision tools
 - The open-source community
 
@@ -573,11 +586,12 @@ Inspired by photobooth culture and the magic of surprise. Built with love for no
 
 - [Next.js](https://nextjs.org/) — React framework
 - [Supabase](https://supabase.com/) — Backend as a Service
-- [SimpleWebAuthn](https://simplewebauthn.dev/) — WebAuthn library
+- [Clerk](https://clerk.com/) — Authentication platform
 - [Shadcn UI](https://ui.shadcn.com/) — Component library
 - [Tailwind CSS](https://tailwindcss.com/) — Styling
 - [Radix UI](https://www.radix-ui.com/) — Accessible primitives
 - [GSAP](https://greensock.com/gsap/) — Professional animations
+- [Resend](https://resend.com/) — Email delivery
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) — AI image processing
 - [RunPod](https://www.runpod.io/) — Serverless GPU compute
 - [Vercel](https://vercel.com/) — Hosting and deployment
@@ -728,6 +742,13 @@ NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
 ### Step 5: Set Up Supabase Database
 
 Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
+> [!CAUTION]
+> If you have existing data in database, make sure to do the following steps before running migration 020 and 021
+> 1. Run migration 020
+> 2. Run ```NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts``` in terminal
+> 3. Run ```SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';``` & ```SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';``` in supabase sql editor (make sure output is 0 for both)
+> 4. Run migration 021
+
 
 | Step | Migration File | Purpose |
 |------|----------------|---------|
@@ -744,9 +765,15 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 | 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
 | 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
 | 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
-| 14 | `supabase/migrations/014_canvas_books.sql` | Canvas books |
+| 14 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables (initial) |
 | 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
 | 16 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
+| 17 | `supabase/migrations/017_resend_schedule_tracking.sql` | Resend Schedule Metadata on Snaps |
+| 18 | `supabase/migrations/018_testing_workflow.sql` | Test GitHub Actions |
+| 19 | `supabase/migrations/019_pending_uploads.sql` | Pending Uploads for Sign-Up Flow |
+| 20 | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
+| 21 | `supabase/migrations/21_scrapbook_drop_plaintext.sql` | Drop Plaintext Title and Elements Column |
+
 
 **Verification queries:**
 
@@ -754,7 +781,7 @@ Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL E
 -- Check tables exist
 SELECT table_name FROM information_schema.tables 
 WHERE table_schema = 'public' 
-AND table_name IN ('snaps', 'canvas_books', 'canvas_pages');
+AND table_name IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 
 -- Verify snaps structure
 SELECT column_name, data_type 
@@ -764,7 +791,7 @@ WHERE table_name = 'snaps';
 -- Confirm RLS is enabled
 SELECT schemaname, tablename, rowsecurity 
 FROM pg_tables 
-WHERE tablename IN ('snaps', 'canvas_books', 'canvas_pages');
+WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 ```
 
 ### Step 6: Set Up Supabase Edge Functions (Optional - for Telegram Delivery)
@@ -867,7 +894,7 @@ CROP_BACKEND=runpod npm run dev
 |-------|----------|
 | `Module not found` errors | Delete `node_modules` and run `npm install` |
 | Supabase connection fails | Verify env variables are set correctly |
-| Passkey registration fails | Ensure `NEXT_PUBLIC_ALLOWED_RP_DOMAINS` includes `localhost` |
+| Clerk sign-in issues | Verify `NEXT_PUBLIC_CLERK_*` env variables are set correctly |
 | Build/prerender errors | Add `export const dynamic = "force-dynamic"` to affected layouts |
 | "Local crop server error" | Ensure `python server.py` is running in `runpod/` directory |
 | Crop processing fails | Check `CROP_BACKEND` is set correctly (`local` or `runpod`) |
