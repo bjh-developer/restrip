@@ -93,14 +93,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, lint-and-typecheck]
     if: always()
+    env:
+      ACTOR: ${{ github.actor }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      LINT_RESULT: ${{ needs.lint-and-typecheck.result }}
     steps:
       - name: Report status
         run: |
-          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+          if [[ "$ACTOR" == "dependabot[bot]" ]]; then
             echo "Dependabot PR — skipping lint"
-          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          elif [[ "$FRONTEND_CHANGED" != "true" ]]; then
             echo "No frontend changes — skipping"
-          elif [[ "${{ needs.lint-and-typecheck.result }}" == "success" ]]; then
+          elif [[ "$LINT_RESULT" == "success" ]]; then
             echo "Lint passed"
           else
             echo "Lint failed"
@@ -112,14 +116,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, build]
     if: always()
+    env:
+      ACTOR: ${{ github.actor }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      BUILD_RESULT: ${{ needs.build.result }}
     steps:
       - name: Report status
         run: |
-          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+          if [[ "$ACTOR" == "dependabot[bot]" ]]; then
             echo "Dependabot PR — skipping build"
-          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          elif [[ "$FRONTEND_CHANGED" != "true" ]]; then
             echo "No frontend changes — skipping"
-          elif [[ "${{ needs.build.result }}" == "success" ]]; then
+          elif [[ "$BUILD_RESULT" == "success" ]]; then
             echo "Build passed"
           else
             echo "Build failed"
@@ -131,14 +139,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, npm-audit]
     if: always()
+    env:
+      ACTOR: ${{ github.actor }}
+      FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
+      AUDIT_RESULT: ${{ needs.npm-audit.result }}
     steps:
       - name: Report status
         run: |
-          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
-            echo "Dependabot PR — running audit"
-          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          if [[ "$ACTOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR — skipping audit"
+          elif [[ "$FRONTEND_CHANGED" != "true" ]]; then
             echo "No frontend changes — skipping"
-          elif [[ "${{ needs.npm-audit.result }}" == "success" ]]; then
+          elif [[ "$AUDIT_RESULT" == "success" ]]; then
             echo "Audit passed"
           else
             echo "Audit failed"
