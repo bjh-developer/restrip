@@ -1539,6 +1539,7 @@ export default function CanvasEditorPage() {
                 onClick={() => setGalleryOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Photo Strip"
+                aria-label="Add Photo Strip"
               >
                 <ImageIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Photo</span>
@@ -1548,6 +1549,7 @@ export default function CanvasEditorPage() {
                 onClick={() => setStickerOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Sticker"
+                aria-label="Add Sticker"
               >
                 <Smile className="w-4 h-4" />
                 <span className="hidden sm:inline">Sticker</span>
@@ -1557,6 +1559,7 @@ export default function CanvasEditorPage() {
                 onClick={handleAddText}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Text"
+                aria-label="Add Text"
               >
                 <Type className="w-4 h-4" />
                 <span className="hidden sm:inline">Text</span>
@@ -1567,6 +1570,7 @@ export default function CanvasEditorPage() {
                 onClick={() => setBgOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Page Background"
+                aria-label="Page Background"
               >
                 <Palette className="w-4 h-4" />
                 <span className="hidden sm:inline">Background</span>
@@ -1591,6 +1595,7 @@ export default function CanvasEditorPage() {
             type="button"
             onClick={() => setExportOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-soft-black text-white hover:bg-soft-black/90 transition"
+            aria-label="Export"
           >
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
