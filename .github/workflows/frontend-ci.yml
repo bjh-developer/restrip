@@ -49,6 +49,7 @@ jobs:
     needs: [detect-changes, lint-and-typecheck]
     if: |
       always() &&
+      github.actor != 'dependabot[bot]' &&
       needs.detect-changes.outputs.frontend == 'true' &&
       (needs.lint-and-typecheck.result == 'success' || needs.lint-and-typecheck.result == 'skipped')
     steps:
@@ -95,7 +96,9 @@ jobs:
     steps:
       - name: Report status
         run: |
-          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR — skipping lint"
+          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
             echo "No frontend changes — skipping"
           elif [[ "${{ needs.lint-and-typecheck.result }}" == "success" ]]; then
             echo "Lint passed"
@@ -112,7 +115,9 @@ jobs:
     steps:
       - name: Report status
         run: |
-          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR — skipping build"
+          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
             echo "No frontend changes — skipping"
           elif [[ "${{ needs.build.result }}" == "success" ]]; then
             echo "Build passed"
@@ -129,7 +134,9 @@ jobs:
     steps:
       - name: Report status
         run: |
-          if [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
+          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+            echo "Dependabot PR — running audit"
+          elif [[ "${{ needs.detect-changes.outputs.frontend }}" != "true" ]]; then
             echo "No frontend changes — skipping"
           elif [[ "${{ needs.npm-audit.result }}" == "success" ]]; then
             echo "Audit passed"
