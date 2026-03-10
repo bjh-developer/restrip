@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export type StatusProps = ComponentProps<typeof Badge> & {
-  status: "online" | "offline" | "maintenance" | "degraded",
+  status: "online" | "offline" | "maintenance" | "degraded" | "error",
   count?: string | number,
 }
 
@@ -29,6 +29,7 @@ export const StatusIndicator = ({ className, ...props }: StatusIndicatorProps) =
         "group-[.offline]:bg-red-500",
         "group-[.maintenance]:bg-blue-500",
         "group-[.degraded]:bg-amber-500",
+        "group-[.error]:bg-red-500",
       )}
     />
     <span
@@ -38,6 +39,7 @@ export const StatusIndicator = ({ className, ...props }: StatusIndicatorProps) =
         "group-[.offline]:bg-red-500",
         "group-[.maintenance]:bg-blue-500",
         "group-[.degraded]:bg-amber-500",
+        "group-[.error]:bg-red-500",
       )}
     />
   </span>
@@ -53,6 +55,7 @@ export const StatusLabel = ({ className, children, ...props }: StatusLabelProps)
         <span className="hidden group-[.offline]:block">Offline</span>
         <span className="hidden group-[.maintenance]:block">Maintenance</span>
         <span className="hidden group-[.degraded]:block">Degraded</span>
+        <span className="hidden group-[.error]:block">Error</span>
       </>
     )}
   </span>

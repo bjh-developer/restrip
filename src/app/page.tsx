@@ -43,13 +43,15 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
-  const [stats, setStats] = useState<{ count: number } | null>(null);
+  const [stats, setStats] = useState<{ count: number; status: "online" | "offline" | "maintenance" | "degraded" | "error" } | null>(null);
 
   // retrieve stats
   useEffect(() => {
     void fetch("/api/stats")
       .then((res) => res.json())
-      .then(({ count }: { count: number }) => setStats({ count }));
+      .then(({ count, status }: { count: number; status: "online" | "offline" | "maintenance" | "degraded" | "error" }) =>
+        setStats({ count, status })
+      );
   }, []);
 
   return (
@@ -84,7 +86,7 @@ export default function LandingPage() {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Status status="online">
+                <Status status={stats?.status ?? "online"}>
                   <StatusIndicator />
                   <StatusLabel />
                   <StatusStats count={stats?.count.toString()} />
