@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { Mail, Instagram, Linkedin, MessageCircle } from "lucide-react";
 import Link from "next/link";
 

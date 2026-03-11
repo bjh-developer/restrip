@@ -1,5 +1,4 @@
 "use client";
-import { useEffect } from "react";
 import { Shield, Eye, Lock } from "lucide-react";
 import Link from "next/link";
 
