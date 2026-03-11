@@ -9,24 +9,24 @@ export default function PrivacyPage() {
       icon: Eye,
       title: "Your photos are yours",
       description:
-        "We don&apos;t claim ownership. We don&apos;t use them for marketing. They belong to you, and only you.",
+        "We don't claim ownership. We don't use them for marketing. They belong to you, and only you.",
     },
     {
       icon: Lock,
       title: "No AI training",
       description:
-        "Your photos will never be used to train AI models. We don&apos;t feed our machine learning with your memories.",
+        "Your photos will never be used to train AI models. We don't feed our machine learning with your memories.",
     },
     {
       icon: Shield,
       title: "No selling",
       description:
-        "We never sell your data. Not now, not ever. Your memories aren&apos;t for sale.",
+        "We never sell your data. Not now, not ever. Your memories aren't for sale.",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-warm-beige py-16 px-4">
+    <main className="min-h-screen bg-warm-beige py-16 px-4">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
@@ -42,14 +42,14 @@ export default function PrivacyPage() {
             return (
               <div
                 key={principle.title}
-                className="bg-white rounded-lg shadow-card p-6 hover:shadow-card-hover transition-shadow"
+                className="bg-white rounded-lg shadow-card p-8 text-center"
               >
-                <div className="w-12 h-12 bg-pastel-blue rounded-lg mb-4 flex items-center justify-center">
-                  <Icon className="w-6 h-6 text-soft-black" />
+                <div className="w-14 h-14 bg-pastel-blue rounded-lg mx-auto mb-4 flex items-center justify-center">
+                  <Icon className="w-7 h-7 text-soft-black" />
                 </div>
-                <h3 className="font-display text-lg font-semibold text-soft-black mb-2">
+                <h2 className="font-display text-xl font-semibold text-soft-black mb-1">
                   {principle.title}
-                </h3>
+                </h2>
                 <p className="font-body text-sm text-grey">
                   {principle.description}
                 </p>
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
         <div className="bg-white rounded-lg shadow-card p-8 md:p-12 space-y-8">
           {/* What We Collect */}
           <section>
-            <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-soft-black mb-4">
               What we collect
             </h2>
             <p className="font-body text-grey mb-4">
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
 
           {/* How We Use It */}
           <section>
-            <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-soft-black mb-4">
               How we use your data
             </h2>
             <p className="font-body text-grey">
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
 
           {/* Your Rights */}
           <section>
-            <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-soft-black mb-4">
               Your rights
             </h2>
             <p className="font-body text-grey mb-4">You can:</p>
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
 
           {/* Contact */}
           <section className="pt-4 border-t border-mist-grey">
-            <h2 className="font-display text-2xl font-bold text-soft-black mb-4">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-soft-black mb-4">
               Questions?
             </h2>
             <p className="font-body text-grey mb-4">
@@ -148,6 +148,6 @@ export default function PrivacyPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

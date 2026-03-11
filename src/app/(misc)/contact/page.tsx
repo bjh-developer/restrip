@@ -32,8 +32,8 @@ export default function ContactPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-warm-beige py-16 px-4">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen bg-warm-beige py-16 px-4">
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="font-display text-5xl md:text-6xl font-bold text-soft-black mb-4">
@@ -56,9 +56,9 @@ export default function ContactPage() {
                 <div className="w-14 h-14 bg-pastel-blue rounded-lg mx-auto mb-4 flex items-center justify-center">
                   <Icon className={`w-7 h-7 ${social.color}`} />
                 </div>
-                <h3 className="font-display text-xl font-semibold text-soft-black mb-1">
+                <h2 className="font-display text-xl font-semibold text-soft-black mb-1">
                   {social.label}
-                </h3>
+                </h2>
                 <p className="font-body text-sm text-grey">
                   {social.description}
                 </p>
@@ -113,6 +113,6 @@ export default function ContactPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
