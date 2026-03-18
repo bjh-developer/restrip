@@ -54,7 +54,7 @@ import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
 import { getCachedImage, setCachedImage } from "../../../../lib/gallery-cache";
 import { TextMorph } from "torph/react";
-
+import { ShareMenu } from "../../../../components/ShareMenu";
 // =============================================================================
 // Thumbnail cache helpers (sessionStorage, keyed by pageId)
 // =============================================================================
@@ -742,7 +742,10 @@ export default function CanvasEditorPage() {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Inline error banner (replaces alert())
-  const [canvasError, setCanvasError] = useState<{ user: string; detail?: string } | null>(null);
+  const [canvasError, setCanvasError] = useState<{
+    user: string;
+    detail?: string;
+  } | null>(null);
 
   // Current page shorthand
   const currentPage: BookPage | undefined = book?.pages[currentPageIdx];
@@ -1125,7 +1128,10 @@ export default function CanvasEditorPage() {
         canvas.renderAll();
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
-        setCanvasError({ user: "Oops, couldn't add that photo strip to the canvas.", detail });
+        setCanvasError({
+          user: "Oops, couldn't add that photo strip to the canvas.",
+          detail,
+        });
       }
     },
     [],
@@ -1482,7 +1488,9 @@ export default function CanvasEditorPage() {
           <div className="space-y-0.5">
             <p className="text-sm text-red-800">{canvasError.user}</p>
             {canvasError.detail && (
-              <p className="font-mono text-xs text-red-400 break-all">Error: {canvasError.detail}</p>
+              <p className="font-mono text-xs text-red-400 break-all">
+                Error: {canvasError.detail}
+              </p>
             )}
           </div>
           <button
@@ -1591,15 +1599,7 @@ export default function CanvasEditorPage() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setExportOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-soft-black text-white hover:bg-soft-black/90 transition"
-            aria-label="Export"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
+          <ShareMenu onExport={() => setExportOpen(true)} />{" "}
         </div>
       </div>
 
