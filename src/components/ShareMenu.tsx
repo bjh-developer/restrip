@@ -1,55 +1,72 @@
-// components/ShareMenu.tsx
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Share2, Copy, Check, Download } from "lucide-react";
-import { FaWhatsapp, FaTelegram } from "react-icons/fa";
 import { useState } from "react";
 
-export function ShareMenu({ onExport }: { onExport: () => void }) {
+export function ShareMenu({
+  onExport,
+  onGetImageBlob,
+}: {
+  onExport: () => void;
+  onGetImageBlob?: () => Promise<Blob | null>;
+}) {
   const [copied, setCopied] = useState(false);
   const isMobile = typeof navigator !== "undefined" && !!navigator.share;
 
+  const getBlob = async (): Promise<Blob | null> => {
+    return onGetImageBlob ? onGetImageBlob() : null;
+  };
+
+  // opens up ios/android native menu for sharing
   const handleShare = async () => {
-    if (isMobile) {
-      try {
-        await navigator.share({
-          title: "My Scrapbook",
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.error(err);
+    const blob = await getBlob();
+    if (!blob) return;
+    const file = new File([blob], "scrapbook-page.png", { type: "image/png" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My Scrapbook Page" });
+      } else {
+        // Fallback, download instead
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "scrapbook-page.png";
+        a.click();
+        URL.revokeObjectURL(url);
       }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleWhatsApp = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://wa.me/?text=${url}`, "_blank", "noopener,noreferrer");
-  };
-
-  const handleTelegram = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(
-      `https://t.me/share/url?url=${url}&text=Check+out+my+scrapbook!`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  };
-
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyImage = async () => {
+    const blob = await getBlob();
+    if (!blob) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback,  download instead
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "scrapbook-page.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   if (isMobile) {
     return (
       <button
         onClick={handleShare}
-        className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition"
+        className="flex shrink-0 items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition whitespace-nowrap"
       >
         <Share2 className="w-4 h-4" /> Share
       </button>
@@ -59,46 +76,35 @@ export function ShareMenu({ onExport }: { onExport: () => void }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition">
+        <button className="flex shrink-0 items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition whitespace-nowrap">
           <Share2 className="w-4 h-4" /> Share
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-4">
-        <div className="grid grid-cols-2 gap-3">
+      <PopoverContent
+        className="w-56 p-3"
+        align="end"
+        sideOffset={8}
+        collisionPadding={12}
+      >
+        <div className="flex flex-col gap-2">
           <button
             onClick={onExport}
-            className="flex flex-col items-center gap-2 p-3 hover:bg-gray-100 rounded-lg transition"
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition"
           >
-            <Download className="w-6 h-6" />
-            <span className="text-xs">Download</span>
+            <Download className="w-4 h-4" />
+            <span className="text-sm">Download</span>
           </button>
 
           <button
-            onClick={handleWhatsApp}
-            className="flex flex-col items-center gap-2 p-3 hover:bg-gray-100 rounded-lg transition"
-          >
-            <FaWhatsapp size={24} className="text-[#25D366]" />
-            <span className="text-xs">WhatsApp</span>
-          </button>
-
-          <button
-            onClick={handleTelegram}
-            className="flex flex-col items-center gap-2 p-3 hover:bg-gray-100 rounded-lg transition"
-          >
-            <FaTelegram size={24} className="text-[#229ED9]" />
-            <span className="text-xs">Telegram</span>
-          </button>
-
-          <button
-            onClick={handleCopyLink}
-            className="flex flex-col items-center gap-2 p-3 hover:bg-gray-100 rounded-lg transition"
+            onClick={handleCopyImage}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition"
           >
             {copied ? (
-              <Check className="w-6 h-6 text-green-500" />
+              <Check className="w-4 h-4 text-green-500" />
             ) : (
-              <Copy className="w-6 h-6" />
+              <Copy className="w-4 h-4" />
             )}
-            <span className="text-xs">{copied ? "Copied!" : "Copy Link"}</span>
+            <span className="text-sm">{copied ? "Copied!" : "Copy Image"}</span>
           </button>
         </div>
       </PopoverContent>

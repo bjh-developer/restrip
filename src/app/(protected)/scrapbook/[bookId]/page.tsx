@@ -1425,6 +1425,21 @@ export default function CanvasEditorPage() {
     applyZoom(1.0);
   }, [applyZoom]);
 
+  const getCanvasImageBlob = useCallback(async (): Promise<Blob | null> => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return null;
+    canvas.discardActiveObject();
+    canvas.renderAll();
+    const dataUrl = canvas.toDataURL({ format: "png", multiplier: 2 });
+    const base64 = dataUrl.split(",")[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: "image/png" });
+  }, []);
+
   // ============= Responsive canvas scaling =============
   useEffect(() => {
     const container = canvasContainerRef.current;
@@ -1600,7 +1615,10 @@ export default function CanvasEditorPage() {
             </button>
           )}
           <div className="hidden sm:block">
-            <ShareMenu onExport={() => setExportOpen(true)} />
+            <ShareMenu
+              onExport={() => setExportOpen(true)}
+              onGetImageBlob={getCanvasImageBlob}
+            />{" "}
           </div>
         </div>
       </div>
@@ -1780,7 +1798,10 @@ export default function CanvasEditorPage() {
         >
           <ChevronRight className="w-5 h-5" />
         </button>
-        <ShareMenu onExport={() => setExportOpen(true)} />
+        <ShareMenu
+          onExport={() => setExportOpen(true)}
+          onGetImageBlob={getCanvasImageBlob}
+        />{" "}
       </div>
 
       {/* Modals */}
