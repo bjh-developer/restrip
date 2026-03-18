@@ -1588,7 +1588,7 @@ export default function CanvasEditorPage() {
         </div>
 
         {/* Right: Export + Delete */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {selectionHasObject && (
             <button
               type="button"
@@ -1599,7 +1599,9 @@ export default function CanvasEditorPage() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          <ShareMenu onExport={() => setExportOpen(true)} />{" "}
+          <div className="hidden sm:block">
+            <ShareMenu onExport={() => setExportOpen(true)} />
+          </div>
         </div>
       </div>
 
@@ -1758,7 +1760,7 @@ export default function CanvasEditorPage() {
       </div>
 
       {/* Bottom Page Navigation (mobile) */}
-      <div className="sm:hidden bg-white border-t border-mist-grey px-4 py-2 flex items-center justify-center gap-4">
+      <div className="sm:hidden bg-white border-t border-mist-grey px-4 py-2 flex items-center justify-between gap-4">
         <button
           type="button"
           onClick={() => goToPage(currentPageIdx - 1)}
@@ -1778,6 +1780,7 @@ export default function CanvasEditorPage() {
         >
           <ChevronRight className="w-5 h-5" />
         </button>
+        <ShareMenu onExport={() => setExportOpen(true)} />
       </div>
 
       {/* Modals */}
