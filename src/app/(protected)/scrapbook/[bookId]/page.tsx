@@ -1374,7 +1374,7 @@ export default function CanvasEditorPage() {
       )}
 
       {/* ── Top Toolbar ───────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-mist-grey px-3 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-mist-grey px-3 py-2 flex items-center justify-between gap-1 min-w-0">
         {/* Left: Back + Title + save status */}
         <div className="flex items-center gap-3">
           <button
@@ -1407,7 +1407,7 @@ export default function CanvasEditorPage() {
         </div>
 
         {/* Center: editing tools */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto shrink">
           {selectedIsText ? (
             <FontPicker value={activeFont} onChange={handleFontChange} />
           ) : !selectionHasObject ? (
@@ -1415,7 +1415,7 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={() => setGalleryOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Photo Strip"
               >
                 <ImageIcon className="w-4 h-4" />
@@ -1424,7 +1424,7 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={() => setStickerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Sticker"
               >
                 <Smile className="w-4 h-4" />
@@ -1433,31 +1433,46 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={handleAddText}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Text"
               >
                 <Type className="w-4 h-4" />
                 <span className="hidden sm:inline">Text</span>
               </button>
-              <div className="w-px h-6 bg-mist-grey mx-1" />
+              <div className="w-px h-6 bg-mist-grey mx-0.5 sm:mx-1" />
               <button
                 type="button"
                 onClick={() => setBgOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Page Background"
               >
                 <Palette className="w-4 h-4" />
                 <span className="hidden sm:inline">Background</span>
               </button>
+              <div className="w-px h-6 bg-mist-grey mx-0.5 sm:hidden" />
+              <button
+                type="button"
+                onClick={() => setDownloadOpen(true)}
+                className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Download"
+                aria-label="Download"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileShareOpen(true)}
+                className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Share"
+                aria-label="Share"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
             </>
           ) : null}
         </div>
 
-        {/* Right: Delete + share controls
-            ┌─ mobile ─────────────────────────────────────────────────────┐
-            │  Two icon-only buttons: Download  Share                      │
-            └─ desktop ────────────────────────────────────────────────────┘
-               One labelled button: Share                                   */}
+        {/* Right: desktop Share + delete only */}
         <div className="flex items-center gap-1 shrink-0">
           {selectionHasObject && (
             <button
@@ -1469,29 +1484,6 @@ export default function CanvasEditorPage() {
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-
-          {/* Mobile: Download icon button */}
-          <button
-            type="button"
-            onClick={() => setDownloadOpen(true)}
-            className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Download"
-            aria-label="Download"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setMobileShareOpen(true)}
-            className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
-            title="Share"
-            aria-label="Share"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
-
-          {/* Desktop: single Share button with label */}
           <button
             type="button"
             onClick={() => setShareOpen(true)}
@@ -1502,6 +1494,7 @@ export default function CanvasEditorPage() {
             Share
           </button>
         </div>
+
       </div>
 
       {/* Main Editor Area */}
@@ -1518,7 +1511,7 @@ export default function CanvasEditorPage() {
             <span className="text-xs font-medium text-soft-black whitespace-nowrap">
               Pages
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto">
               <button
                 type="button"
                 onClick={handleAddPage}
@@ -1558,7 +1551,9 @@ export default function CanvasEditorPage() {
                 ) : (
                   <div
                     className="w-full h-full"
-                    style={{ backgroundColor: page.background.color || "#FFF" }}
+                    style={{
+                      backgroundColor: page.background.color || "#FFF",
+                    }}
                   />
                 )}
                 <span className="absolute bottom-1 left-1 text-[10px] font-medium text-soft-black/50 bg-white/60 rounded px-1">
@@ -1692,7 +1687,9 @@ export default function CanvasEditorPage() {
       <BackgroundPicker
         open={bgOpen}
         onClose={() => setBgOpen(false)}
-        current={currentPage?.background ?? { type: "color", color: "#FFFFFF" }}
+        current={
+          currentPage?.background ?? { type: "color", color: "#FFFFFF" }
+        }
         onChange={handleBgChange}
       />
       {/* Mobile: Download button → PNG + PDF only */}
