@@ -35,3 +35,7 @@ declare module '*.css' {
   const content: Record<string, string>;
   export default content;
 }
+
+declare module "jspdf/dist/jspdf.es.min.js" {
+  export { jsPDF } from "jspdf";
+}

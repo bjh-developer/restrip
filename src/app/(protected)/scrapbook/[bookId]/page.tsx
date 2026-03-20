@@ -29,9 +29,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Share2,
   Loader2,
   X,
-  Check,
   PanelLeftClose,
   PanelLeftOpen,
   ZoomIn,
@@ -54,13 +54,12 @@ import { STICKER_PACK, type StickerDef } from "../../../../lib/stickers";
 import { fontClassNames } from "../../../../lib/fonts";
 import { getCachedImage, setCachedImage } from "../../../../lib/gallery-cache";
 import { TextMorph } from "torph/react";
+import { ShareMenu, type ExportFormat } from "../../../../components/ShareMenu";
 
 // =============================================================================
 // Thumbnail cache helpers (sessionStorage, keyed by pageId)
 // =============================================================================
 
-/** Persist a thumbnail dataURL in sessionStorage. Key includes a content hash
- * so thumbnails are auto-invalidated when the page's element count changes. */
 function saveThumbnailCache(
   pageId: string,
   elementCount: number,
@@ -88,7 +87,6 @@ function readThumbnailCache(
 /** Invalidate a thumbnail cache entry (call after auto-save changes a page). */
 function clearThumbnailCache(pageId: string) {
   try {
-    // Remove all keys for this pageId (any element count)
     const keys = Object.keys(sessionStorage).filter((k) =>
       k.startsWith(`thumb:${pageId}:`),
     );
@@ -507,179 +505,6 @@ function BackgroundPicker({
 }
 
 // =============================================================================
-// Export Picker Panel
-// =============================================================================
-
-interface ExportPickerProps {
-  open: boolean;
-  onClose: () => void;
-  pages: BookPage[];
-  thumbnails: Record<string, string>;
-  onExport: (pageIndices: number[]) => void;
-}
-
-function ExportPicker({
-  open,
-  onClose,
-  pages,
-  thumbnails,
-  onExport,
-}: ExportPickerProps) {
-  const [selectedPages, setSelectedPages] = useState<Set<number>>(
-    () => new Set(pages.map((_, i) => i)),
-  );
-  const [exporting, setExporting] = useState(false);
-
-  // Reset selection when opened
-  useEffect(() => {
-    if (open) {
-      // avoid synchronous setState in effect
-      setTimeout(() => {
-        setSelectedPages(new Set(pages.map((_, i) => i)));
-      }, 0);
-    }
-  }, [open, pages]);
-
-  if (!open) return null;
-
-  const togglePage = (idx: number) => {
-    setSelectedPages((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) {
-        next.delete(idx);
-      } else {
-        next.add(idx);
-      }
-      return next;
-    });
-  };
-
-  const selectAll = () => {
-    setSelectedPages(new Set(pages.map((_, i) => i)));
-  };
-
-  const selectNone = () => {
-    setSelectedPages(new Set());
-  };
-
-  const handleExport = async () => {
-    if (selectedPages.size === 0) return;
-    setExporting(true);
-    const indices = Array.from(selectedPages).sort((a, b) => a - b);
-    await onExport(indices);
-    setExporting(false);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg font-bold text-soft-black">
-            Export Pages
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={exporting}
-            className="p-1 rounded-lg hover:bg-mist-grey/50 transition disabled:opacity-50"
-          >
-            <X className="w-5 h-5 text-grey" />
-          </button>
-        </div>
-
-        {/* Select all/none buttons */}
-        <div className="flex gap-2 mb-3">
-          <button
-            type="button"
-            onClick={selectAll}
-            disabled={exporting}
-            className="text-xs px-2 py-1 rounded-md border border-mist-grey hover:bg-mist-grey/30 transition disabled:opacity-50"
-          >
-            Select All
-          </button>
-          <button
-            type="button"
-            onClick={selectNone}
-            disabled={exporting}
-            className="text-xs px-2 py-1 rounded-md border border-mist-grey hover:bg-mist-grey/30 transition disabled:opacity-50"
-          >
-            Select None
-          </button>
-        </div>
-
-        {/* Page grid */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
-          {pages.map((page, idx) => (
-            <button
-              key={page.id}
-              type="button"
-              onClick={() => togglePage(idx)}
-              disabled={exporting}
-              className={`group relative aspect-[595/842] rounded-lg border-2 transition overflow-hidden ${
-                selectedPages.has(idx)
-                  ? "border-blush-pink bg-blush-pink/5"
-                  : "border-mist-grey"
-              } ${exporting ? "opacity-50" : "hover:border-blush-pink/50"}`}
-            >
-              {thumbnails[page.id] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumbnails[page.id]}
-                  alt={`Page ${idx + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundColor: page.background.color || "#FFF",
-                  }}
-                />
-              )}
-              <span className="absolute bottom-1 left-1 text-xs font-medium text-soft-black bg-white/80 rounded px-1.5 py-0.5">
-                {idx + 1}
-              </span>
-              {selectedPages.has(idx) && (
-                <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-blush-pink flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" />
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Export button */}
-        <div className="flex items-center justify-between pt-3 border-t border-mist-grey">
-          <p className="text-sm text-grey">
-            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"}{" "}
-            selected
-          </p>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={selectedPages.size === 0 || exporting}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-soft-black text-white hover:bg-soft-black/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {exporting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Exporting...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                <span>Export</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 // Main Editor Page
 // =============================================================================
 
@@ -705,7 +530,9 @@ export default function CanvasEditorPage() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [bgOpen, setBgOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false); // mobile Download btn
+  const [mobileShareOpen, setMobileShareOpen] = useState(false); // mobile Share btn
+  const [shareOpen, setShareOpen] = useState(false); // desktop Share btn
 
   // Sidebar collapsed state (default collapsed on mobile)
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -742,7 +569,10 @@ export default function CanvasEditorPage() {
   const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Inline error banner (replaces alert())
-  const [canvasError, setCanvasError] = useState<{ user: string; detail?: string } | null>(null);
+  const [canvasError, setCanvasError] = useState<{
+    user: string;
+    detail?: string;
+  } | null>(null);
 
   // Current page shorthand
   const currentPage: BookPage | undefined = book?.pages[currentPageIdx];
@@ -1049,10 +879,7 @@ export default function CanvasEditorPage() {
               thumbUrl = cachedThumb;
             } else {
               canvas.renderAll();
-              thumbUrl = canvas.toDataURL({
-                format: "png",
-                multiplier: 0.15,
-              });
+              thumbUrl = canvas.toDataURL({ format: "png", multiplier: 0.15 });
               saveThumbnailCache(page.id, page.elements.length, thumbUrl);
             }
             setThumbnails((prev) => ({ ...prev, [page.id]: thumbUrl }));
@@ -1125,7 +952,10 @@ export default function CanvasEditorPage() {
         canvas.renderAll();
       } catch (err) {
         const detail = err instanceof Error ? err.message : String(err);
-        setCanvasError({ user: "Oops, couldn't add that photo strip to the canvas.", detail });
+        setCanvasError({
+          user: "Oops, couldn't add that photo strip to the canvas.",
+          detail,
+        });
       }
     },
     [],
@@ -1139,12 +969,11 @@ export default function CanvasEditorPage() {
     const fabric = await import("fabric");
     const img = await fabric.FabricImage.fromURL(sticker.src);
 
-    const scale = 0.2;
     img.set({
       left: CANVAS_WIDTH / 2,
       top: CANVAS_HEIGHT / 2,
-      scaleX: scale,
-      scaleY: scale,
+      scaleX: 0.2,
+      scaleY: 0.2,
     });
 
     (img as unknown as Record<string, unknown>).__customData = {
@@ -1210,10 +1039,8 @@ export default function CanvasEditorPage() {
   const handleDelete = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-
     const active = canvas.getActiveObject();
     if (!active) return;
-
     canvas.remove(active);
     canvas.discardActiveObject();
     canvas.renderAll();
@@ -1244,7 +1071,6 @@ export default function CanvasEditorPage() {
   const goToPage = useCallback(
     async (idx: number) => {
       if (!book || idx < 0 || idx >= book.pages.length) return;
-
       setCurrentPageIdx(idx);
       // loadPageToCanvas generates the thumbnail internally after all images load
       await loadPageToCanvas(book.pages[idx]);
@@ -1301,7 +1127,6 @@ export default function CanvasEditorPage() {
         };
         return updated;
       });
-
       applyBackground(bg);
       scheduleSave();
     },
@@ -1310,7 +1135,7 @@ export default function CanvasEditorPage() {
 
   // ============= Export pages as images =============
   const handleExport = useCallback(
-    async (pageIndices?: number[]) => {
+    async (pageIndices: number[], format: ExportFormat = "png") => {
       const canvas = fabricCanvasRef.current;
       if (!canvas || !book) return;
 
@@ -1320,39 +1145,102 @@ export default function CanvasEditorPage() {
       // Use local book state (already up to date)
       const freshBook = book;
 
-      // Determine which pages to export
-      const indicesToExport = pageIndices ?? freshBook.pages.map((_, i) => i);
-
-      // Export selected pages
-      for (const i of indicesToExport) {
-        const page = freshBook.pages[i];
-        if (!page) continue;
-
-        // Always load the page to ensure correct content
+      const renderPageDataUrl = async (idx: number): Promise<string | null> => {
+        const page = freshBook.pages[idx];
+        if (!page) return null;
         await loadPageToCanvas(page);
-        // Wait for rendering
         await new Promise((resolve) => setTimeout(resolve, 100));
-
         canvas.discardActiveObject();
         canvas.renderAll();
+        return canvas.toDataURL({ format: "png", multiplier: 2 });
+      };
 
-        const dataUrl = canvas.toDataURL({
-          format: "png",
-          multiplier: 2,
-        });
+      const dataUrlToBlob = (dataUrl: string): Blob => {
+        const base64 = dataUrl.split(",")[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: "image/png" });
+      };
 
-        const link = document.createElement("a");
-        link.download = `${freshBook.title}-page-${i + 1}.png`;
-        link.href = dataUrl;
-        link.click();
-
-        // Add delay between downloads
-        if (i !== indicesToExport[indicesToExport.length - 1]) {
-          await new Promise((resolve) => setTimeout(resolve, 300));
+      if (format === "png") {
+        for (let i = 0; i < pageIndices.length; i++) {
+          const dataUrl = await renderPageDataUrl(pageIndices[i]);
+          if (!dataUrl) continue;
+          const link = document.createElement("a");
+          link.download = `${freshBook.title}-page-${pageIndices[i] + 1}.png`;
+          link.href = dataUrl;
+          link.click();
+          if (i < pageIndices.length - 1)
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+      } else if (format === "pdf") {
+        try {
+          const { jsPDF } = await import("jspdf/dist/jspdf.es.min.js");
+          const pdf = new jsPDF({
+            orientation: "portrait",
+            unit: "px",
+            format: [CANVAS_WIDTH, CANVAS_HEIGHT],
+            hotfixes: ["px_scaling"],
+          });
+          for (let i = 0; i < pageIndices.length; i++) {
+            const dataUrl = await renderPageDataUrl(pageIndices[i]);
+            if (!dataUrl) continue;
+            if (i > 0) pdf.addPage();
+            pdf.addImage(dataUrl, "PNG", 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          }
+          pdf.save(`${freshBook.title}.pdf`);
+        } catch (err) {
+          console.error("PDF export failed:", err);
+          setCanvasError({
+            user: "PDF export failed. Falling back to PNG download.",
+            detail:
+              err instanceof Error ? err.message : "jspdf may not be installed",
+          });
+          for (const idx of pageIndices) {
+            const dataUrl = await renderPageDataUrl(idx);
+            if (!dataUrl) continue;
+            const link = document.createElement("a");
+            link.download = `${freshBook.title}-page-${idx + 1}.png`;
+            link.href = dataUrl;
+            link.click();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+      } else if (format === "share") {
+        const files: File[] = [];
+        for (const idx of pageIndices) {
+          const dataUrl = await renderPageDataUrl(idx);
+          if (!dataUrl) continue;
+          files.push(
+            new File(
+              [dataUrlToBlob(dataUrl)],
+              `${freshBook.title}-page-${idx + 1}.png`,
+              {
+                type: "image/png",
+              },
+            ),
+          );
+        }
+        try {
+          if (files.length > 0 && navigator.canShare?.({ files })) {
+            await navigator.share({ files, title: freshBook.title });
+          } else {
+            for (const file of files) {
+              const url = URL.createObjectURL(file);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = file.name;
+              a.click();
+              URL.revokeObjectURL(url);
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+          }
+        } catch {
+          // User cancelled or share failed — do nothing
         }
       }
 
-      // Restore current page
       if (freshBook.pages[currentPageIdx]) {
         await loadPageToCanvas(freshBook.pages[currentPageIdx]);
       }
@@ -1365,20 +1253,16 @@ export default function CanvasEditorPage() {
   const ZOOM_MAX = 3.0;
   const ZOOM_STEP = 0.25;
 
-  /** Compute the base scale that fits the canvas in the container */
   const getBaseScale = useCallback(() => {
     const container = canvasContainerRef.current;
     if (!container) return 1;
-    // Match the actual CSS padding: p-2 (8px) on mobile, p-6 (24px) on desktop
-    // Add extra margin to prevent cutoff: 2x padding + 8px extra
     const isMobile = window.innerWidth < 640;
-    const pad = isMobile ? 24 : 56; // Extra safe margin for mobile
+    const pad = isMobile ? 24 : 56;
     const scaleX = (container.clientWidth - pad) / CANVAS_WIDTH;
     const scaleY = (container.clientHeight - pad) / CANVAS_HEIGHT;
     return Math.min(scaleX, scaleY, 1.0);
   }, []);
 
-  /** Apply the current zoom to the canvas wrapper */
   const applyZoom = useCallback(
     (zoom: number) => {
       const container = canvasContainerRef.current;
@@ -1423,11 +1307,9 @@ export default function CanvasEditorPage() {
   useEffect(() => {
     const container = canvasContainerRef.current;
     if (!container) return;
-
     const resizeObserver = new ResizeObserver(() => {
       applyZoom(zoomLevelRef.current);
     });
-
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
   }, [applyZoom]);
@@ -1438,27 +1320,20 @@ export default function CanvasEditorPage() {
   // wrong value on first render. By the time isPageLoading → false, layout
   // is fully committed and the scale calculation will be accurate.
   useEffect(() => {
-    if (!isPageLoading) {
-      applyZoom(zoomLevelRef.current);
-    }
+    if (!isPageLoading) applyZoom(zoomLevelRef.current);
   }, [isPageLoading, applyZoom]);
 
   // ============= Wheel zoom =============
   useEffect(() => {
     const container = canvasContainerRef.current;
     if (!container) return;
-
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        if (e.deltaY < 0) {
-          zoomIn();
-        } else {
-          zoomOut();
-        }
+        if (e.deltaY < 0) zoomIn();
+        else zoomOut();
       }
     };
-
     container.addEventListener("wheel", handleWheel, { passive: false });
     return () => container.removeEventListener("wheel", handleWheel);
   }, [zoomIn, zoomOut]);
@@ -1482,7 +1357,9 @@ export default function CanvasEditorPage() {
           <div className="space-y-0.5">
             <p className="text-sm text-red-800">{canvasError.user}</p>
             {canvasError.detail && (
-              <p className="font-mono text-xs text-red-400 break-all">Error: {canvasError.detail}</p>
+              <p className="font-mono text-xs text-red-400 break-all">
+                Error: {canvasError.detail}
+              </p>
             )}
           </div>
           <button
@@ -1495,9 +1372,10 @@ export default function CanvasEditorPage() {
           </button>
         </div>
       )}
-      {/* Top Toolbar */}
-      <div className="bg-white border-b border-mist-grey px-3 py-3 flex items-center justify-between">
-        {/* Left: Back + Title */}
+
+      {/* ── Top Toolbar ───────────────────────────────────────────────────── */}
+      <div className="bg-white border-b border-mist-grey px-3 py-2 flex items-center justify-between gap-1 min-w-0">
+        {/* Left: Back + Title + save status */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -1509,7 +1387,7 @@ export default function CanvasEditorPage() {
           >
             <ArrowLeft className="w-5 h-5 text-soft-black" />
           </button>
-          <h1 className="font-display text-sm font-bold text-soft-black truncate max-w-[200px]">
+          <h1 className="font-display text-sm font-bold text-soft-black truncate max-w-[120px] sm:max-w-[200px]">
             {book.title}
           </h1>
           <div className="w-16 flex items-center justify-start">
@@ -1528,8 +1406,8 @@ export default function CanvasEditorPage() {
           </div>
         </div>
 
-        {/* Center: Tools */}
-        <div className="flex items-center gap-1">
+        {/* Center: editing tools */}
+        <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto shrink">
           {selectedIsText ? (
             <FontPicker value={activeFont} onChange={handleFontChange} />
           ) : !selectionHasObject ? (
@@ -1537,9 +1415,8 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={() => setGalleryOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Photo Strip"
-                aria-label="Add Photo Strip"
               >
                 <ImageIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Photo</span>
@@ -1547,9 +1424,8 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={() => setStickerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Sticker"
-                aria-label="Add Sticker"
               >
                 <Smile className="w-4 h-4" />
                 <span className="hidden sm:inline">Sticker</span>
@@ -1557,35 +1433,52 @@ export default function CanvasEditorPage() {
               <button
                 type="button"
                 onClick={handleAddText}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Add Text"
-                aria-label="Add Text"
               >
                 <Type className="w-4 h-4" />
                 <span className="hidden sm:inline">Text</span>
               </button>
-              <div className="w-px h-6 bg-mist-grey mx-1" />
+              <div className="w-px h-6 bg-mist-grey mx-0.5 sm:mx-1" />
               <button
                 type="button"
                 onClick={() => setBgOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                className="flex items-center gap-1 px-1.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
                 title="Page Background"
-                aria-label="Page Background"
               >
                 <Palette className="w-4 h-4" />
                 <span className="hidden sm:inline">Background</span>
+              </button>
+              <div className="w-px h-6 bg-mist-grey mx-0.5 sm:hidden" />
+              <button
+                type="button"
+                onClick={() => setDownloadOpen(true)}
+                className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Download"
+                aria-label="Download"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileShareOpen(true)}
+                className="sm:hidden p-1.5 rounded-lg text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+                title="Share"
+                aria-label="Share"
+              >
+                <Share2 className="w-4 h-4" />
               </button>
             </>
           ) : null}
         </div>
 
-        {/* Right: Export + Delete */}
-        <div className="flex items-center gap-2">
+        {/* Right: desktop Share + delete only */}
+        <div className="flex items-center gap-1 shrink-0">
           {selectionHasObject && (
             <button
               type="button"
               onClick={handleDelete}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-red-500 hover:bg-red-50 transition"
+              className="p-1.5 rounded-lg text-grey hover:text-red-500 hover:bg-red-50 transition"
               title="Delete Selected"
             >
               <Trash2 className="w-4 h-4" />
@@ -1593,14 +1486,15 @@ export default function CanvasEditorPage() {
           )}
           <button
             type="button"
-            onClick={() => setExportOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-soft-black text-white hover:bg-soft-black/90 transition"
-            aria-label="Export"
+            onClick={() => setShareOpen(true)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-grey hover:text-soft-black hover:bg-mist-grey/50 transition"
+            title="Share"
           >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
+            <Share2 className="w-4 h-4" />
+            Share
           </button>
         </div>
+
       </div>
 
       {/* Main Editor Area */}
@@ -1617,7 +1511,7 @@ export default function CanvasEditorPage() {
             <span className="text-xs font-medium text-soft-black whitespace-nowrap">
               Pages
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto">
               <button
                 type="button"
                 onClick={handleAddPage}
@@ -1665,7 +1559,6 @@ export default function CanvasEditorPage() {
                 <span className="absolute bottom-1 left-1 text-[10px] font-medium text-soft-black/50 bg-white/60 rounded px-1">
                   {idx + 1}
                 </span>
-                {/* Delete page button */}
                 {book.pages.length > 1 && (
                   <button
                     type="button"
@@ -1757,8 +1650,8 @@ export default function CanvasEditorPage() {
         </div>
       </div>
 
-      {/* Bottom Page Navigation (mobile) */}
-      <div className="sm:hidden bg-white border-t border-mist-grey px-4 py-2 flex items-center justify-center gap-4">
+      {/* ── Bottom nav (mobile only) — chevrons + page counter only ───────── */}
+      <div className="sm:hidden bg-white border-t border-mist-grey px-4 py-2 flex items-center justify-between">
         <button
           type="button"
           onClick={() => goToPage(currentPageIdx - 1)}
@@ -1780,7 +1673,7 @@ export default function CanvasEditorPage() {
         </button>
       </div>
 
-      {/* Modals */}
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
       <GalleryPicker
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}
@@ -1794,15 +1687,42 @@ export default function CanvasEditorPage() {
       <BackgroundPicker
         open={bgOpen}
         onClose={() => setBgOpen(false)}
-        current={currentPage?.background ?? { type: "color", color: "#FFFFFF" }}
+        current={
+          currentPage?.background ?? { type: "color", color: "#FFFFFF" }
+        }
         onChange={handleBgChange}
       />
-      <ExportPicker
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
+      {/* Mobile: Download button → PNG + PDF only */}
+      <ShareMenu
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
         pages={book.pages}
         thumbnails={thumbnails}
-        onExport={handleExport}
+        currentPageIdx={currentPageIdx}
+        onExportPages={handleExport}
+        variant="download"
+      />
+
+      {/* Mobile: Share button → native share only */}
+      <ShareMenu
+        open={mobileShareOpen}
+        onClose={() => setMobileShareOpen(false)}
+        pages={book.pages}
+        thumbnails={thumbnails}
+        currentPageIdx={currentPageIdx}
+        onExportPages={handleExport}
+        variant="share"
+      />
+
+      {/* Desktop: Share button → PNG + PDF + native share (if available) */}
+      <ShareMenu
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        pages={book.pages}
+        thumbnails={thumbnails}
+        currentPageIdx={currentPageIdx}
+        onExportPages={handleExport}
+        variant="all"
       />
     </div>
   );
