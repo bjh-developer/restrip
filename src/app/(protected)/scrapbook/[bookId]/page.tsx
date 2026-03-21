@@ -1225,7 +1225,42 @@ export default function CanvasEditorPage() {
         }
         try {
           if (files.length > 0 && navigator.canShare?.({ files })) {
-            await navigator.share({ files, title: freshBook.title });
+            await new Promise<void>((resolve) => {
+              let isDone = false;
+              const cleanupAndResolve = () => {
+                if (isDone) return;
+                isDone = true;
+                window.removeEventListener("focus", onFocus);
+                resolve();
+              };
+
+              const onFocus = () => {
+                // Workaround for iOS Safari bug where cancelling a file share
+                // never resolves or rejects the promise.
+                setTimeout(cleanupAndResolve, 500);
+              };
+
+              window.addEventListener("focus", onFocus);
+
+              navigator
+                .share({ files, title: freshBook.title })
+                .then(cleanupAndResolve)
+                .catch((err) => {
+                  const msg =
+                    err instanceof Error
+                      ? err.message.toLowerCase()
+                      : String(err).toLowerCase();
+                  if (
+                    err.name === "NotAllowedError" ||
+                    msg.includes("in progress")
+                  ) {
+                    setCanvasError({
+                      user: "iOS temporarily locked sharing because a previous share was cancelled. Please refresh the page to share again.",
+                    });
+                  }
+                  cleanupAndResolve();
+                });
+            });
           } else {
             for (const file of files) {
               const url = URL.createObjectURL(file);
@@ -1495,7 +1530,6 @@ export default function CanvasEditorPage() {
             Share
           </button>
         </div>
-
       </div>
 
       {/* Main Editor Area */}
@@ -1688,9 +1722,7 @@ export default function CanvasEditorPage() {
       <BackgroundPicker
         open={bgOpen}
         onClose={() => setBgOpen(false)}
-        current={
-          currentPage?.background ?? { type: "color", color: "#FFFFFF" }
-        }
+        current={currentPage?.background ?? { type: "color", color: "#FFFFFF" }}
         onChange={handleBgChange}
       />
       {/* Mobile: Download button → PNG + PDF only */}
