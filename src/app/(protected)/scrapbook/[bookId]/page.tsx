@@ -1227,20 +1227,40 @@ export default function CanvasEditorPage() {
           if (files.length > 0 && navigator.canShare?.({ files })) {
             await new Promise<void>((resolve) => {
               let isDone = false;
+              let stuckTimer: ReturnType<typeof setTimeout> | null = null;
+              
               const cleanupAndResolve = () => {
                 if (isDone) return;
                 isDone = true;
                 window.removeEventListener("focus", onFocus);
+                window.removeEventListener("blur", onBlur);
+                if (stuckTimer) clearTimeout(stuckTimer);
                 resolve();
               };
 
               const onFocus = () => {
-                // Workaround for iOS Safari bug where cancelling a file share
-                // never resolves or rejects the promise.
+                // Focus returns when user dismisses the share sheet
                 setTimeout(cleanupAndResolve, 500);
               };
 
+              const onBlur = () => {
+                // The share sheet has successfully opened, clear our "stuck" timer
+                if (stuckTimer) clearTimeout(stuckTimer);
+              };
+
               window.addEventListener("focus", onFocus);
+              window.addEventListener("blur", onBlur);
+
+              // If the window doesn't blur (lose focus) within 1.5s, the share sheet
+              // likely never opened due to a WebKit lock.
+              stuckTimer = setTimeout(() => {
+                if (!isDone) {
+                  setCanvasError({
+                    user: "iOS blocked the share menu. Please refresh the page to share again.",
+                  });
+                  cleanupAndResolve();
+                }
+              }, 1500);
 
               navigator
                 .share({ files, title: freshBook.title })
@@ -1255,7 +1275,7 @@ export default function CanvasEditorPage() {
                     msg.includes("in progress")
                   ) {
                     setCanvasError({
-                      user: "iOS temporarily locked sharing because a previous share was cancelled. Please refresh the page to share again.",
+                      user: "iOS blocked the share menu. Please refresh the page to share again.",
                     });
                   }
                   cleanupAndResolve();
