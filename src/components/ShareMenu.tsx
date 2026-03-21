@@ -40,13 +40,18 @@ export function ShareMenu({
   const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(
     null,
   );
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setSelectedPages(new Set([currentPageIdx]));
+    if (open) {
+      setSelectedPages(new Set([currentPageIdx]));
+      setError(null);
+    }
   }, [open, currentPageIdx]);
 
   const closeModal = () => {
     if (exporting) return;
+    setError(null);
     onClose();
   };
 
@@ -64,12 +69,20 @@ export function ShareMenu({
     const indices = Array.from(selectedPages).sort((a, b) => a - b);
     setExporting(true);
     setExportingFormat(format);
+    setError(null);
+    let success = false;
     try {
       await onExportPages(indices, format);
+      success = true;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(errorMsg);
     } finally {
       setExporting(false);
       setExportingFormat(null);
-      onClose();
+      if (success) {
+        onClose();
+      }
     }
   };
 
@@ -167,9 +180,13 @@ export function ShareMenu({
 
         {/* Action buttons */}
         <div className="border-t border-mist-grey pt-4">
+          {error && (
+            <div className="mb-3 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-200">
+              {error}
+            </div>
+          )}
           <p className="text-xs text-grey mb-3">
-            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"}{" "}
-            selected
+            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"} selected
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             {showDownload && (

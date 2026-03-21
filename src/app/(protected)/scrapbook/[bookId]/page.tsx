@@ -1225,60 +1225,47 @@ export default function CanvasEditorPage() {
         }
         try {
           if (files.length > 0 && navigator.canShare?.({ files })) {
-            await new Promise<void>((resolve) => {
+            await new Promise<void>((resolve, reject) => {
               let isDone = false;
-              let stuckTimer: ReturnType<typeof setTimeout> | null = null;
               
-              const cleanupAndResolve = () => {
+              const finish = () => {
                 if (isDone) return;
                 isDone = true;
-                window.removeEventListener("focus", onFocus);
-                window.removeEventListener("blur", onBlur);
-                if (stuckTimer) clearTimeout(stuckTimer);
                 resolve();
               };
 
-              const onFocus = () => {
-                // Focus returns when user dismisses the share sheet
-                setTimeout(cleanupAndResolve, 500);
-              };
-
-              const onBlur = () => {
-                // The share sheet has successfully opened, clear our "stuck" timer
-                if (stuckTimer) clearTimeout(stuckTimer);
-              };
-
-              window.addEventListener("focus", onFocus);
-              window.addEventListener("blur", onBlur);
-
-              // If the window doesn't blur (lose focus) within 1.5s, the share sheet
-              // likely never opened due to a WebKit lock.
-              stuckTimer = setTimeout(() => {
-                if (!isDone) {
-                  setCanvasError({
-                    user: "iOS blocked the share menu. Please refresh the page to share again.",
-                  });
-                  cleanupAndResolve();
-                }
-              }, 1500);
+              // If the promise doesn't resolve or reject within 500ms, 
+              // it means the share sheet successfully opened and the user is interacting with it.
+              // We assume "success" regarding the API call and close our internal loading state/modal.
+              const raceTimer = setTimeout(() => {
+                finish();
+              }, 500);
 
               navigator
                 .share({ files, title: freshBook.title })
-                .then(cleanupAndResolve)
+                .then(() => {
+                  if (!isDone) clearTimeout(raceTimer);
+                  finish();
+                })
                 .catch((err) => {
+                  if (!isDone) clearTimeout(raceTimer);
                   const msg =
                     err instanceof Error
                       ? err.message.toLowerCase()
                       : String(err).toLowerCase();
+                  
+                  // If iOS blocked it immediately, we reject so the ShareMenu can show the error.
                   if (
                     err.name === "NotAllowedError" ||
                     msg.includes("in progress")
                   ) {
-                    setCanvasError({
-                      user: "iOS blocked the share menu. Please refresh the page to share again.",
-                    });
+                    if (!isDone) {
+                      isDone = true;
+                      reject(new Error("iOS temporarily blocked sharing. Please refresh the page to share again."));
+                    }
+                  } else {
+                    finish(); // Normal cancellation
                   }
-                  cleanupAndResolve();
                 });
             });
           } else {
