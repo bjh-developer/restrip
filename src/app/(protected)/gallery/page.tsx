@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Trash2,
+  Share2,
   X,
   ChevronLeft,
   ChevronRight,
@@ -242,6 +243,7 @@ export default function GalleryPage() {
 
   // Delete / selection
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [sharingIds, setSharingIds] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -549,6 +551,99 @@ export default function GalleryPage() {
   const handleDelete = (snapId: string) => {
     showDeleteConfirmation(snapId);
   };
+
+  /**
+   * Share one or more photostrips as PNG files.
+   * Uses native share when available, falls back to file downloads.
+   */
+  const shareSnapsAsPng = useCallback(
+    async (snapIds: string[]) => {
+      if (snapIds.length === 0) return;
+
+      setSharingIds(new Set(snapIds));
+      setActionError(null);
+
+      try {
+        const files: File[] = [];
+        const cachedIds = await getCachedIds();
+
+        for (let i = 0; i < snapIds.length; i++) {
+          const snapId = snapIds[i];
+          try {
+            let blob: Blob | null = null;
+
+            // Prefer IndexedDB cache when available to avoid network failures.
+            if (cachedIds.has(snapId)) {
+              blob = await getCachedImage(snapId);
+            }
+
+            // Fallback to API fetch. Avoid fetching object URLs here since they
+            // can be revoked and trigger intermittent "Failed to fetch" on mobile.
+            if (!blob) {
+              const fallbackRes = await fetch(`/api/images/${snapId}`);
+              if (!fallbackRes.ok) continue;
+              blob = await fallbackRes.blob();
+            }
+
+            files.push(
+              new File([blob], `restrip-memory-${i + 1}.png`, {
+                type: "image/png",
+              }),
+            );
+          } catch (itemErr) {
+            console.error(`[Gallery] Failed to prepare share file for ${snapId}:`, itemErr);
+          }
+        }
+
+        if (files.length === 0) {
+          throw new Error("No PNG files were available to share.");
+        }
+
+        if (navigator.canShare?.({ files })) {
+          // Fire-and-forget like scrapbook page: close app-level loading
+          // immediately and let native share sheet own the interaction.
+          navigator.share({ files, title: "ReStrip Memories" }).catch(() => {
+            // User cancellation or native share failure is non-fatal.
+          });
+          return;
+        }
+
+        // Fallback for browsers without file-share support.
+        for (const file of files) {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        setActionError({
+          user: "Couldn't share memories right now. Please try again.",
+          detail,
+        });
+      } finally {
+        setSharingIds(new Set());
+      }
+    },
+    [snaps],
+  );
+
+  /** Share all currently selected snaps as PNG */
+  const handleBatchShare = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    shareSnapsAsPng(Array.from(selectedIds));
+  }, [selectedIds, shareSnapsAsPng]);
+
+  /** Share a single snap as PNG */
+  const handleShareSingle = useCallback(
+    (snapId: string) => {
+      shareSnapsAsPng([snapId]);
+    },
+    [shareSnapsAsPng],
+  );
 
   /** Show delete confirmation modal for batch delete */
   const showBatchDeleteConfirmation = () => {
@@ -872,7 +967,7 @@ export default function GalleryPage() {
                     Cancel
                   </>
                 ) : (
-                  <Trash2 className="w-4 h-4" />
+                  <SquareMousePointer className="w-4 h-4" />
                 )}
               </button>
 
@@ -1036,21 +1131,36 @@ export default function GalleryPage() {
         </div>
       </div>
 
-      {/* Batch delete bar */}
+      {/* Batch bar */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="mb-4 flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
-          <span className="text-sm text-red-800 font-medium">
+        <div className="mb-4 flex items-center justify-between p-3 bg-mist-grey border border-mist-grey-200 rounded-lg">
+          <span className="text-sm text-soft-black font-medium">
             {selectedIds.size} selected
           </span>
-          <button
-            type="button"
-            onClick={handleBatchDelete}
-            disabled={deletingIds.size > 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium disabled:opacity-50"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBatchShare}
+              disabled={deletingIds.size > 0 || sharingIds.size > 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-pastel-blue text-soft-black rounded-lg hover:bg-pastel-blue transition text-sm font-medium disabled:opacity-50"
+            >
+              {sharingIds.size > 0 ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5" />
+              )}
+              Share
+            </button>
+            <button
+              type="button"
+              onClick={handleBatchDelete}
+              disabled={deletingIds.size > 0 || sharingIds.size > 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </div>
         </div>
       )}
 
@@ -1181,6 +1291,22 @@ export default function GalleryPage() {
           >
             View
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleShareSingle(contextMenu.snapId);
+              setContextMenu(null);
+            }}
+            disabled={sharingIds.size > 0}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black disabled:opacity-50"
+          >
+            {sharingIds.size > 0 ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5" />
+            )}
+            Share
+          </button>
           <div className="border-t border-mist-grey my-1" />
           <button
             type="button"
@@ -1220,6 +1346,24 @@ export default function GalleryPage() {
           aria-modal="true"
           aria-label="Image viewer"
         >
+          {/* Share button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShareSingle(lightboxSectionSnaps[lightboxIndex].id);
+            }}
+            disabled={sharingIds.size > 0}
+            className="absolute top-4 right-14 text-white/70 hover:text-white transition z-10 disabled:opacity-50"
+            aria-label="Share image"
+          >
+            {sharingIds.size > 0 ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Share2 className="w-6 h-6" />
+            )}
+          </button>
+
           {/* Close button */}
           <button
             type="button"
