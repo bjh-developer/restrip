@@ -636,7 +636,7 @@ export default function GalleryPage() {
         setSharingIds(new Set());
       }
     },
-    [snaps],
+    [],
   );
 
   /** Share all currently selected snaps as PNG */
