@@ -967,7 +967,7 @@ export default function GalleryPage() {
                     ? "bg-red-100 text-red-700"
                     : "bg-mist-grey text-soft-black hover:bg-mist-grey/80"
                 }`}
-                aria-label={selectMode ? "Cancel delete" : "Delete memories"}
+                aria-label={selectMode ? "Cancel selection" : "Select memories"}
               >
                 {selectMode ? (
                   <>
@@ -1107,12 +1107,22 @@ export default function GalleryPage() {
                 }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition ${
                   selectMode
-                    ? "bg-blue-100 text-blue-700"
+                    ? "bg-red-100 text-red-700"
                     : "bg-mist-grey text-soft-black hover:bg-mist-grey/80"
                 }`}
+                aria-label={selectMode ? "Cancel selection" : "Select memories"}
               >
-                <SquareMousePointer className="w-4 h-4" />
-                {selectMode ? "Cancel" : "Select"}
+                {selectMode ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <SquareMousePointer className="w-4 h-4" />
+                    Select
+                  </>
+                )}
               </button>
             )}
 
@@ -1151,6 +1161,7 @@ export default function GalleryPage() {
               onClick={handleBatchShare}
               disabled={deletingIds.size > 0 || sharingIds.size > 0}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-pastel-blue text-soft-black rounded-lg hover:bg-pastel-blue transition text-sm font-medium disabled:opacity-50"
+              aria-label="Share memories"
             >
               {sharingIds.size > 0 ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1307,6 +1318,7 @@ export default function GalleryPage() {
             }}
             disabled={sharingIds.size > 0}
             className="w-full flex items-center gap-2 px-4 py-2 text-sm text-soft-black disabled:opacity-50"
+            aria-label="Share memories"
           >
             {sharingIds.size > 0 ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
