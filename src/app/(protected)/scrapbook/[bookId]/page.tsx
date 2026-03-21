@@ -8,6 +8,7 @@
  * - Change the page background
  * - Drag, resize, rotate all elements
  * - Navigate between pages in the book
+ * - Download or share their scrapbook
  *
  * State is auto-saved to localStorage on every change.
  *
