@@ -1223,64 +1223,27 @@ export default function CanvasEditorPage() {
             ),
           );
         }
-        try {
-          if (files.length > 0 && navigator.canShare?.({ files })) {
-            await new Promise<void>((resolve, reject) => {
-              let isDone = false;
-              
-              const finish = () => {
-                if (isDone) return;
-                isDone = true;
-                resolve();
-              };
-
-              // If the promise doesn't resolve or reject within 500ms, 
-              // it means the share sheet successfully opened and the user is interacting with it.
-              // We assume "success" regarding the API call and close our internal loading state/modal.
-              const raceTimer = setTimeout(() => {
-                finish();
-              }, 500);
-
-              navigator
-                .share({ files, title: freshBook.title })
-                .then(() => {
-                  if (!isDone) clearTimeout(raceTimer);
-                  finish();
-                })
-                .catch((err) => {
-                  if (!isDone) clearTimeout(raceTimer);
-                  const msg =
-                    err instanceof Error
-                      ? err.message.toLowerCase()
-                      : String(err).toLowerCase();
-                  
-                  // If iOS blocked it immediately, we reject so the ShareMenu can show the error.
-                  if (
-                    err.name === "NotAllowedError" ||
-                    msg.includes("in progress")
-                  ) {
-                    if (!isDone) {
-                      isDone = true;
-                      reject(new Error("iOS temporarily blocked sharing. Please refresh the page to share again."));
-                    }
-                  } else {
-                    finish(); // Normal cancellation
-                  }
-                });
+        if (files.length > 0 && navigator.canShare?.({ files })) {
+          // Fire-and-forget: invoke the native share sheet and immediately
+          // return so the ShareMenu can close.  On iOS Safari the JS event
+          // loop is frozen while the share sheet is visible, which means any
+          // awaited promise will hang until dismissal — and sometimes the
+          // settlement is lost entirely, leaving the UI stuck.
+          navigator
+            .share({ files, title: freshBook.title })
+            .catch(() => {
+              // User cancelled or share failed — nothing to do.
             });
-          } else {
-            for (const file of files) {
-              const url = URL.createObjectURL(file);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = file.name;
-              a.click();
-              URL.revokeObjectURL(url);
-              await new Promise((resolve) => setTimeout(resolve, 300));
-            }
+        } else {
+          for (const file of files) {
+            const url = URL.createObjectURL(file);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = file.name;
+            a.click();
+            URL.revokeObjectURL(url);
+            await new Promise((resolve) => setTimeout(resolve, 300));
           }
-        } catch {
-          // User cancelled or share failed — do nothing
         }
       }
 
