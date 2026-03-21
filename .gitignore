@@ -120,3 +120,5 @@ backup-auth-version/
 
 /.github/instructions
 /.github/appmod
+# clerk configuration (can include secrets)
+/.clerk/

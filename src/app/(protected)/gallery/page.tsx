@@ -599,11 +599,19 @@ export default function GalleryPage() {
           throw new Error("No PNG files were available to share.");
         }
 
-        if (navigator.canShare?.({ files })) {
+        const canUseNativeShare =
+          typeof navigator.share === "function" &&
+          (typeof navigator.canShare !== "function" || navigator.canShare({ files }));
+
+        if (canUseNativeShare) {
           // Fire-and-forget like scrapbook page: close app-level loading
           // immediately and let native share sheet own the interaction.
-          navigator.share({ files, title: "ReStrip Memories" }).catch(() => {
-            // User cancellation or native share failure is non-fatal.
+          navigator.share({ files, title: "ReStrip Memories" }).catch((err: unknown) => {
+            if (err instanceof Error && err.name === "InvalidStateError") {
+              // Previous share promise never settled (iOS WebKit bug) — reload to clear it
+              window.location.reload();
+            }
+            // AbortError (user cancelled) and other native share errors are non-fatal.
           });
           return;
         }
