@@ -1217,23 +1217,23 @@ export default function CanvasEditorPage() {
             new File(
               [dataUrlToBlob(dataUrl)],
               `${freshBook.title}-page-${idx + 1}.png`,
-              {
-                type: "image/png",
-              },
+              { type: "image/png" },
             ),
           );
         }
+
         if (files.length > 0 && navigator.canShare?.({ files })) {
-          // Fire-and-forget: invoke the native share sheet and immediately
-          // return so the ShareMenu can close.  On iOS Safari the JS event
-          // loop is frozen while the share sheet is visible, which means any
-          // awaited promise will hang until dismissal — and sometimes the
-          // settlement is lost entirely, leaving the UI stuck.
           navigator
             .share({ files, title: freshBook.title })
-            .catch(() => {
-              // User cancelled or share failed — nothing to do.
+            .catch((err: unknown) => {
+              if (err instanceof Error && err.name === "InvalidStateError") {
+                // Previous share promise never settled (iOS WebKit bug) — reload to clear it
+                window.location.reload();
+              }
+              // AbortError (user cancelled) and other errors: silently ignore
             });
+          // Return immediately — do NOT await. iOS freezes the JS event loop
+          // while the sheet is visible, so awaiting here hangs the UI.
         } else {
           for (const file of files) {
             const url = URL.createObjectURL(file);

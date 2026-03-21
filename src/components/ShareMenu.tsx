@@ -70,22 +70,37 @@ export function ShareMenu({
     setExporting(true);
     setExportingFormat(format);
     setError(null);
+
+    if (format === "share") {
+      // iOS Safari never settles the share promise — close the menu
+      // immediately after firing, don't wait for the promise.
+      try {
+        await onExportPages(indices, format);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg !== "AbortError") setError(msg);
+      } finally {
+        setExporting(false);
+        setExportingFormat(null);
+        onClose();
+      }
+      return;
+    }
+
+    // PNG / PDF — normal await path
     let success = false;
     try {
       await onExportPages(indices, format);
       success = true;
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(errorMsg);
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
     } finally {
       setExporting(false);
       setExportingFormat(null);
-      if (success) {
-        onClose();
-      }
+      if (success) onClose();
     }
   };
-
   const canNativeShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -186,7 +201,8 @@ export function ShareMenu({
             </div>
           )}
           <p className="text-xs text-grey mb-3">
-            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"} selected
+            {selectedPages.size} {selectedPages.size === 1 ? "page" : "pages"}{" "}
+            selected
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             {showDownload && (
