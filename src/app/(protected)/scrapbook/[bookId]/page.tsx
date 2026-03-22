@@ -1413,7 +1413,7 @@ export default function CanvasEditorPage() {
         </div>
 
         {/* Center: editing tools */}
-        <div className="flex items-center gap-0.5 min-w-0 overflow-x-auto shrink">
+        <div className="flex items-center gap-0.5 min-w-0 shrink">
           {selectedIsText ? (
             <FontPicker value={activeFont} onChange={handleFontChange} />
           ) : !selectionHasObject ? (
