@@ -89,7 +89,7 @@ export default function LandingPage() {
                 <Status status={stats?.status ?? "online"}>
                   <StatusIndicator />
                   <StatusLabel />
-                  <StatusStats count={stats?.count.toString()} />
+                  <StatusStats count={stats?.count?.toString() || "0"} />
                 </Status>
               </Link>
             </div>

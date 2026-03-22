@@ -610,6 +610,9 @@ export default function CanvasEditorPage() {
         backgroundColor: "#FFFFFF",
         selection: true,
         preserveObjectStacking: true,
+        selectionBorderColor: "transparent",
+        selectionColor: "rgba(168, 85, 247, 0.15)",
+        selectionLineWidth: 0,
       });
 
       fabricCanvasRef.current = canvas;
@@ -1050,8 +1053,7 @@ export default function CanvasEditorPage() {
   // ============= Keyboard shortcuts =============
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Delete" || e.key === "Backspace") {
-        // Don't trigger if editing text
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         const canvas = fabricCanvasRef.current;
         if (!canvas) return;
         const active = canvas.getActiveObject();
@@ -1059,6 +1061,22 @@ export default function CanvasEditorPage() {
           active &&
           active.type === "textbox" &&
           (active as import("fabric").Textbox).isEditing
+        ) {
+          e.preventDefault();
+          (active as import("fabric").Textbox).selectAll();
+          canvas.renderAll();
+        }
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+        const active = canvas.getActiveObject();
+        if (
+          active &&
+          active.type === "textbox" &&
+          (active as any).isEditing
         )
           return;
         handleDelete();
@@ -1382,21 +1400,21 @@ export default function CanvasEditorPage() {
       {/* ── Top Toolbar ───────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-mist-grey px-3 py-2 flex items-center justify-between gap-1 min-w-0">
         {/* Left: Back + Title + save status */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               saveCurrentPage();
               router.push("/scrapbook");
             }}
-            className="p-1.5 rounded-lg hover:bg-mist-grey/50 transition"
+            className="p-1.5 rounded-lg hover:bg-mist-grey/50 transition shrink-0"
           >
             <ArrowLeft className="w-5 h-5 text-soft-black" />
           </button>
-          <h1 className="font-display text-sm font-bold text-soft-black truncate max-w-[120px] sm:max-w-[200px]">
-            {book.title}
-          </h1>
-          <div className="w-16 flex items-center justify-start">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <h1 className="font-display text-sm font-bold text-soft-black truncate max-w-[100px] sm:max-w-[180px]">
+              {book.title}
+            </h1>
             <TextMorph
               as="span"
               className={`text-xs whitespace-nowrap transition-colors ${
@@ -1527,7 +1545,10 @@ export default function CanvasEditorPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setSidebarOpen(false)}
+                onClick={() => {
+                  setSidebarOpen(false);
+                  zoomReset();
+                }}
                 className="p-1 rounded hover:bg-mist-grey/50 transition"
                 title="Collapse sidebar"
               >
@@ -1539,11 +1560,15 @@ export default function CanvasEditorPage() {
             {book.pages.map((page, idx) => (
               <div
                 key={page.id}
-                onClick={() => goToPage(idx)}
+                onClick={() => {
+                  if (idx !== currentPageIdx) {
+                    goToPage(idx);
+                  }
+                }}
                 className={`w-full group relative aspect-[595/842] rounded-lg border-2 transition overflow-hidden cursor-pointer ${
                   idx === currentPageIdx
-                    ? "border-blush-pink shadow-sm"
-                    : "border-mist-grey hover:border-blush-pink/50"
+                    ? "border-soft-black shadow-sm"
+                    : "border-mist-grey hover:border-soft-black/50"
                 }`}
               >
                 {thumbnails[page.id] ? (
@@ -1564,27 +1589,14 @@ export default function CanvasEditorPage() {
                 <span className="absolute bottom-1 left-1 text-[10px] font-medium text-soft-black/50 bg-white/60 rounded px-1">
                   {idx + 1}
                 </span>
-                {book.pages.length > 1 && (
+                {book.pages.length > 1 && idx === currentPageIdx && (
                   <button
                     type="button"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      if (idx === currentPageIdx) {
-                        handleDeletePage();
-                      } else {
-                        if (!confirm("Delete this page?")) return;
-                        const ok = await deletePageApi(bookId, page.id);
-                        if (!ok) return;
-                        const updatedPages = book.pages
-                          .filter((p) => p.id !== page.id)
-                          .map((p, i) => ({ ...p, pageNumber: i + 1 }));
-                        setBook({ ...book, pages: updatedPages });
-                        if (currentPageIdx >= updatedPages.length) {
-                          setCurrentPageIdx(updatedPages.length - 1);
-                        }
-                      }
+                      handleDeletePage();
                     }}
-                    className="absolute top-1 right-1 p-0.5 rounded bg-white/60 opacity-0 group-hover:opacity-100 hover:bg-red-50 transition"
+                    className="absolute top-1 right-1 p-0.5 rounded bg-white/60 hover:bg-red-50 transition"
                   >
                     <Trash2 className="w-3 h-3 text-red-400" />
                   </button>
@@ -1695,6 +1707,7 @@ export default function CanvasEditorPage() {
         current={currentPage?.background ?? { type: "color", color: "#FFFFFF" }}
         onChange={handleBgChange}
       />
+
       {/* Mobile: Download button → PNG + PDF only */}
       <ShareMenu
         open={downloadOpen}

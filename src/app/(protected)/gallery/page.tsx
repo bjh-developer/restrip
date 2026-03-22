@@ -1268,7 +1268,7 @@ export default function GalleryPage() {
             <Masonry
               items={section.items}
               skipPreload
-              columnBreakpoints={[4, 4, 3, 3]}
+              columnBreakpoints={[4, 4, 3, 2]}
               gap={10}
               scaleOnHover
               hoverScale={0.99}
@@ -1360,103 +1360,118 @@ export default function GalleryPage() {
       {lightboxIndex !== null && lightboxSectionSnaps[lightboxIndex] && (
         <div
           ref={lightboxRef}
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightboxIndex(null)}
+          className="fixed inset-0 z-50 bg-black flex flex-col"
           role="dialog"
           aria-modal="true"
           aria-label="Image viewer"
         >
-          {/* Share button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleShareSingle(lightboxSectionSnaps[lightboxIndex].id);
-            }}
-            disabled={sharingIds.size > 0}
-            className="absolute top-4 right-14 text-white/70 hover:text-white transition z-10 disabled:opacity-50"
-            aria-label="Share image"
-          >
-            {sharingIds.size > 0 ? (
-              <Loader2 className="w-6 h-6 animate-spin" />
-            ) : (
-              <Share2 className="w-6 h-6" />
-            )}
-          </button>
+          {/* Top Bar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-black/50 backdrop-blur-sm z-10">
+            <span className="text-white/80 text-sm font-medium">
+              {lightboxIndex + 1} / {lightboxSectionSnaps.length}
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleShareSingle(lightboxSectionSnaps[lightboxIndex].id);
+                }}
+                disabled={sharingIds.size > 0}
+                className="text-white/80 hover:text-white transition disabled:opacity-50"
+                aria-label="Share image"
+              >
+                {sharingIds.size > 0 ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Share2 className="w-5 h-5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(null)}
+                className="text-white/80 hover:text-white transition"
+                aria-label="Close viewer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
 
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={() => setLightboxIndex(null)}
-            className="absolute top-4 right-4 text-white/70 hover:text-white transition z-10"
-            aria-label="Close viewer"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          {/* Previous button */}
-          {lightboxIndex > 0 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigateLightbox(-1);
-              }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition z-10"
-              aria-label="Previous image"
+          {/* Main Content Area */}
+          <div className="flex-1 flex min-h-0">
+            {/* Image Area */}
+            <div
+              className="flex-1 flex items-center justify-center relative p-4"
+              onClick={() => setLightboxIndex(null)}
             >
-              <ChevronLeft className="w-8 h-8" />
-            </button>
-          )}
+              {/* Previous button */}
+              {lightboxIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateLightbox(-1);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition z-10"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+              )}
 
-          {/* Next button */}
-          {lightboxIndex < lightboxSectionSnaps.length - 1 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigateLightbox(1);
-              }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition z-10"
-              aria-label="Next image"
-            >
-              <ChevronRight className="w-8 h-8" />
-            </button>
-          )}
+              {/* Next button */}
+              {lightboxIndex < lightboxSectionSnaps.length - 1 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigateLightbox(1);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition z-10"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              )}
 
-          {/* Image */}
-          <div
-            className="max-w-4xl max-h-[85vh] relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {lightboxSectionSnaps[lightboxIndex].image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={lightboxSectionSnaps[lightboxIndex].image_url!}
-                alt={lightboxSectionSnaps[lightboxIndex].caption ?? "Memory"}
-                className="max-w-full max-h-[85vh] object-contain rounded-lg"
-              />
-            )}
+              {/* Image */}
+              <div
+                className="max-w-full max-h-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {lightboxSectionSnaps[lightboxIndex].image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={lightboxSectionSnaps[lightboxIndex].image_url!}
+                    alt={lightboxSectionSnaps[lightboxIndex].caption ?? "Memory"}
+                    className="max-w-full max-h-[calc(100vh-200px)] sm:max-h-[calc(100vh-160px)] object-contain rounded-lg"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
 
-            {/* Caption overlay */}
-            {lightboxSectionSnaps[lightboxIndex].caption && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
-                <p className="text-white text-lg font-caption">
+          {/* Bottom Panel - Descriptors */}
+          <div className="bg-black/80 backdrop-blur-sm px-6 py-4 border-t border-white/10">
+            <div className="max-w-4xl mx-auto">
+              {lightboxSectionSnaps[lightboxIndex].caption && (
+                <p className="text-white text-lg font-caption mb-2">
                   {lightboxSectionSnaps[lightboxIndex].caption}
                 </p>
-                <p className="text-white/60 text-xs mt-1">
-                  Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
-                  {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
-                    ? "Delivered"
-                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled" ||
-                      lightboxSectionSnaps[lightboxIndex].delivery_status === "pending"
-                    ? "Scheduled"
-                    : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
-                    ? "Failed"
-                    : "Scheduled"}
-                </p>
-              </div>
-            )}
+              )}
+              <p className="text-white/60 text-sm">
+                Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
+                {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
+                  ? "Delivered"
+                  : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled" ||
+                    lightboxSectionSnaps[lightboxIndex].delivery_status === "pending"
+                  ? "Scheduled"
+                  : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
+                  ? "Failed"
+                  : "Scheduled"}
+              </p>
+            </div>
           </div>
         </div>
       )}
