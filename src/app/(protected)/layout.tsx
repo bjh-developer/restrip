@@ -40,7 +40,7 @@ export default function ProtectedLayout({
       isScrapbookEditor ? "h-full overflow-hidden" : "min-h-screen"
     }`}>
       {/* Navigation Bar */}
-      <nav className="bg-white border-b border-mist-grey shadow-sm">
+      <nav className="sticky top-0 z-40 bg-white border-b border-mist-grey shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             {/* Logo */}
@@ -63,7 +63,7 @@ export default function ProtectedLayout({
                     aria-label={label}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                       isActive
-                        ? "bg-blush-pink/20 text-soft-black"
+                        ? "bg-soft-black text-white"
                         : "text-grey hover:text-soft-black hover:bg-mist-grey/50"
                     }`}
                   >
