@@ -36,7 +36,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Masonry, { type MasonryItem } from "../../../../components/Masonry";
-import { Skeleton } from "../../../../components/ui/skeleton";
+import GallerySkeleton from "../../../components/shared/GallerySkeleton";
 import {
   getCachedImage,
   setCachedImage,
@@ -1201,29 +1201,13 @@ export default function GalleryPage() {
       {/* Loading skeleton (during metadata fetch or initial image load) */}
       {!showMasonry && (isLoading || isLoadingImages) && (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
-            {/* Generate skeleton items with varying heights to mimic masonry */}
-            {Array.from({ length: 12 }).map((_, i) => {
-              // Create varying heights for a masonry-like appearance
-              const heights = ["h-48", "h-64", "h-56", "h-72", "h-60", "h-52"];
-              const height = heights[i % heights.length];
-              return (
-                <Skeleton 
-                  key={i} 
-                  className={`w-full ${height} rounded-xl`}
-                  style={{ 
-                    animationDelay: `${i * 50}ms`,
-                    animationDuration: '1.5s'
-                  }}
-                />
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-center mt-8">
-            <span className="text-grey text-sm">
-              {isLoading ? "Loading your memories..." : isLoadingImages ? "Loading images..." : ""}
-            </span>
-          </div>
+          {(() => {
+            const measured = snaps
+              .filter((s) => s.naturalWidth > 0 && s.naturalHeight > 0 && !(s.naturalWidth === 300 && s.naturalHeight === 400))
+              .map((s) => ({ id: s.id, width: s.naturalWidth, height: s.naturalHeight }));
+            if (measured.length === 0) return null;
+            return <GallerySkeleton count={measured.length} items={measured} />;
+          })()}
         </div>
       )}
 
