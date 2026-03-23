@@ -37,6 +37,8 @@ import {
   PanelLeftOpen,
   ZoomIn,
   ZoomOut,
+  Copy,
+  MousePointer2,
 } from "lucide-react";
 import type {
   Book,
@@ -550,6 +552,12 @@ export default function CanvasEditorPage() {
   const [selectedIsText, setSelectedIsText] = useState(false);
   const [activeFont, setActiveFont] = useState("Inter");
 
+  // Text toolbar state
+  const [selectedText, setSelectedText] = useState<any>(null);
+
+  // Copy toast notification state
+  const [copyToast, setCopyToast] = useState(false);
+
   // Zoom level (1.0 = fit-to-container)
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const zoomLevelRef = useRef(1.0);
@@ -604,6 +612,16 @@ export default function CanvasEditorPage() {
       const fabric = await import("fabric");
       if (cancelled) return;
 
+      // Configure global object defaults for thicker handles and borders
+      fabric.FabricObject.prototype.set({
+        cornerSize: 16,
+        cornerStrokeColor: "#a855f7",
+        cornerColor: "#ffffff",
+        transparentCorners: false,
+        borderScaleFactor: 4,
+        padding: 4,
+      });
+
       const canvas = new fabric.Canvas(canvasElRef.current!, {
         width: CANVAS_WIDTH,
         height: CANVAS_HEIGHT,
@@ -618,6 +636,24 @@ export default function CanvasEditorPage() {
       fabricCanvasRef.current = canvas;
       isInitializedRef.current = true;
 
+      // Enable native browser text selection on mobile for textboxes
+      // Fabric.js uses a hidden textarea - we need to style it for native selection
+      const enableNativeTextSelection = () => {
+        const hiddenTextarea = document.querySelector('.fabric-textarea-hidden') as HTMLTextAreaElement;
+        if (hiddenTextarea) {
+          hiddenTextarea.style.cssText += `
+            -webkit-user-select: text !important;
+            -webkit-touch-callout: default !important;
+            user-select: text !important;
+            pointer-events: auto !important;
+            opacity: 0.01;
+          `;
+        }
+      };
+
+      // Listen for text editing events to enable native selection
+      canvas.on('text:editing:entered', enableNativeTextSelection);
+
       // Listen for object changes to trigger auto-save
       const onChange = () => scheduleSave();
       canvas.on("object:modified", onChange);
@@ -625,28 +661,34 @@ export default function CanvasEditorPage() {
       canvas.on("object:removed", onChange);
 
       // Listen for selection changes
-      const updateSelectionState = (
-        obj: import("fabric").FabricObject | undefined,
-      ) => {
-        setSelectionHasObject(true);
-        if (obj && obj.type === "textbox") {
+      canvas.on("selection:created", (e) => {
+        const obj = e.selected?.[0];
+        setSelectionHasObject(!!obj);
+        if (obj?.type === "textbox") {
           setSelectedIsText(true);
-          setActiveFont(
-            (obj as import("fabric").Textbox).fontFamily ?? "Inter",
-          );
+          setActiveFont((obj as import("fabric").Textbox).fontFamily ?? "Inter");
+          setSelectedText(obj);
         } else {
           setSelectedIsText(false);
+          setSelectedText(null);
         }
-      };
-      canvas.on("selection:created", (e) =>
-        updateSelectionState(e.selected?.[0]),
-      );
-      canvas.on("selection:updated", (e) =>
-        updateSelectionState(e.selected?.[0]),
-      );
+      });
+      canvas.on("selection:updated", (e) => {
+        const obj = e.selected?.[0];
+        setSelectionHasObject(!!obj);
+        if (obj?.type === "textbox") {
+          setSelectedIsText(true);
+          setActiveFont((obj as import("fabric").Textbox).fontFamily ?? "Inter");
+          setSelectedText(obj);
+        } else {
+          setSelectedIsText(false);
+          setSelectedText(null);
+        }
+      });
       canvas.on("selection:cleared", () => {
         setSelectionHasObject(false);
         setSelectedIsText(false);
+        setSelectedText(null);
       });
 
       // Load all pages to generate thumbnails, ending on page 0.
@@ -678,27 +720,6 @@ export default function CanvasEditorPage() {
   }, [book]);
 
   // ============= Schedule auto-save =============
-  const apiSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  /** Persist all pages to the API (debounced) */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const persistToApi = useCallback(() => {
-    if (apiSaveTimerRef.current) clearTimeout(apiSaveTimerRef.current);
-    apiSaveTimerRef.current = setTimeout(() => {
-      // Get latest book state from ref
-      const latestSave = saveCurrentPageRef.current;
-      // Trigger a local save first so state is up to date
-      latestSave();
-      // Then read the current state from the component
-      setBook((latestBook) => {
-        if (latestBook) {
-          savePagesApi(bookId, latestBook.pages).catch(() => {});
-        }
-        return latestBook;
-      });
-    }, AUTO_SAVE_DELAY);
-  }, [bookId]);
-
   const scheduleSave = useCallback(() => {
     // Don't save if we're currently loading a page
     if (isLoadingPageRef.current) return;
@@ -1047,8 +1068,31 @@ export default function CanvasEditorPage() {
     if (!active) return;
     canvas.remove(active);
     canvas.discardActiveObject();
+    setSelectedText(null);
     canvas.renderAll();
   }, []);
+
+  // ============= Text toolbar actions =============
+  const handleCopyText = useCallback(() => {
+    if (selectedText?.text) {
+      navigator.clipboard.writeText(selectedText.text);
+      setCopyToast(true);
+      setTimeout(() => setCopyToast(false), 1500);
+      setSelectedText(null);
+    }
+  }, [selectedText]);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedText) {
+      const canvas = selectedText.canvas;
+      if (canvas) {
+        canvas.setActiveObject(selectedText);
+        selectedText.enterEditing();
+        selectedText.selectAll();
+        canvas.renderAll();
+      }
+    }
+  }, [selectedText]);
 
   // ============= Keyboard shortcuts =============
   useEffect(() => {
@@ -1322,10 +1366,12 @@ export default function CanvasEditorPage() {
   }, [applyZoom]);
 
   const zoomReset = useCallback(() => {
-    zoomLevelRef.current = 1.0;
-    setZoomLevel(1.0);
-    applyZoom(1.0);
-  }, [applyZoom]);
+    const base = getBaseScale();
+    const targetZoom = base < 1.0 ? 1.0 / base : 1.0;
+    zoomLevelRef.current = targetZoom;
+    setZoomLevel(targetZoom);
+    applyZoom(targetZoom);
+  }, [applyZoom, getBaseScale]);
 
   // ============= Responsive canvas scaling =============
   useEffect(() => {
@@ -1375,6 +1421,17 @@ export default function CanvasEditorPage() {
     <div
       className={`flex flex-col flex-1 min-h-0 overflow-hidden ${fontClassNames}`}
     >
+      {/* Global styles for native text selection on mobile */}
+      <style jsx global>{`
+        .fabric-textarea-hidden,
+        textarea[class*="fabric"] {
+          -webkit-user-select: text !important;
+          -webkit-touch-callout: default !important;
+          user-select: text !important;
+          pointer-events: auto !important;
+        }
+      `}</style>
+
       {/* Inline error banner */}
       {canvasError && (
         <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex items-start justify-between gap-3">
@@ -1394,6 +1451,13 @@ export default function CanvasEditorPage() {
           >
             <X className="w-4 h-4 text-red-500" />
           </button>
+        </div>
+      )}
+
+      {/* Copy success toast */}
+      {copyToast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-20 z-50 bg-soft-black text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium animate-fade-in">
+          Text copied!
         </div>
       )}
 
@@ -1545,10 +1609,7 @@ export default function CanvasEditorPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSidebarOpen(false);
-                  zoomReset();
-                }}
+                onClick={() => setSidebarOpen(false)}
                 className="p-1 rounded hover:bg-mist-grey/50 transition"
                 title="Collapse sidebar"
               >
@@ -1622,6 +1683,12 @@ export default function CanvasEditorPage() {
         <div
           ref={canvasContainerRef}
           className="flex-1 min-h-0 bg-mist-grey/30 flex items-start sm:items-center justify-center overflow-hidden p-2 sm:p-6 relative"
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('[class*="text-toolbar"]') && !target.closest('button')) {
+              setSelectedText(null);
+            }
+          }}
         >
           <div
             className="canvas-wrapper shadow-xl rounded-sm relative"
@@ -1634,6 +1701,63 @@ export default function CanvasEditorPage() {
               </div>
             )}
           </div>
+
+          {/* Text Toolbar - constant size, outside canvas-wrapper */}
+          {selectedText && (() => {
+            const canvasRect = canvasElRef.current?.getBoundingClientRect();
+            if (!canvasRect) return null;
+
+            const toolbarW = 160;
+            const toolbarH = 44;
+            const offset = 1;
+
+            // Use canvas rect directly - CSS transform scale is already factored in
+            const scaleX = canvasRect.width / CANVAS_WIDTH;
+            const scaleY = canvasRect.height / CANVAS_HEIGHT;
+
+            const textLeft = (selectedText.left ?? 0) * scaleX;
+            const textTop = (selectedText.top ?? 0) * scaleY;
+            const textW = (selectedText.width ?? 200) * scaleX;
+
+            let x = canvasRect.left + textLeft + textW / 2;
+            let y = canvasRect.top + textTop - toolbarH - offset;
+
+            const containerW = window.innerWidth;
+            const containerH = window.innerHeight;
+
+            x = Math.max(toolbarW / 2, Math.min(x, containerW - toolbarW / 2));
+            y = Math.max(offset, Math.min(y, containerH - toolbarH - offset));
+
+            return (
+              <div
+                className="text-toolbar absolute z-30 flex items-center bg-soft-black rounded-lg shadow-xl overflow-hidden pointer-events-auto"
+                style={{
+                  left: x,
+                  top: y,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleCopyText}
+                  className="flex items-center gap-3 px-5 py-3.5 text-white hover:bg-white/20 transition text-base font-medium whitespace-nowrap"
+                  title="Copy"
+                >
+                  <Copy className="w-6 h-6" />
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="flex items-center gap-3 px-5 py-3.5 text-white hover:bg-white/20 transition border-l border-white/20 text-base font-medium whitespace-nowrap"
+                  title="Select All"
+                >
+                  <MousePointer2 className="w-6 h-6" />
+                  Select All
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Zoom Controls */}
           <div className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm border border-mist-grey rounded-lg shadow-sm px-1 py-0.5">
