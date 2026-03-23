@@ -95,10 +95,10 @@ export default function GallerySkeleton({ count = 12, items: providedItems }: Ga
     return { grid: gridItems, containerHeight: maxHeight };
   }, [columns, gap, items, width]);
 
-  const hasMounted = useRef(false);
+  const hasMounted = useState(false);
 
   useLayoutEffect(() => {
-    hasMounted.current = true;
+    hasMounted[1](true);
   }, []);
 
   return (
@@ -116,7 +116,7 @@ export default function GallerySkeleton({ count = 12, items: providedItems }: Ga
               transform: `translate3d(${item.x}px, ${item.y}px, 0)`,
               width: item.w,
               height: item.h,
-              willChange: hasMounted.current ? "transform, width, height" : "auto",
+              willChange: hasMounted[0] ? "transform, width, height" : "auto",
             }}
           >
             <div className="relative w-full h-full rounded-lg shadow-[0px_4px_12px_-4px_rgba(0,0,0,0.15)] overflow-hidden border border-mist-grey/50">

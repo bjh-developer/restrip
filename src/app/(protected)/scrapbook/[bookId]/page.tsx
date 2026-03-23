@@ -553,7 +553,7 @@ export default function CanvasEditorPage() {
   const [activeFont, setActiveFont] = useState("Inter");
 
   // Text toolbar state
-  const [selectedText, setSelectedText] = useState<any>(null);
+  const [selectedText, setSelectedText] = useState<import("fabric").FabricObject | null>(null);
 
   // Copy toast notification state
   const [copyToast, setCopyToast] = useState(false);
@@ -1120,7 +1120,7 @@ export default function CanvasEditorPage() {
         if (
           active &&
           active.type === "textbox" &&
-          (active as any).isEditing
+          (active as import("fabric").Textbox).isEditing
         )
           return;
         handleDelete();
