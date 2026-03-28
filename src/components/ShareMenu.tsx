@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useEffect } from "react";
 import { Share2, Check, X, FileImage, FileText, Loader2 } from "lucide-react";
 import type { BookPage } from "../lib/scrapbook-types";
@@ -72,8 +74,6 @@ export function ShareMenu({
     setError(null);
 
     if (format === "share") {
-      // iOS Safari never settles the share promise — close the menu
-      // immediately after firing, don't wait for the promise.
       try {
         await onExportPages(indices, format);
       } catch (err: unknown) {
@@ -87,7 +87,6 @@ export function ShareMenu({
       return;
     }
 
-    // PNG / PDF — normal await path
     let success = false;
     try {
       await onExportPages(indices, format);
@@ -169,7 +168,6 @@ export function ShareMenu({
               } ${exporting ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {thumbnails[page.id] ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={thumbnails[page.id]}
                   alt={`Page ${idx + 1}`}

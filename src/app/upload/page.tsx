@@ -1,21 +1,3 @@
-/**
- * Upload Page Component
- *
- * Main page for uploading photo strip memories. Provides a form interface
- * for users to upload images, add captions, select delivery timing, and
- * choose notification method.
- *
- * Features:
- * - Image upload with drag-and-drop support
- * - Optional auto-crop using YOLO model (via RunPod)
- * - Multiple delivery timing options (surprise, custom period, custom date)
- * - Email or Telegram delivery
- * - Client-side validation with helpful error messages
- * - Manual cropping
- *
- * @module app/upload/page
- */
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -74,10 +56,6 @@ import {
 import { Spinner } from "../../components/ui/shadcn-io/spinner";
 import { computeScheduledSendTime } from "../../lib/delivery-scheduling";
 
-// =============================================================================
-// Constants
-// =============================================================================
-
 /** Maximum file size before compression is applied (in MB) */
 const COMPRESSION_THRESHOLD_MB = 3;
 
@@ -89,10 +67,6 @@ const MAX_IMAGE_DIMENSION = 2048;
 
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
-
-// =============================================================================
-// Types
-// =============================================================================
 
 /** Field-specific validation error messages */
 interface FieldErrors {
@@ -125,10 +99,6 @@ interface AutoCropSwitchProps {
   /** Whether an image has been uploaded */
   imageUploaded?: boolean;
 }
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
 
 /**
  * Converts a base64 data URL to a Blob without using fetch.
@@ -246,10 +216,6 @@ async function canvasPreview(
   ctx.restore();
   return canvas.toDataURL("image/jpeg", 0.95);
 }
-
-// =============================================================================
-// Sub-Components
-// =============================================================================
 
 /**
  * Image upload component with drag-and-drop support.
@@ -489,10 +455,6 @@ function AccountCTAModal({
     </div>
   );
 }
-
-// =============================================================================
-// Main Component
-// =============================================================================
 
 /**
  * Main upload page component.
