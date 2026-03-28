@@ -99,7 +99,7 @@ export default function GallerySkeleton({ count = 12, items: providedItems }: Ga
 
   useLayoutEffect(() => {
     hasMounted[1](true);
-  }, []);
+  }, [hasMounted]);
 
   return (
     <div>

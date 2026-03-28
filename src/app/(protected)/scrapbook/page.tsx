@@ -35,12 +35,7 @@ import {
 } from "../../../lib/scrapbook-api";
 import { Skeleton } from "../../../../components/ui/skeleton";
 
-/** SWR fetcher for books list */
 const booksFetcher = () => fetchBooks();
-
-// =============================================================================
-// Delete Confirmation Modal
-// =============================================================================
 
 interface DeleteConfirmModalProps {
   open: boolean;
@@ -68,24 +63,20 @@ function DeleteConfirmModal({
         aria-labelledby="delete-title"
         aria-describedby="delete-desc"
       >
-        {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
             <Trash2 className="w-6 h-6 text-red-600" />
           </div>
         </div>
 
-        {/* Title */}
         <h2 id="delete-title" className="font-display text-lg font-bold text-soft-black text-center mb-2">
           Delete {bookCount} {bookCount === 1 ? "book" : "books"}?
         </h2>
 
-        {/* Description */}
         <p id="delete-desc" className="text-sm text-grey text-center mb-6">
           All pages and content will be permanently deleted. This cannot be undone.
         </p>
 
-        {/* Buttons */}
         <div className="flex gap-3">
           <button
             type="button"
@@ -116,10 +107,6 @@ function DeleteConfirmModal({
   );
 }
 
-// =============================================================================
-// Create / Edit Book Modal
-// =============================================================================
-
 interface BookModalProps {
   open: boolean;
   onClose: () => void;
@@ -133,7 +120,6 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
 
   useEffect(() => {
     if (open) {
-      // delay to avoid sync state update warning
       setTimeout(() => {
         setTitle(initial?.title ?? "");
         setColor(initial?.coverColor ?? COVER_COLORS[0]);
@@ -159,7 +145,6 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
           </button>
         </div>
 
-        {/* Title */}
         <label className="block text-sm font-medium text-soft-black mb-1">
           Title
         </label>
@@ -173,7 +158,6 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
           autoFocus
         />
 
-        {/* Cover Color */}
         <label className="block text-sm font-medium text-soft-black mb-2">
           Cover Color
         </label>
@@ -193,7 +177,6 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
           ))}
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 justify-end">
           <button
             type="button"
@@ -220,14 +203,9 @@ function BookModal({ open, onClose, onSave, initial }: BookModalProps) {
   );
 }
 
-// =============================================================================
-// Books Page
-// =============================================================================
-
 export default function CanvasPage() {
   const router = useRouter();
 
-  // SWR — books list cache (shows stale data instantly on revisit)
   const {
     data: books = [],
     isLoading: loading,
@@ -241,36 +219,28 @@ export default function CanvasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
 
-  // Delete / selection mode
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-
-  // Delete confirmation modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Action error (delete failures)
   const [actionError, setActionError] = useState<{ user: string; detail?: string } | null>(null);
 
-  /** Create a new book and navigate to the editor */
   const handleCreate = useCallback(
     async (title: string, color: string) => {
       const book = await createBookApi(title, color);
       if (!book) return;
       setModalOpen(false);
-      // Optimistically add to SWR cache
       mutateBooks((prev = []) => [book, ...prev], false);
       router.push(`/scrapbook/${book.id}`);
     },
     [router, mutateBooks],
   );
 
-  /** Update existing book */
   const handleUpdate = useCallback(
     async (title: string, color: string) => {
       if (!editingBook) return;
       await updateBookApi(editingBook.id, { title, coverColor: color });
-      // Patch SWR cache optimistically
       mutateBooks(
         (prev = []) =>
           prev.map((b) =>
@@ -283,13 +253,11 @@ export default function CanvasPage() {
     [editingBook, mutateBooks],
   );
 
-  /** Show delete confirmation modal */
   const showDeleteConfirmation = useCallback(() => {
     if (selectedIds.size === 0) return;
     setDeleteModalOpen(true);
   }, [selectedIds.size]);
 
-  /** Confirm and execute batch deletion */
   const confirmBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return;
 
@@ -315,24 +283,18 @@ export default function CanvasPage() {
 
     const failedIds = new Set(failedResults.map(({ id }) => id));
 
-    // Remove successfully deleted books
     mutateBooks((prev = []) => prev.filter((b) => !deletedIds.has(b.id)), false);
 
-    // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
 
-    // Clear deleting status
     setDeletingIds(new Set());
 
-    // Close modal
     setDeleteModalOpen(false);
 
-    // Only exit select mode if all succeeded
     if (failedIds.size === 0) {
       setSelectMode(false);
     }
 
-    // Show error message if any deletions failed
     if (failedIds.size > 0) {
       setActionError({
         user: `Ohno! ${failedIds.size} ${failedIds.size === 1 ? "scrapbook" : "scrapbooks"} couldn't be deleted. The failed items remain selected for retry.`,
@@ -340,12 +302,10 @@ export default function CanvasPage() {
     }
   }, [selectedIds, mutateBooks]);
 
-  /** Wrapper for batch delete button - show confirmation */
   const handleBatchDelete = useCallback(() => {
     showDeleteConfirmation();
   }, [showDeleteConfirmation]);
 
-  /** Toggle selection of a book */
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -357,7 +317,6 @@ export default function CanvasPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Action error banner */}
       {actionError && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm">
           <p className="text-red-800">{actionError.user}</p>
@@ -366,7 +325,6 @@ export default function CanvasPage() {
           )}
         </div>
       )}
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl font-bold text-soft-black">
@@ -378,10 +336,8 @@ export default function CanvasPage() {
           </p>
         </div>
 
-        {/* Delete mode controls */}
         {!loading && books.length > 0 && (
           <div className="flex items-center gap-2">
-            {/* Batch delete button (shows when items selected) */}
             {selectMode && selectedIds.size > 0 && (
               <button
                 type="button"
@@ -403,7 +359,6 @@ export default function CanvasPage() {
               </button>
             )}
 
-            {/* Delete mode toggle */}
             <button
               type="button"
               onClick={() => {
@@ -442,7 +397,6 @@ export default function CanvasPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {/* New Book Card */}
           <button
             type="button"
             onClick={() => setModalOpen(true)}
@@ -456,7 +410,6 @@ export default function CanvasPage() {
             </span>
           </button>
 
-          {/* Existing Books */}
           {books.map((book) => (
             <div
               key={book.id}
@@ -470,7 +423,6 @@ export default function CanvasPage() {
               className="group relative flex flex-col aspect-[3/4] rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 overflow-hidden hover:-translate-y-0.5 cursor-pointer"
               style={{ backgroundColor: book.coverColor }}
             >
-              {/* Book decoration */}
               <div className="flex-1 flex flex-col items-center justify-center p-4">
                 <BookOpen className="w-10 h-10 text-soft-black/30 mb-2" />
                 <h3 className="font-display text-sm font-bold text-soft-black text-center line-clamp-2">
@@ -482,7 +434,6 @@ export default function CanvasPage() {
                 </p>
               </div>
 
-              {/* Spine decoration */}
               <div
                 className="absolute left-0 top-0 bottom-0 w-3 opacity-20"
                 style={{
@@ -491,7 +442,6 @@ export default function CanvasPage() {
                 }}
               />
 
-              {/* Edit button (desktop hover only) */}
               {!selectMode && (
                 <div className="absolute top-2 right-2 opacity-0 sm:group-hover:opacity-100 transition">
                   <button
@@ -507,7 +457,6 @@ export default function CanvasPage() {
                 </div>
               )}
 
-              {/* Selection checkmark (select mode) */}
               {selectMode && (
                 <div className="absolute top-2 left-2 z-10">
                   {selectedIds.has(book.id) ? (
@@ -521,14 +470,12 @@ export default function CanvasPage() {
                 </div>
               )}
 
-              {/* Deleting spinner overlay */}
               {deletingIds.has(book.id) && (
                 <div className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center z-20">
                   <Loader2 className="w-6 h-6 text-white animate-spin" />
                 </div>
               )}
 
-              {/* Date footer */}
               <div className="px-3 py-2 bg-white/40 backdrop-blur-sm text-xs text-soft-black/60 flex items-center justify-between">
                 <span>{new Date(book.updatedAt).toLocaleDateString()}</span>
                 {!selectMode && (
