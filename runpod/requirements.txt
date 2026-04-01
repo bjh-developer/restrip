@@ -10,13 +10,14 @@ Pillow==12.1.1
 numpy==1.26.4
 opencv-python-headless==4.10.0.84
 
-# YOLO Model (required for photostrip detection)
-ultralytics>=8.3.234
-
-# PyTorch (required by ultralytics)
+# PyTorch (required by RF-DETR)
 # Note: Adjust based on your CUDA version or use CPU version
-torch>=2.8.0
-torchvision>=0.15.0
+torch==2.8.0
+torchvision
+
+# RF-DETR Model
+rfdetr>=1.4.0
+supervision
 
 # Observability
 requests==2.32.5
