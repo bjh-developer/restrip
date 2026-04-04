@@ -1258,7 +1258,7 @@ export default function UploadPage() {
           <div className="text-center bg-white rounded-lg shadow-card hover:shadow-card-hover p-8 transition-shadow">
             {/* Upload Area */}
             <div>
-            <h2 className="font-display text-xl font-bold text-soft-black mb-2">
+              <h2 className="font-display text-xl font-bold text-soft-black mb-2">
                 1. take photo/upload your photo strip
               </h2>
             </div>
@@ -1401,12 +1401,18 @@ export default function UploadPage() {
                     size={14}
                     className="text-soft-black flex-shrink-0"
                   />
-                  <span className="text-xs md:text-base whitespace-nowrap">One day, you&apos;ll open this and smile...</span>
+                  <span className="text-xs md:text-base whitespace-nowrap">
+                    One day, you&apos;ll open this and smile...
+                  </span>
                 </>
               ) : !turnstileToken && process.env.NODE_ENV !== "development" ? (
-                <span className="text-sm md:text-base">Completing CAPTCHA...</span>
+                <span className="text-sm md:text-base">
+                  Completing CAPTCHA...
+                </span>
               ) : (
-                <span className="text-sm md:text-base">Deliver to the Future!</span>
+                <span className="text-sm md:text-base">
+                  Deliver to the Future!
+                </span>
               )}
             </button>
           </div>

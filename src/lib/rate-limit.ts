@@ -105,8 +105,10 @@ export function checkRateLimit(
 /**
  * Return a 429 Too Many Requests response.
  */
-export function rateLimitResponse(retryAfterSeconds: number = 60): NextResponse<{error: string}> {
-  return NextResponse.json<{error: string}>(
+export function rateLimitResponse(
+  retryAfterSeconds: number = 60,
+): NextResponse<{ error: string }> {
+  return NextResponse.json<{ error: string }>(
     { error: "Too many requests. Please try again later." },
     {
       status: 429,

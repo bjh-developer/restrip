@@ -49,9 +49,10 @@ async function migrateBookTitles(key: string): Promise<void> {
 
   console.log(`  Encrypting ${books.length} book title(s)...`);
   for (const book of books) {
-    const plaintext = typeof book.title === "string" && book.title.trim()
-      ? book.title.trim()
-      : "Untitled Book";
+    const plaintext =
+      typeof book.title === "string" && book.title.trim()
+        ? book.title.trim()
+        : "Untitled Book";
     const { encrypted, iv } = await encryptData(plaintext, key);
 
     const { error: updateErr } = await supabase
@@ -84,7 +85,9 @@ async function migratePageElements(key: string): Promise<void> {
 
   console.log(`  Encrypting ${pages.length} page element set(s)...`);
   for (const page of pages) {
-    const plaintext = JSON.stringify(Array.isArray(page.elements) ? page.elements : []);
+    const plaintext = JSON.stringify(
+      Array.isArray(page.elements) ? page.elements : [],
+    );
     const { encrypted, iv } = await encryptData(plaintext, key);
 
     const { error: updateErr } = await supabase
@@ -114,7 +117,9 @@ async function main(): Promise<void> {
   console.log("\n[2/2] Pages (scrapbook_pages.elements)");
   await migratePageElements(key);
 
-  console.log("\nDone. You can now apply migration 021_scrapbook_drop_plaintext.sql");
+  console.log(
+    "\nDone. You can now apply migration 021_scrapbook_drop_plaintext.sql",
+  );
 }
 
 main().catch((err) => {

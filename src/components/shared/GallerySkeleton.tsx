@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Skeleton } from "../../../components/ui/skeleton";
 
@@ -13,9 +20,14 @@ type GallerySkeletonProps = {
   items?: GallerySkeletonItem[];
 };
 
-const useMedia = (queries: string[], values: number[], defaultValue: number): number => {
+const useMedia = (
+  queries: string[],
+  values: number[],
+  defaultValue: number,
+): number => {
   const get = useCallback(
-    () => values[queries.findIndex((q) => matchMedia(q).matches)] ?? defaultValue,
+    () =>
+      values[queries.findIndex((q) => matchMedia(q).matches)] ?? defaultValue,
     [queries, values, defaultValue],
   );
 
@@ -24,7 +36,10 @@ const useMedia = (queries: string[], values: number[], defaultValue: number): nu
   useEffect(() => {
     const handler = () => setValue(get());
     queries.forEach((q) => matchMedia(q).addEventListener("change", handler));
-    return () => queries.forEach((q) => matchMedia(q).removeEventListener("change", handler));
+    return () =>
+      queries.forEach((q) =>
+        matchMedia(q).removeEventListener("change", handler),
+      );
   }, [queries, get]);
 
   return value;
@@ -55,9 +70,17 @@ type GridItem = {
   h: number;
 };
 
-export default function GallerySkeleton({ count = 12, items: providedItems }: GallerySkeletonProps) {
+export default function GallerySkeleton({
+  count = 12,
+  items: providedItems,
+}: GallerySkeletonProps) {
   const columns = useMedia(
-    ["(min-width:1500px)", "(min-width:1000px)", "(min-width:600px)", "(min-width:400px)"],
+    [
+      "(min-width:1500px)",
+      "(min-width:1000px)",
+      "(min-width:600px)",
+      "(min-width:400px)",
+    ],
     [4, 4, 3, 2],
     2,
   );
@@ -66,7 +89,8 @@ export default function GallerySkeleton({ count = 12, items: providedItems }: Ga
   const [containerRef, { width }] = useMeasure<HTMLDivElement>();
 
   const items = useMemo(() => {
-    if (providedItems && providedItems.length > 0) return providedItems.slice(0, count);
+    if (providedItems && providedItems.length > 0)
+      return providedItems.slice(0, count);
     return Array.from({ length: count }).map((_, i) => ({
       id: String(i),
       width: 300,

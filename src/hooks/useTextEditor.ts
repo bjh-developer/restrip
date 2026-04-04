@@ -54,7 +54,7 @@ export function useTextEditor(onClose?: () => void): UseTextEditorReturn {
     if (!visualViewport) return;
 
     const handleResize = () => setViewportHeight(visualViewport.height);
-    
+
     // Set initial height
     handleResize();
     visualViewport.addEventListener("resize", handleResize);
@@ -96,7 +96,7 @@ export function useTextEditor(onClose?: () => void): UseTextEditorReturn {
       setShowColorPicker(false);
       setShowBgColorPicker(false);
     },
-    []
+    [],
   );
 
   const closeEditor = useCallback(() => {
@@ -142,7 +142,7 @@ export function useTextEditor(onClose?: () => void): UseTextEditorReturn {
       const nextIdx = (currentIdx + 1) % fonts.length;
       setStylesState((prev) => ({ ...prev, fontFamily: fonts[nextIdx].value }));
     },
-    [styles.fontFamily]
+    [styles.fontFamily],
   );
 
   const handleKeyDown = useCallback(
@@ -151,7 +151,7 @@ export function useTextEditor(onClose?: () => void): UseTextEditorReturn {
         closeEditor();
       }
     },
-    [closeEditor]
+    [closeEditor],
   );
 
   return {

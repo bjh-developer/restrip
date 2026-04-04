@@ -12,7 +12,10 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMemoryEmail } from "../../../lib/resend";
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 const supabaseAdmin = createClient(
@@ -37,7 +40,10 @@ export async function POST(request: NextRequest) {
       const authResult = await auth();
       userId = authResult.userId;
       if (!userId) {
-        return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 401 },
+        );
       }
     }
 
@@ -46,7 +52,7 @@ export async function POST(request: NextRequest) {
     if (!snapId) {
       return NextResponse.json({ error: "Missing snapId" }, { status: 400 });
     }
-    
+
     // ownership check
     if (!isInternalCall && userId) {
       const { data: snap, error: fetchError } = await supabaseAdmin
@@ -69,10 +75,7 @@ export async function POST(request: NextRequest) {
     const result = await sendMemoryEmail(snapId);
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, emailId: result.emailId });

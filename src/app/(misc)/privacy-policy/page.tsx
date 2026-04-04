@@ -10,7 +10,10 @@ export default function PrivacyPage() {
           <h1 className="font-display text-5xl md:text-6xl font-bold text-soft-black mb-4">
             Privacy Policy
           </h1>
-          <p className="font-body text-grey">Effective date: March 19, 2026 &nbsp;|&nbsp; Last updated: March 19, 2026</p>
+          <p className="font-body text-grey">
+            Effective date: March 19, 2026 &nbsp;|&nbsp; Last updated: March 19,
+            2026
+          </p>
         </div>
 
         {/* Detailed Policy */}
@@ -21,9 +24,9 @@ export default function PrivacyPage() {
             </h2>
             <p className="mb-4">
               Welcome to ReStrip. ReStrip (“we”, “us”, or “our”) is operated by
-              Bek Joon Hao (“the Operator”), an individual based in
-              Singapore. We operate the website restrip.app and any related
-              mobile or desktop applications (collectively, the “Service”).
+              Bek Joon Hao (“the Operator”), an individual based in Singapore.
+              We operate the website restrip.app and any related mobile or
+              desktop applications (collectively, the “Service”).
             </p>
             <p className="mb-4">
               This Privacy Policy explains how we collect, use, disclose, and
@@ -223,8 +226,9 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc pl-5 space-y-2">
               <li>
-                Entering into binding contractual arrangements with the recipient
-                that require them to maintain adequate data protection standards;
+                Entering into binding contractual arrangements with the
+                recipient that require them to maintain adequate data protection
+                standards;
               </li>
               <li>
                 Ensuring the recipient is subject to laws or regulations that
@@ -250,7 +254,8 @@ export default function PrivacyPage() {
               <li>
                 <strong>Photo strips and uploaded images:</strong> as specified
                 in the Service settings or until you delete them. If no explicit
-                retention preference is set, images are retained for an indefinite time after delivery.
+                retention preference is set, images are retained for an
+                indefinite time after delivery.
               </li>
             </ul>
             <p>
@@ -326,9 +331,9 @@ export default function PrivacyPage() {
               affect our ability to provide the Service to you.
             </p>
             <p>
-              To exercise any of the above rights, please contact our DPO at
-              the details in Section 12. We may need to verify your identity
-              before processing your request.
+              To exercise any of the above rights, please contact our DPO at the
+              details in Section 12. We may need to verify your identity before
+              processing your request.
             </p>
           </section>
 
@@ -421,14 +426,27 @@ export default function PrivacyPage() {
               DPO:
             </p>
             <ul className="mb-4 space-y-1">
-              <li><strong>Operated by:</strong> Bek Joon Hao</li>
-              <li><strong>Email:</strong> privacy@restrip.app</li>
+              <li>
+                <strong>Operated by:</strong> Bek Joon Hao
+              </li>
+              <li>
+                <strong>Email:</strong> privacy@restrip.app
+              </li>
             </ul>
             <p>
               We will acknowledge your request within 5 business days and
               respond substantively within 30 calendar days. If you are not
               satisfied with our response, you may lodge a complaint with the
-              PDPC at <a href="https://www.pdpc.gov.sg" className="text-blush-pink hover:text-soft-black transition-colors" target="_blank" rel="noopener noreferrer">www.pdpc.gov.sg</a>.
+              PDPC at{" "}
+              <a
+                href="https://www.pdpc.gov.sg"
+                className="text-blush-pink hover:text-soft-black transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                www.pdpc.gov.sg
+              </a>
+              .
             </p>
           </section>
 
@@ -459,7 +477,9 @@ export default function PrivacyPage() {
           </section>
 
           <div className="pt-8 border-t border-mist-grey text-sm text-center">
-            <p className="font-semibold text-soft-black mb-2">ReStrip &middot; restrip.app &middot; privacy@restrip.app</p>
+            <p className="font-semibold text-soft-black mb-2">
+              ReStrip &middot; restrip.app &middot; privacy@restrip.app
+            </p>
           </div>
         </div>
 

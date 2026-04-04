@@ -43,14 +43,23 @@ export default function LandingPage() {
   const { isSignedIn } = useUser();
   const [isAboutRevealed, setIsAboutRevealed] = useState(false);
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
-  const [stats, setStats] = useState<{ count: number; status: "online" | "offline" | "maintenance" | "degraded" | "error" } | null>(null);
+  const [stats, setStats] = useState<{
+    count: number;
+    status: "online" | "offline" | "maintenance" | "degraded" | "error";
+  } | null>(null);
 
   // retrieve stats
   useEffect(() => {
     void fetch("/api/stats")
       .then((res) => res.json())
-      .then(({ count, status }: { count: number; status: "online" | "offline" | "maintenance" | "degraded" | "error" }) =>
-        setStats({ count, status })
+      .then(
+        ({
+          count,
+          status,
+        }: {
+          count: number;
+          status: "online" | "offline" | "maintenance" | "degraded" | "error";
+        }) => setStats({ count, status }),
       );
   }, []);
 
@@ -80,19 +89,19 @@ export default function LandingPage() {
             A time machine, home and scrapbook for your photo booth strips.
           </p>
 
-            <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
-              <Link
-                href="https://status.restrip.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Status status={stats?.status ?? "online"}>
-                  <StatusIndicator />
-                  <StatusLabel />
-                  <StatusStats count={stats?.count?.toString() || "0"} />
-                </Status>
-              </Link>
-            </div>
+          <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="https://status.restrip.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Status status={stats?.status ?? "online"}>
+                <StatusIndicator />
+                <StatusLabel />
+                <StatusStats count={stats?.count?.toString() || "0"} />
+              </Status>
+            </Link>
+          </div>
 
           {/* Dual CTA Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">

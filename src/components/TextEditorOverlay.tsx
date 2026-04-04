@@ -2,14 +2,29 @@ import React from "react";
 import type { TextEditorStyles } from "../hooks/useTextEditor";
 
 const TEXT_COLORS = [
-  "#FFFFFF", "#000000", "#FF3B30", "#34C759", "#007AFF",
-  "#FFCC00", "#FF2D55", "#AF52DE", "#5856D6", "#FF9500",
-  "#5AC8FA", "#C7C7CC",
+  "#FFFFFF",
+  "#000000",
+  "#FF3B30",
+  "#34C759",
+  "#007AFF",
+  "#FFCC00",
+  "#FF2D55",
+  "#AF52DE",
+  "#5856D6",
+  "#FF9500",
+  "#5AC8FA",
+  "#C7C7CC",
 ];
 
 const BG_COLORS = [
-  "#000000", "#FFFFFF", "#FF3B30", "#34C759", "#007AFF",
-  "#FFCC00", "#FF2D55", "#AF52DE",
+  "#000000",
+  "#FFFFFF",
+  "#FF3B30",
+  "#34C759",
+  "#007AFF",
+  "#FFCC00",
+  "#FF2D55",
+  "#AF52DE",
 ];
 
 interface TextEditorOverlayProps {
@@ -144,21 +159,42 @@ export function TextEditorOverlay({
           aria-label="Text alignment"
         >
           {styles.textAlign === "left" && (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="3" y1="12" x2="15" y2="12" />
               <line x1="3" y1="18" x2="18" y2="18" />
             </svg>
           )}
           {styles.textAlign === "center" && (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="6" y1="12" x2="18" y2="12" />
               <line x1="4" y1="18" x2="20" y2="18" />
             </svg>
           )}
           {styles.textAlign === "right" && (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <line x1="3" y1="6" x2="21" y2="6" />
               <line x1="9" y1="12" x2="21" y2="12" />
               <line x1="6" y1="18" x2="21" y2="18" />
@@ -171,7 +207,10 @@ export function TextEditorOverlay({
           className="h-10 px-3 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center transition hover:bg-white/30 text-white text-sm font-medium min-w-[80px]"
           aria-label="Change font"
         >
-          <span style={{ fontFamily: styles.fontFamily }} className="truncate max-w-[100px]">
+          <span
+            style={{ fontFamily: styles.fontFamily }}
+            className="truncate max-w-[100px]"
+          >
             {styles.fontFamily}
           </span>
         </button>
@@ -206,8 +245,10 @@ export function TextEditorOverlay({
               maxHeight: "70vh",
               fieldSizing: "content",
               textShadow: "none",
-              padding: styles.backgroundColor !== "transparent" ? "8px 16px" : 0,
-              borderRadius: styles.backgroundColor !== "transparent" ? "8px" : 0,
+              padding:
+                styles.backgroundColor !== "transparent" ? "8px 16px" : 0,
+              borderRadius:
+                styles.backgroundColor !== "transparent" ? "8px" : 0,
             }}
             placeholder="Tap to type..."
           />

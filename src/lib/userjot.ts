@@ -23,7 +23,8 @@ export function loadUserJot(configId: string): () => void {
     win.uj = new Proxy(
       {},
       {
-        get: (_target: object, prop: string) =>
+        get:
+          (_target: object, prop: string) =>
           (...args: unknown[]) =>
             (win.$ujq as unknown[][]).push([prop, ...args]),
       },

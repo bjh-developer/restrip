@@ -55,7 +55,7 @@ export function getServerEncryptionKey(): string {
     if (!envKey) {
       throw new Error(
         "FATAL: ENCRYPTION_SECRET environment variable is not set. " +
-        "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+          "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
       );
     }
     return envKey;

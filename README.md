@@ -71,7 +71,6 @@ ReStrip is a time-delayed memory delivery platform. You upload a photostrip toda
 
 ### 🔄 In Progress
 
-
 ### 📋 Roadmap
 
 **Phase 2: Memory Management** ✅ Completed
@@ -105,7 +104,7 @@ ReStrip implements a modern authentication and security architecture using **Cle
 #### 🔑 Modern OAuth Authentication
 
 - **Technology**: Clerk authentication platform
-- **Methods Supported**: 
+- **Methods Supported**:
   - Google OAuth
   - Email/Password
   - Other OAuth providers (configurable)
@@ -606,12 +605,12 @@ Welcome to the ReStrip team! This section will guide you through setting up your
 
 Before you begin, ensure you have the following installed:
 
-| Tool | Minimum Version | Download |
-|------|-----------------|----------|
-| **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
-| **npm** | v9.0.0+ | Comes with Node.js |
-| **Git** | Latest | [git-scm.com](https://git-scm.com/) |
-| **Docker** (optional) | Latest | [docker.com](https://www.docker.com/) - for RunPod local testing |
+| Tool                  | Minimum Version | Download                                                         |
+| --------------------- | --------------- | ---------------------------------------------------------------- |
+| **Node.js**           | v18.0.0+        | [nodejs.org](https://nodejs.org/)                                |
+| **npm**               | v9.0.0+         | Comes with Node.js                                               |
+| **Git**               | Latest          | [git-scm.com](https://git-scm.com/)                              |
+| **Docker** (optional) | Latest          | [docker.com](https://www.docker.com/) - for RunPod local testing |
 
 Verify your installations:
 
@@ -737,60 +736,60 @@ APP_URL=https://restrip.vercel.app
 NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
 ```
 
-***For ENCRYPTION_SECRET and TELEGRAM_WEBHOOK_SECRET, generate your own secrets using: ```openssl rand -base64 32``` or ```openssl rand -hex 32```***
+**_For ENCRYPTION_SECRET and TELEGRAM_WEBHOOK_SECRET, generate your own secrets using: `openssl rand -base64 32` or `openssl rand -hex 32`_**
 
 ### Step 5: Set Up Supabase Database
 
 Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
+
 > [!CAUTION]
 > If you have existing data in database, make sure to do the following steps before running migration 020 and 021
+>
 > 1. Run migration 020
-> 2. Run ```NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts``` in terminal
-> 3. Run ```SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';``` & ```SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';``` in supabase sql editor (make sure output is 0 for both)
+> 2. Run `NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts` in terminal
+> 3. Run `SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';` & `SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';` in supabase sql editor (make sure output is 0 for both)
 > 4. Run migration 021
 
-
-| Step | Migration File | Purpose |
-|------|----------------|---------|
-| 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
-| 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
-| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
-| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
-| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
-| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
-| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
-| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
-| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
-| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery rls indexes |
-| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
-| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
-| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
-| 14 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables (initial) |
-| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
-| 16 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
-| 17 | `supabase/migrations/017_resend_schedule_tracking.sql` | Resend Schedule Metadata on Snaps |
-| 18 | `supabase/migrations/018_testing_workflow.sql` | Test GitHub Actions |
-| 19 | `supabase/migrations/019_pending_uploads.sql` | Pending Uploads for Sign-Up Flow |
-| 20 | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
-| 21 | `supabase/migrations/21_scrapbook_drop_plaintext.sql` | Drop Plaintext Title and Elements Column |
-
+| Step | Migration File                                             | Purpose                                                            |
+| ---- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1    | `supabase/migrations/001_passkey_auth.sql`                 | Core tables, RLS policies, storage bucket                          |
+| 2    | `supabase/migrations/002_add_prf_salt_to_credentials.sql`  | WebAuthn salt column                                               |
+| 3    | `supabase/migrations/003_delivery_status.sql`              | Delivery tracking columns                                          |
+| 4    | `supabase/migrations/004_check_user_exists_rpc.sql`        | User existence check RPC                                           |
+| 5    | `supabase/migrations/005_rpc_get_account_type.sql`         | Account type lookup RPC                                            |
+| 6    | `supabase/migrations/006_consolidate_snap_image_urls.sql`  | Consolidate image columns                                          |
+| 7    | `supabase/migrations/007_add_image_iv_to_snaps.sql`        | Add image IV for decryption                                        |
+| 8    | `supabase/migrations/008_telegram_bot_integration.sql`     | Telegram bot support                                               |
+| 9    | `supabase/migrations/009_add_key_wrapping.sql`             | Cross-auth key wrapping                                            |
+| 10   | `supabase/migrations/010_gallery_rls_indexes.sql`          | Gallery rls indexes                                                |
+| 11   | `supabase/migrations/011_clerk_migration.sql`              | Clerk migration                                                    |
+| 12   | `supabase/migrations/012_ensure_encryption_columns.sql`    | Ensure encryption columns                                          |
+| 13   | `supabase/migrations/013_telegram_link_token.sql`          | Telegram link token                                                |
+| 14   | `supabase/migrations/014_canvas_books.sql`                 | Scrapbook tables (initial)                                         |
+| 15   | `supabase/migrations/015_rename_to_scrapbook.sql`          | Rename to scrapbook                                                |
+| 16   | `supabase/migrations/016_nonce.sql`                        | Nonce Table for Upload Verification                                |
+| 17   | `supabase/migrations/017_resend_schedule_tracking.sql`     | Resend Schedule Metadata on Snaps                                  |
+| 18   | `supabase/migrations/018_testing_workflow.sql`             | Test GitHub Actions                                                |
+| 19   | `supabase/migrations/019_pending_uploads.sql`              | Pending Uploads for Sign-Up Flow                                   |
+| 20   | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
+| 21   | `supabase/migrations/21_scrapbook_drop_plaintext.sql`      | Drop Plaintext Title and Elements Column                           |
 
 **Verification queries:**
 
 ```sql
 -- Check tables exist
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public'
 AND table_name IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 
 -- Verify snaps structure
-SELECT column_name, data_type 
-FROM information_schema.columns 
+SELECT column_name, data_type
+FROM information_schema.columns
 WHERE table_name = 'snaps';
 
 -- Confirm RLS is enabled
-SELECT schemaname, tablename, rowsecurity 
-FROM pg_tables 
+SELECT schemaname, tablename, rowsecurity
+FROM pg_tables
 WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 ```
 
@@ -839,7 +838,7 @@ WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
       - `Authorization: Bearer <SUPABASE_ANON_KEY>`
       - `Content-Type: application/json`
     - HTTP Request Body: `{"name":"Functions"}`
-19. Click save cron job
+14. Click save cron job
 
 ### Step 7: Start the Crop Server (Optional)
 
@@ -872,12 +871,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser. You should 
 
 ### Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server (hot reload) |
-| `npm run build` | Create production build |
-| `npm run start` | Run production server |
-| `npm run lint` | Run ESLint code linting || `python runpod/server.py` | Start local crop server (development) |
+| Command         | Description                           |
+| --------------- | ------------------------------------- | --- | ------------------------- | ------------------------------------- |
+| `npm run dev`   | Start development server (hot reload) |
+| `npm run build` | Create production build               |
+| `npm run start` | Run production server                 |
+| `npm run lint`  | Run ESLint code linting               |     | `python runpod/server.py` | Start local crop server (development) |
 
 **Switching Crop Backends:**
 
@@ -888,17 +887,18 @@ CROP_BACKEND=local npm run dev
 # Use RunPod (production)
 CROP_BACKEND=runpod npm run dev
 ```
+
 ### Troubleshooting Setup Issues
 
-| Issue | Solution |
-|-------|----------|
-| `Module not found` errors | Delete `node_modules` and run `npm install` |
-| Supabase connection fails | Verify env variables are set correctly |
-| Clerk sign-in issues | Verify `NEXT_PUBLIC_CLERK_*` env variables are set correctly |
-| Build/prerender errors | Add `export const dynamic = "force-dynamic"` to affected layouts |
-| "Local crop server error" | Ensure `python server.py` is running in `runpod/` directory |
-| Crop processing fails | Check `CROP_BACKEND` is set correctly (`local` or `runpod`) |
-| "Connection refused" on localhost:8000 | Verify local server is running: `python runpod/server.py` |
+| Issue                                  | Solution                                                         |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `Module not found` errors              | Delete `node_modules` and run `npm install`                      |
+| Supabase connection fails              | Verify env variables are set correctly                           |
+| Clerk sign-in issues                   | Verify `NEXT_PUBLIC_CLERK_*` env variables are set correctly     |
+| Build/prerender errors                 | Add `export const dynamic = "force-dynamic"` to affected layouts |
+| "Local crop server error"              | Ensure `python server.py` is running in `runpod/` directory      |
+| Crop processing fails                  | Check `CROP_BACKEND` is set correctly (`local` or `runpod`)      |
+| "Connection refused" on localhost:8000 | Verify local server is running: `python runpod/server.py`        |
 
 For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 17.
 
@@ -930,15 +930,15 @@ ReStrip is currently in active development. Contributions are welcome!
 
 We follow conventional commits:
 
-| Type | Description |
-|------|-------------|
-| `feat:` | New feature |
-| `fix:` | Bug fix |
-| `docs:` | Documentation changes |
-| `style:` | Formatting, no code change |
-| `refactor:` | Code restructuring |
-| `test:` | Adding/fixing tests |
-| `chore:` | Build, dependencies, tooling |
+| Type        | Description                  |
+| ----------- | ---------------------------- |
+| `feat:`     | New feature                  |
+| `fix:`      | Bug fix                      |
+| `docs:`     | Documentation changes        |
+| `style:`    | Formatting, no code change   |
+| `refactor:` | Code restructuring           |
+| `test:`     | Adding/fixing tests          |
+| `chore:`    | Build, dependencies, tooling |
 
 ### Code Standards
 
@@ -950,15 +950,15 @@ We follow conventional commits:
 
 ### Areas for Contribution
 
-| Area | Description |
-|------|-------------|
-| 🐛 **Bug fixes** | Check GitHub Issues for reported bugs |
-| 📖 **Documentation** | Improve docs, add examples |
-| 🎨 **UI/UX** | Enhance user interface and experience |
-| ⚡ **Performance** | Optimize rendering, reduce bundle size |
-| 🔒 **Security** | Security audits, vulnerability fixes |
+| Area                 | Description                               |
+| -------------------- | ----------------------------------------- |
+| 🐛 **Bug fixes**     | Check GitHub Issues for reported bugs     |
+| 📖 **Documentation** | Improve docs, add examples                |
+| 🎨 **UI/UX**         | Enhance user interface and experience     |
+| ⚡ **Performance**   | Optimize rendering, reduce bundle size    |
+| 🔒 **Security**      | Security audits, vulnerability fixes      |
 | ♿ **Accessibility** | Improve ARIA support, keyboard navigation |
-| 🧪 **Testing** | Add unit/integration tests |
+| 🧪 **Testing**       | Add unit/integration tests                |
 
 ### Before Contributing
 

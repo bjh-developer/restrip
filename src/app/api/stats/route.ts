@@ -15,7 +15,10 @@ export const revalidate = 60;
 // -----------------------------------------------------------------------------
 // Supabase admin client
 // -----------------------------------------------------------------------------
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -28,7 +31,12 @@ const supabaseAdmin = createClient(
 // Better Stack status helper
 // Maps monitor statuses → a single display status
 // -----------------------------------------------------------------------------
-type DisplayStatus = "online" | "offline" | "maintenance" | "degraded" | "error";
+type DisplayStatus =
+  | "online"
+  | "offline"
+  | "maintenance"
+  | "degraded"
+  | "error";
 
 async function getBetterStackStatus(): Promise<DisplayStatus> {
   const token = process.env.BETTERSTACK_API_TOKEN;
@@ -41,7 +49,7 @@ async function getBetterStackStatus(): Promise<DisplayStatus> {
 
   if (!res.ok) return "degraded";
 
-  const json = await res.json() as {
+  const json = (await res.json()) as {
     data: { attributes: { status: string } }[];
   };
 
@@ -50,7 +58,8 @@ async function getBetterStackStatus(): Promise<DisplayStatus> {
   if (statuses.some((s) => s === "up")) return "online";
   if (statuses.some((s) => s === "down")) return "offline";
   if (statuses.some((s) => s === "maintenance")) return "maintenance";
-  if (statuses.some((s) => s === "validating" || s === "pending")) return "degraded";
+  if (statuses.some((s) => s === "validating" || s === "pending"))
+    return "degraded";
   return "error";
 }
 
@@ -69,6 +78,9 @@ export async function GET() {
     return NextResponse.json({ count: count ?? 0, status });
   } catch (error) {
     console.error("[Stats API] Error:", error);
-    return NextResponse.json({ error: "Failed to load stats" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load stats" },
+      { status: 500 },
+    );
   }
 }

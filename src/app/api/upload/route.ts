@@ -186,12 +186,14 @@ export async function POST(
 
     const uploadNonce = randomBytes(16).toString("hex");
     const nonceExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
-    const { error: nonceError } = await supabaseAdmin.from("upload_nonces").insert({
-      nonce: uploadNonce,
-      client_ip: clientIp,
-      expires_at: new Date(nonceExpiry).toISOString(),
-      used: false,
-    });
+    const { error: nonceError } = await supabaseAdmin
+      .from("upload_nonces")
+      .insert({
+        nonce: uploadNonce,
+        client_ip: clientIp,
+        expires_at: new Date(nonceExpiry).toISOString(),
+        used: false,
+      });
     if (nonceError) {
       console.error("Failed to insert upload nonce:", nonceError);
       return NextResponse.json(

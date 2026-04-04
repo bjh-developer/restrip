@@ -58,7 +58,12 @@ function getSupabaseAdmin(): SupabaseClient {
 export interface SendResult {
   success: boolean;
   emailId?: string;
-  status?: "sent" | "scheduled" | "deferred" | "already-sent" | "already-scheduled";
+  status?:
+    | "sent"
+    | "scheduled"
+    | "deferred"
+    | "already-sent"
+    | "already-scheduled";
   error?: string;
 }
 
@@ -67,7 +72,11 @@ export async function sendMemoryEmail(snapId: string): Promise<SendResult> {
   const snap = await fetchSnap(supabase, snapId);
   if (!snap.success) return snap.result;
   if (snap.row.delivery_status === "sent") {
-    return { success: true, emailId: snap.row.resend_email_id ?? "already-sent", status: "already-sent" };
+    return {
+      success: true,
+      emailId: snap.row.resend_email_id ?? "already-sent",
+      status: "already-sent",
+    };
   }
   if (snap.row.delivery_status === "scheduled" && snap.row.resend_email_id) {
     return {
@@ -82,7 +91,12 @@ export async function sendMemoryEmail(snapId: string): Promise<SendResult> {
     return { success: true, emailId, status: "sent" };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await markAsFailed(supabase, snap.row.id, snap.row.retry_count ?? 0, message);
+    await markAsFailed(
+      supabase,
+      snap.row.id,
+      snap.row.retry_count ?? 0,
+      message,
+    );
     return { success: false, error: message };
   }
 }
@@ -94,10 +108,18 @@ export async function scheduleOrSendMemoryEmail(
   const snap = await fetchSnap(supabase, snapId);
   if (!snap.success) return snap.result;
   if (snap.row.delivery_status === "sent") {
-    return { success: true, emailId: snap.row.resend_email_id ?? "already-sent", status: "already-sent" };
+    return {
+      success: true,
+      emailId: snap.row.resend_email_id ?? "already-sent",
+      status: "already-sent",
+    };
   }
   if (snap.row.delivery_status === "scheduled" && snap.row.resend_email_id) {
-    return { success: true, emailId: snap.row.resend_email_id, status: "already-scheduled" };
+    return {
+      success: true,
+      emailId: snap.row.resend_email_id,
+      status: "already-scheduled",
+    };
   }
   const sendAt = new Date(snap.row.send_time);
   if (Number.isNaN(sendAt.getTime())) {
@@ -106,7 +128,9 @@ export async function scheduleOrSendMemoryEmail(
     return { success: false, error };
   }
   const now = new Date();
-  const latestDirectSchedule = new Date(now.getTime() + RESEND_SCHEDULING_WINDOW_MS);
+  const latestDirectSchedule = new Date(
+    now.getTime() + RESEND_SCHEDULING_WINDOW_MS,
+  );
 
   // long horizon ( > 30d )
   if (sendAt.getTime() > latestDirectSchedule.getTime()) {
@@ -116,21 +140,32 @@ export async function scheduleOrSendMemoryEmail(
       .eq("id", snap.row.id);
     return { success: true, status: "deferred" };
   }
-  const canSchedule = sendAt.getTime() > now.getTime() + RESEND_MIN_SCHEDULE_AHEAD_MS;
+  const canSchedule =
+    sendAt.getTime() > now.getTime() + RESEND_MIN_SCHEDULE_AHEAD_MS;
   try {
     const emailId = await deliverViaResend(
       snap.row,
       canSchedule ? sendAt.toISOString() : undefined,
     );
     if (canSchedule) {
-      await markAsScheduled(supabase, snap.row.id, emailId, sendAt.toISOString());
+      await markAsScheduled(
+        supabase,
+        snap.row.id,
+        emailId,
+        sendAt.toISOString(),
+      );
       return { success: true, emailId, status: "scheduled" };
     }
     await markAsSent(supabase, snap.row.id, emailId);
     return { success: true, emailId, status: "sent" };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await markAsFailed(supabase, snap.row.id, snap.row.retry_count ?? 0, message);
+    await markAsFailed(
+      supabase,
+      snap.row.id,
+      snap.row.retry_count ?? 0,
+      message,
+    );
     return { success: false, error: message };
   }
 }
@@ -139,8 +174,7 @@ async function fetchSnap(
   supabase: SupabaseClient,
   snapId: string,
 ): Promise<
-  | { success: true; row: SnapRow }
-  | { success: false; result: SendResult }
+  { success: true; row: SnapRow } | { success: false; result: SendResult }
 > {
   const { data, error } = await supabase
     .from("snaps")
@@ -151,7 +185,10 @@ async function fetchSnap(
     .single();
   if (error || !data) {
     console.error("[resend] Snap not found:", error);
-    return { success: false, result: { success: false, error: "Snap not found" } };
+    return {
+      success: false,
+      result: { success: false, error: "Snap not found" },
+    };
   }
   const row = data as SnapRow;
   if (row.delivery_method !== "email") {
@@ -182,8 +219,7 @@ async function decryptEmailPayload(snap: SnapRow): Promise<{
   if (!safePath || safePath !== snap.storage_path) {
     throw new Error(`Unsafe storage path rejected: ${snap.storage_path}`);
   }
-  const { data: imageBlob, error: dlError } = await supabase
-    .storage
+  const { data: imageBlob, error: dlError } = await supabase.storage
     .from("encrypted-images")
     .download(safePath);
   if (dlError || !imageBlob) {

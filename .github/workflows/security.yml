@@ -27,7 +27,7 @@ jobs:
 
   dependency-audit:
     name: npm Audit
-    runs-on: ubuntu-latest  # runs on both push and PR
+    runs-on: ubuntu-latest # runs on both push and PR
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

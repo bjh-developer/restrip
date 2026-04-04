@@ -18,7 +18,10 @@ import {
 // -----------------------------------------------------------------------------
 // Supabase admin client
 // -----------------------------------------------------------------------------
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -39,7 +42,10 @@ export async function DELETE(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-page-delete:${userId}`, DELETE_LIMIT);
@@ -65,7 +71,10 @@ export async function DELETE(
       .eq("book_id", bookId);
 
     if ((count ?? 0) <= 1) {
-      return NextResponse.json({ error: "A book must have at least one page" }, { status: 400 });
+      return NextResponse.json(
+        { error: "A book must have at least one page" },
+        { status: 400 },
+      );
     }
 
     // Delete the page
@@ -77,7 +86,10 @@ export async function DELETE(
 
     if (error) {
       console.error("[Canvas Page API] Error deleting page:", error);
-      return NextResponse.json({ error: "Failed to delete page" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to delete page" },
+        { status: 500 },
+      );
     }
 
     // Re-number remaining pages
@@ -105,6 +117,9 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[Canvas Page API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

@@ -76,8 +76,8 @@ export default function ContactPage() {
           </div>
 
           <p className="font-body text-grey mb-8">
-            Have feedback? Want to see what&apos;s coming next? Our feedback board is
-            where ideas happen.
+            Have feedback? Want to see what&apos;s coming next? Our feedback
+            board is where ideas happen.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

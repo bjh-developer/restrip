@@ -1,24 +1,40 @@
 "use client";
 
-import React, { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { gsap } from 'gsap';
+import React, {
+  ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+import { gsap } from "gsap";
 
 // =============================================================================
 // Hooks
 // =============================================================================
 
-const useMedia = (queries: string[], values: number[], defaultValue: number): number => {
+const useMedia = (
+  queries: string[],
+  values: number[],
+  defaultValue: number,
+): number => {
   const get = useCallback(
-    () => values[queries.findIndex(q => matchMedia(q).matches)] ?? defaultValue,
-    [queries, values, defaultValue]
+    () =>
+      values[queries.findIndex((q) => matchMedia(q).matches)] ?? defaultValue,
+    [queries, values, defaultValue],
   );
 
   const [value, setValue] = useState<number>(get);
 
   useEffect(() => {
     const handler = () => setValue(get());
-    queries.forEach(q => matchMedia(q).addEventListener('change', handler));
-    return () => queries.forEach(q => matchMedia(q).removeEventListener('change', handler));
+    queries.forEach((q) => matchMedia(q).addEventListener("change", handler));
+    return () =>
+      queries.forEach((q) =>
+        matchMedia(q).removeEventListener("change", handler),
+      );
   }, [queries, get]);
 
   return value;
@@ -73,7 +89,10 @@ export interface MasonryProps {
   /** Called when an item is clicked */
   onItemClick?: (id: string) => void;
   /** Called when an item is right-clicked or long-pressed (contextmenu) */
-  onItemContextMenu?: (id: string, event: { clientX: number; clientY: number }) => void;
+  onItemContextMenu?: (
+    id: string,
+    event: { clientX: number; clientY: number },
+  ) => void;
   /** Render an overlay on top of each item (e.g. status icons, selection checkmarks) */
   renderOverlay?: (id: string) => ReactNode;
   /** Gap between items in px (default 10) */
@@ -88,7 +107,7 @@ const Masonry: React.FC<MasonryProps> = ({
   items,
   skipPreload = false,
   columnBreakpoints = [3, 3, 2, 2],
-  ease = 'power3.out',
+  ease = "power3.out",
   duration = 0.3,
   scaleOnHover = true,
   hoverScale = 0.97,
@@ -98,9 +117,14 @@ const Masonry: React.FC<MasonryProps> = ({
   gap = 10,
 }) => {
   const columns = useMedia(
-    ['(min-width:1500px)', '(min-width:1000px)', '(min-width:600px)', '(min-width:400px)'],
+    [
+      "(min-width:1500px)",
+      "(min-width:1000px)",
+      "(min-width:600px)",
+      "(min-width:400px)",
+    ],
     columnBreakpoints,
-    2
+    2,
   );
 
   const [containerRef, { width }] = useMeasure<HTMLDivElement>();
@@ -109,16 +133,16 @@ const Masonry: React.FC<MasonryProps> = ({
   // Preload images (skipped for data URLs)
   useEffect(() => {
     if (skipPreload) return; // already ready if skipping
-    const urls = items.map(i => i.img);
+    const urls = items.map((i) => i.img);
     Promise.all(
       urls.map(
-        src =>
-          new Promise<void>(resolve => {
+        (src) =>
+          new Promise<void>((resolve) => {
             const img = new Image();
             img.src = src;
             img.onload = img.onerror = () => resolve();
-          })
-      )
+          }),
+      ),
     ).then(() => setImagesReady(true));
   }, [items, skipPreload]);
 
@@ -129,13 +153,14 @@ const Masonry: React.FC<MasonryProps> = ({
     const totalGaps = (columns - 1) * gap;
     const columnWidth = (width - totalGaps) / columns;
 
-    const gridItems = items.map(child => {
+    const gridItems = items.map((child) => {
       const col = colHeights.indexOf(Math.min(...colHeights));
       const x = col * (columnWidth + gap);
       // Calculate height from aspect ratio so the full image is shown uncropped
-      const h = child.width > 0
-        ? (columnWidth / child.width) * child.height
-        : child.height / 2;
+      const h =
+        child.width > 0
+          ? (columnWidth / child.width) * child.height
+          : child.height / 2;
       const y = colHeights[col];
 
       colHeights[col] += h + gap;
@@ -151,7 +176,7 @@ const Masonry: React.FC<MasonryProps> = ({
   useLayoutEffect(() => {
     if (!imagesReady || grid.length === 0) return;
 
-    grid.forEach(item => {
+    grid.forEach((item) => {
       const selector = `[data-key="${item.id}"]`;
       const animProps = { x: item.x, y: item.y, width: item.w, height: item.h };
 
@@ -161,20 +186,20 @@ const Masonry: React.FC<MasonryProps> = ({
           selector,
           {
             opacity: 0,
-            ...animProps
+            ...animProps,
           },
           {
             opacity: 1,
             duration: 0.3,
-            ease: 'power2.out'
-          }
+            ease: "power2.out",
+          },
         );
       } else {
         gsap.to(selector, {
           ...animProps,
           duration,
           ease,
-          overwrite: 'auto'
+          overwrite: "auto",
         });
       }
     });
@@ -192,7 +217,7 @@ const Masonry: React.FC<MasonryProps> = ({
       gsap.to(`[data-key="${id}"]`, {
         scale: hoverScale,
         duration: 0.3,
-        ease: 'power2.out'
+        ease: "power2.out",
       });
     }
   };
@@ -202,7 +227,7 @@ const Masonry: React.FC<MasonryProps> = ({
       gsap.to(`[data-key="${id}"]`, {
         scale: 1,
         duration: 0.3,
-        ease: 'power2.out'
+        ease: "power2.out",
       });
     }
   };
@@ -211,14 +236,14 @@ const Masonry: React.FC<MasonryProps> = ({
     <div
       ref={containerRef}
       className="relative w-full"
-      style={{ height: containerHeight > 0 ? containerHeight : 'auto' }}
+      style={{ height: containerHeight > 0 ? containerHeight : "auto" }}
     >
-      {grid.map(item => (
+      {grid.map((item) => (
         <div
           key={item.id}
           data-key={item.id}
           className="absolute box-content cursor-pointer"
-          style={{ willChange: 'transform, width, height, opacity' }}
+          style={{ willChange: "transform, width, height, opacity" }}
           onClick={() => {
             onItemClick?.(item.id);
           }}

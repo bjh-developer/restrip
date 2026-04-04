@@ -28,7 +28,10 @@ if (!WEBHOOK_SECRET) {
 
 const bot = new Bot(TELEGRAM_BOT_TOKEN);
 // Service-role client bypasses RLS so the bot can read/write any snap row.
-const supabase = createClient(SUPABASE_URL || "", SUPABASE_SERVICE_ROLE_KEY || "");
+const supabase = createClient(
+  SUPABASE_URL || "",
+  SUPABASE_SERVICE_ROLE_KEY || "",
+);
 
 // bot.init() fetches bot metadata (username, id) from Telegram.
 // Must be awaited at module level before any updates are dispatched.
@@ -43,11 +46,11 @@ await bot.init();
 bot.command("start", async (ctx) => {
   // ctx.match contains everything after "/start " in the incoming message.
   const startPayload = ctx.match;
-  
-  if (!startPayload || !startPayload.startsWith('snap_')) {
+
+  if (!startPayload || !startPayload.startsWith("snap_")) {
     return ctx.reply(
-      '👋 Welcome to ReStrip!\n\n' +
-      'To receive your photo strip memory, click the link from your ReStrip account.'
+      "👋 Welcome to ReStrip!\n\n" +
+        "To receive your photo strip memory, click the link from your ReStrip account.",
     );
   }
 
@@ -56,7 +59,7 @@ bot.command("start", async (ctx) => {
   const parts = startPayload.substring(5).split("_"); // remove "snap_" prefix
   if (parts.length < 2) {
     return ctx.reply(
-      "❌ Invalid link format.\n\nPlease use the latest link from your ReStrip account."
+      "❌ Invalid link format.\n\nPlease use the latest link from your ReStrip account.",
     );
   }
   const token = parts.pop()!; // last segment is the token
@@ -73,21 +76,21 @@ bot.command("start", async (ctx) => {
 
     if (fetchError || !snap) {
       return ctx.reply(
-        "❌ Could not find this memory.\n\nMake sure you're using the correct link from your ReStrip account."
+        "❌ Could not find this memory.\n\nMake sure you're using the correct link from your ReStrip account.",
       );
     }
 
     // Verify the token matches the one stored on the snap to prevent enumeration.
     if (!snap.telegram_link_token || snap.telegram_link_token !== token) {
       return ctx.reply(
-        "❌ Invalid or expired link.\n\nPlease use the correct link from your ReStrip account."
+        "❌ Invalid or expired link.\n\nPlease use the correct link from your ReStrip account.",
       );
     }
 
     // Guard against duplicate linking: acknowledge without overwriting the existing chat_id.
     if (snap.telegram_chat_id) {
       return ctx.reply(
-        "✅ This memory is already linked! You'll receive it when it's time."
+        "✅ This memory is already linked! You'll receive it when it's time.",
       );
     }
 
@@ -103,13 +106,12 @@ bot.command("start", async (ctx) => {
       console.error("Error linking snap:", error);
       return ctx.reply(
         "❌ Could not link this memory to your account.\n\n" +
-          "Make sure you're using the correct link from your ReStrip account."
+          "Make sure you're using the correct link from your ReStrip account.",
       );
     }
 
     await ctx.reply(
-      "✅ Successfully linked!\n\n" +
-        "You'll receive a surprise here soon!"
+      "✅ Successfully linked!\n\n" + "You'll receive a surprise here soon!",
     );
   } catch (err) {
     console.error("Exception in start handler:", err);
@@ -124,32 +126,32 @@ bot.command("start", async (ctx) => {
 // GET requests (e.g. uptime probes) receive a plain 200 OK.
 
 Deno.serve(async (req) => {
-  console.log('Request received:', req.method);
-  
+  console.log("Request received:", req.method);
+
   if (req.method === "POST") {
     // Validate the shared secret set during webhook registration.
     // Rejects any request that did not originate from Telegram.
-    const secretToken = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
+    const secretToken = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
     if (secretToken !== WEBHOOK_SECRET) {
-      console.error('Invalid secret token');
-      return new Response('Unauthorized', { status: 401 });
+      console.error("Invalid secret token");
+      return new Response("Unauthorized", { status: 401 });
     }
-    
+
     try {
       const update = await req.json();
-      console.log('Received update:', JSON.stringify(update));
-      
+      console.log("Received update:", JSON.stringify(update));
+
       // Dispatch the update to the registered grammY command handlers.
       await bot.handleUpdate(update);
-      
-      return new Response('OK', { status: 200 });
+
+      return new Response("OK", { status: 200 });
     } catch (err) {
       console.error("Error handling update:", err);
       // Always return 200 — a non-200 response causes Telegram to retry the
       // same update repeatedly, flooding the endpoint.
-      return new Response('OK', { status: 200 });
+      return new Response("OK", { status: 200 });
     }
   }
-  
+
   return new Response("OK");
 });

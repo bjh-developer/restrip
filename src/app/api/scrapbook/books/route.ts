@@ -10,13 +10,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
-import { checkRateLimit, rateLimitResponse, READ_LIMIT, UPLOAD_LIMIT } from "../../../../lib/rate-limit";
-import { encryptData, decryptDataAsString, getServerEncryptionKey } from "../../../../lib/simple-encryption";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  READ_LIMIT,
+  UPLOAD_LIMIT,
+} from "../../../../lib/rate-limit";
+import {
+  encryptData,
+  decryptDataAsString,
+  getServerEncryptionKey,
+} from "../../../../lib/simple-encryption";
 
 // -----------------------------------------------------------------------------
 // Supabase admin client
 // -----------------------------------------------------------------------------
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -81,7 +93,10 @@ export async function GET(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-books:${userId}`, READ_LIMIT);
@@ -96,7 +111,10 @@ export async function GET(
 
     if (booksErr) {
       console.error("[Canvas Books API] Error fetching books:", booksErr);
-      return NextResponse.json({ error: "Failed to load books" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to load books" },
+        { status: 500 },
+      );
     }
 
     if (!books || books.length === 0) {
@@ -113,7 +131,10 @@ export async function GET(
 
     if (pagesErr) {
       console.error("[Canvas Books API] Error fetching pages:", pagesErr);
-      return NextResponse.json({ error: "Failed to load pages" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to load pages" },
+        { status: 500 },
+      );
     }
 
     // Decrypt
@@ -121,12 +142,24 @@ export async function GET(
 
     const decryptedPages: PageRow[] = [];
     for (const p of (pages || []) as PageDbRow[]) {
-      const elements = p.encrypted_elements && p.elements_iv
-        ? JSON.parse(await decryptDataAsString(p.encrypted_elements, p.elements_iv, key))
-        : [];
+      const elements =
+        p.encrypted_elements && p.elements_iv
+          ? JSON.parse(
+              await decryptDataAsString(
+                p.encrypted_elements,
+                p.elements_iv,
+                key,
+              ),
+            )
+          : [];
       decryptedPages.push({
-        id: p.id, book_id: p.book_id, page_number: p.page_number,
-        background: p.background, elements, created_at: p.created_at, updated_at: p.updated_at,
+        id: p.id,
+        book_id: p.book_id,
+        page_number: p.page_number,
+        background: p.background,
+        elements,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
       });
     }
 
@@ -140,12 +173,17 @@ export async function GET(
 
     const booksWithPages: BookWithPages[] = [];
     for (const b of books as BookDbRow[]) {
-      const title = b.encrypted_title && b.title_iv
-        ? await decryptDataAsString(b.encrypted_title, b.title_iv, key)
-        : "";
+      const title =
+        b.encrypted_title && b.title_iv
+          ? await decryptDataAsString(b.encrypted_title, b.title_iv, key)
+          : "";
       booksWithPages.push({
-        id: b.id, user_id: b.user_id, title, cover_color: b.cover_color,
-        created_at: b.created_at, updated_at: b.updated_at,
+        id: b.id,
+        user_id: b.user_id,
+        title,
+        cover_color: b.cover_color,
+        created_at: b.created_at,
+        updated_at: b.updated_at,
         pages: pagesByBook.get(b.id) || [],
       });
     }
@@ -153,7 +191,10 @@ export async function GET(
     return NextResponse.json({ books: booksWithPages });
   } catch (err) {
     console.error("[Canvas Books API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -166,34 +207,55 @@ export async function POST(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-books-create:${userId}`, UPLOAD_LIMIT);
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterSeconds);
 
     const body = await request.json().catch(() => ({}));
-    const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : "Untitled Book";
-    const coverColor = typeof body.coverColor === "string" ? body.coverColor : "#FFC9D1";
+    const title =
+      typeof body.title === "string" && body.title.trim()
+        ? body.title.trim()
+        : "Untitled Book";
+    const coverColor =
+      typeof body.coverColor === "string" ? body.coverColor : "#FFC9D1";
 
     // Encrypt title
     const key = getServerEncryptionKey();
-    const { encrypted: encryptedTitle, iv: titleIv } = await encryptData(title, key);
+    const { encrypted: encryptedTitle, iv: titleIv } = await encryptData(
+      title,
+      key,
+    );
 
     // Create the book
     const { data: book, error: bookErr } = await supabaseAdmin
       .from("scrapbook_books")
-      .insert({ user_id: userId, encrypted_title: encryptedTitle, title_iv: titleIv, cover_color: coverColor })
+      .insert({
+        user_id: userId,
+        encrypted_title: encryptedTitle,
+        title_iv: titleIv,
+        cover_color: coverColor,
+      })
       .select()
       .single();
 
     if (bookErr || !book) {
       console.error("[Canvas Books API] Error creating book:", bookErr);
-      return NextResponse.json({ error: "Failed to create book" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to create book" },
+        { status: 500 },
+      );
     }
 
     // Encrypt empty elements for the initial page
-    const { encrypted: encryptedElements, iv: elementsIv } = await encryptData(JSON.stringify([]), key);
+    const { encrypted: encryptedElements, iv: elementsIv } = await encryptData(
+      JSON.stringify([]),
+      key,
+    );
 
     // Create one blank page
     const { data: page, error: pageErr } = await supabaseAdmin
@@ -212,17 +274,29 @@ export async function POST(
       console.error("[Canvas Books API] Error creating initial page:", pageErr);
       // Clean up the book
       await supabaseAdmin.from("scrapbook_books").delete().eq("id", book.id);
-      return NextResponse.json({ error: "Failed to create initial page" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to create initial page" },
+        { status: 500 },
+      );
     }
 
     // Return decrypted view to client
     const bookRow: BookRow = {
-      id: book.id, user_id: book.user_id, title, cover_color: book.cover_color,
-      created_at: book.created_at, updated_at: book.updated_at,
+      id: book.id,
+      user_id: book.user_id,
+      title,
+      cover_color: book.cover_color,
+      created_at: book.created_at,
+      updated_at: book.updated_at,
     };
     const pageRow: PageRow = {
-      id: page.id, book_id: page.book_id, page_number: page.page_number,
-      background: page.background, elements: [], created_at: page.created_at, updated_at: page.updated_at,
+      id: page.id,
+      book_id: page.book_id,
+      page_number: page.page_number,
+      background: page.background,
+      elements: [],
+      created_at: page.created_at,
+      updated_at: page.updated_at,
     };
 
     return NextResponse.json(
@@ -231,6 +305,9 @@ export async function POST(
     );
   } catch (err) {
     console.error("[Canvas Books API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

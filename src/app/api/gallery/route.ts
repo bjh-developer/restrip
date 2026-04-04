@@ -17,7 +17,11 @@ import {
   decryptDataAsString,
   getServerEncryptionKey,
 } from "../../../lib/simple-encryption";
-import { checkRateLimit, rateLimitResponse, READ_LIMIT } from "../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  READ_LIMIT,
+} from "../../../lib/rate-limit";
 
 /** Shape of a snap item returned in the gallery list (metadata only, no image) */
 interface GallerySnapItem {
@@ -53,7 +57,10 @@ const MAX_PAGE_SIZE = 50;
  * Supabase admin client for direct database queries.
  * Used after verifying user identity via Clerk.
  */
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -99,14 +106,18 @@ export async function GET(
     // Parse pagination params
     const { searchParams } = new URL(request.url);
     const parsedPage = parseInt(searchParams.get("page") ?? "1", 10);
-    const parsedPageSize = parseInt(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE), 10);
-    
+    const parsedPageSize = parseInt(
+      searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE),
+      10,
+    );
+
     // Validate and fallback to defaults if NaN
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-    const pageSize = Number.isFinite(parsedPageSize) && parsedPageSize > 0
-      ? Math.min(MAX_PAGE_SIZE, parsedPageSize)
-      : DEFAULT_PAGE_SIZE;
-    
+    const pageSize =
+      Number.isFinite(parsedPageSize) && parsedPageSize > 0
+        ? Math.min(MAX_PAGE_SIZE, parsedPageSize)
+        : DEFAULT_PAGE_SIZE;
+
     const offset = (page - 1) * pageSize;
 
     // Fetch total count for user's snaps
@@ -132,7 +143,10 @@ export async function GET(
       console.error("[Gallery API] Count exception (non-fatal, continuing):", {
         exception: countException,
         userId,
-        message: countException instanceof Error ? countException.message : String(countException),
+        message:
+          countException instanceof Error
+            ? countException.message
+            : String(countException),
       });
     }
 
@@ -140,7 +154,7 @@ export async function GET(
     const { data: snaps, error: fetchError } = await supabaseAdmin
       .from("snaps")
       .select(
-        "id, storage_path, encrypted_caption, caption_iv, send_date, send_time, delivery_method, delivery_address, period_type, delivery_status, error_message, retry_count, created_at"
+        "id, storage_path, encrypted_caption, caption_iv, send_date, send_time, delivery_method, delivery_address, period_type, delivery_status, error_message, retry_count, created_at",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -174,7 +188,11 @@ export async function GET(
             );
           }
         } catch (error) {
-          console.error("[Gallery API] Caption decryption error for snap", snap.id, error);
+          console.error(
+            "[Gallery API] Caption decryption error for snap",
+            snap.id,
+            error,
+          );
           caption = "Decryption failed";
         }
 
@@ -208,8 +226,8 @@ export async function GET(
       stack: error instanceof Error ? error.stack : undefined,
     });
     return NextResponse.json(
-      { 
-        error: "Failed to load gallery" 
+      {
+        error: "Failed to load gallery",
       },
       { status: 500 },
     );

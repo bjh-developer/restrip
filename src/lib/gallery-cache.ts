@@ -78,7 +78,10 @@ export async function getCachedImage(snapId: string): Promise<Blob | null> {
  * Store an image blob in the cache.
  * Evicts oldest entries if cache exceeds MAX_CACHE_ENTRIES.
  */
-export async function setCachedImage(snapId: string, blob: Blob): Promise<void> {
+export async function setCachedImage(
+  snapId: string,
+  blob: Blob,
+): Promise<void> {
   try {
     const db = await openDB();
 
@@ -86,7 +89,11 @@ export async function setCachedImage(snapId: string, blob: Blob): Promise<void> 
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, "readwrite");
       const store = tx.objectStore(STORE_NAME);
-      store.put({ id: snapId, blob, lastAccessed: Date.now() } satisfies CacheEntry);
+      store.put({
+        id: snapId,
+        blob,
+        lastAccessed: Date.now(),
+      } satisfies CacheEntry);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

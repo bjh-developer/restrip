@@ -13,17 +13,11 @@ const Default = ({ className, ...props }: SpinnerVariantProps) => (
 );
 
 const Circle = ({ className, ...props }: SpinnerVariantProps) => (
-  <LoaderCircleIcon
-    className={cn("animate-spin", className)}
-    {...props}
-  />
+  <LoaderCircleIcon className={cn("animate-spin", className)} {...props} />
 );
 
 const Pinwheel = ({ className, ...props }: SpinnerVariantProps) => (
-  <LoaderPinwheelIcon
-    className={cn("animate-spin", className)}
-    {...props}
-  />
+  <LoaderPinwheelIcon className={cn("animate-spin", className)} {...props} />
 );
 
 const CircleFilled = ({

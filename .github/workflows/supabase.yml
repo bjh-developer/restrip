@@ -16,7 +16,7 @@ jobs:
   validate-migrations:
     name: Validate Migrations
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'  # only on PRs
+    if: github.event_name == 'pull_request' # only on PRs
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +39,7 @@ jobs:
   deploy-migrations:
     name: Deploy DB Migrations
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'  # only on merge to main
+    if: github.event_name == 'push' # only on merge to main
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +63,7 @@ jobs:
     name: Deploy Edge Functions
     runs-on: ubuntu-latest
     needs: deploy-migrations
-    if: github.event_name == 'push'  # only on merge to main
+    if: github.event_name == 'push' # only on merge to main
     steps:
       - uses: actions/checkout@v4
 

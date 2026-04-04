@@ -27,10 +27,7 @@ export async function POST(request: Request) {
   try {
     const contentLength = request.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return NextResponse.json(
-        { error: "Payload too large" },
-        { status: 413 },
-      );
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
     const body = await request.json();
@@ -109,10 +106,7 @@ export async function GET(request: Request) {
 
     // Check expiry on the deleted row
     if (new Date(row.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: "Token expired" },
-        { status: 410 },
-      );
+      return NextResponse.json({ error: "Token expired" }, { status: 410 });
     }
 
     return NextResponse.json({ formData: row.form_data });

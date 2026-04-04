@@ -19,30 +19,56 @@ function randomSlotMinute(): number {
 }
 
 function randomWindowTimeOnDay(day: DateTime): DateTime {
-  const hour = randomIntInclusive(DELIVERY_WINDOW_START_HOUR, DELIVERY_WINDOW_END_HOUR - 1);
-  return day.set({ hour, minute: randomSlotMinute(), second: 0, millisecond: 0 });
+  const hour = randomIntInclusive(
+    DELIVERY_WINDOW_START_HOUR,
+    DELIVERY_WINDOW_END_HOUR - 1,
+  );
+  return day.set({
+    hour,
+    minute: randomSlotMinute(),
+    second: 0,
+    millisecond: 0,
+  });
 }
 
 function ceilToNextSlot(dt: DateTime): DateTime {
-  const ceiled = Math.ceil(dt.minute / DELIVERY_SLOT_MINUTES) * DELIVERY_SLOT_MINUTES;
-  return dt.set({ minute: 0, second: 0, millisecond: 0 }).plus({ minutes: ceiled });
+  const ceiled =
+    Math.ceil(dt.minute / DELIVERY_SLOT_MINUTES) * DELIVERY_SLOT_MINUTES;
+  return dt
+    .set({ minute: 0, second: 0, millisecond: 0 })
+    .plus({ minutes: ceiled });
 }
 
 function earliestAllowedDelivery(now: DateTime): DateTime {
   const withLead = now.plus({ minutes: MIN_LEAD_MINUTES });
 
   if (withLead.hour < DELIVERY_WINDOW_START_HOUR) {
-    return withLead.set({ hour: DELIVERY_WINDOW_START_HOUR, minute: 0, second: 0, millisecond: 0 });
+    return withLead.set({
+      hour: DELIVERY_WINDOW_START_HOUR,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+    });
   }
 
   if (withLead.hour >= DELIVERY_WINDOW_END_HOUR) {
-    return withLead.plus({ days: 1 }).set({ hour: DELIVERY_WINDOW_START_HOUR, minute: 0, second: 0, millisecond: 0 });
+    return withLead.plus({ days: 1 }).set({
+      hour: DELIVERY_WINDOW_START_HOUR,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+    });
   }
 
   const ceiled = ceilToNextSlot(withLead);
 
   if (ceiled.hour >= DELIVERY_WINDOW_END_HOUR) {
-    return ceiled.plus({ days: 1 }).set({ hour: DELIVERY_WINDOW_START_HOUR, minute: 0, second: 0, millisecond: 0 });
+    return ceiled.plus({ days: 1 }).set({
+      hour: DELIVERY_WINDOW_START_HOUR,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+    });
   }
 
   return ceiled;
@@ -61,7 +87,7 @@ function surpriseDeliveryTime(now: DateTime): DateTime {
 
 export function computeScheduledSendTime(
   period: DeliveryPeriod,
-  timezone: string,           // e.g. "Asia/Singapore", "America/New_York"
+  timezone: string, // e.g. "Asia/Singapore", "America/New_York"
   selectedDate?: Date,
   now: Date = new Date(),
 ): Date | undefined {
@@ -73,7 +99,9 @@ export function computeScheduledSendTime(
 
   if (!selectedDate) return undefined;
 
-  const selectedDt = DateTime.fromJSDate(selectedDate, { zone: timezone }).startOf("day");
+  const selectedDt = DateTime.fromJSDate(selectedDate, {
+    zone: timezone,
+  }).startOf("day");
   const randomized = randomWindowTimeOnDay(selectedDt);
   return clampToAllowedWindow(randomized, nowDt).toJSDate();
 }

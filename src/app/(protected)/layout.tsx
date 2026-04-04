@@ -36,9 +36,11 @@ export default function ProtectedLayout({
   const isScrapbookEditor = !!pathname.match(/^\/scrapbook\/[^/]+$/);
 
   return (
-    <div className={`bg-warm-beige flex flex-col ${
-      isScrapbookEditor ? "h-full overflow-hidden" : "min-h-screen"
-    }`}>
+    <div
+      className={`bg-warm-beige flex flex-col ${
+        isScrapbookEditor ? "h-full overflow-hidden" : "min-h-screen"
+      }`}
+    >
       {/* Navigation Bar */}
       <nav className="sticky top-0 z-40 bg-white border-b border-mist-grey shadow-sm">
         <div className="container mx-auto px-4">

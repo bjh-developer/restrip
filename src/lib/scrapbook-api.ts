@@ -9,7 +9,12 @@
  * @module lib/scrapbook-api
  */
 
-import type { Book, BookPage, PageBackground, PageElement } from "./scrapbook-types";
+import type {
+  Book,
+  BookPage,
+  PageBackground,
+  PageElement,
+} from "./scrapbook-types";
 
 // =============================================================================
 // Types mapping DB rows → client types
@@ -81,7 +86,10 @@ export async function fetchBook(bookId: string): Promise<Book | null> {
 }
 
 /** Create a new book */
-export async function createBookApi(title: string, coverColor: string): Promise<Book | null> {
+export async function createBookApi(
+  title: string,
+  coverColor: string,
+): Promise<Book | null> {
   const res = await fetch("/api/scrapbook/books", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -108,7 +116,9 @@ export async function updateBookApi(
   if (!res.ok) return null;
   const data = await res.json();
   // The PATCH returns just book metadata, not pages. Return null to signal a refetch.
-  return data.book ? { ...mapBook({ ...data.book, pages: [] }), pages: [] } : null;
+  return data.book
+    ? { ...mapBook({ ...data.book, pages: [] }), pages: [] }
+    : null;
 }
 
 /** Delete a book */
@@ -131,7 +141,10 @@ export async function addPageApi(bookId: string): Promise<BookPage | null> {
 }
 
 /** Delete a page */
-export async function deletePageApi(bookId: string, pageId: string): Promise<boolean> {
+export async function deletePageApi(
+  bookId: string,
+  pageId: string,
+): Promise<boolean> {
   const res = await fetch(`/api/scrapbook/books/${bookId}/pages/${pageId}`, {
     method: "DELETE",
   });

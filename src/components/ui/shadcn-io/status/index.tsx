@@ -1,14 +1,13 @@
+"use client";
 
-"use client"
-
-import type { ComponentProps, HTMLAttributes } from "react"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import type { ComponentProps, HTMLAttributes } from "react";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export type StatusProps = ComponentProps<typeof Badge> & {
-  status: "online" | "offline" | "maintenance" | "degraded" | "error",
-  count?: string | number,
-}
+  status: "online" | "offline" | "maintenance" | "degraded" | "error";
+  count?: string | number;
+};
 
 export const Status = ({ className, status, ...props }: StatusProps) => (
   <Badge
@@ -16,11 +15,14 @@ export const Status = ({ className, status, ...props }: StatusProps) => (
     variant="secondary"
     {...props}
   />
-)
+);
 
-export type StatusIndicatorProps = HTMLAttributes<HTMLSpanElement>
+export type StatusIndicatorProps = HTMLAttributes<HTMLSpanElement>;
 
-export const StatusIndicator = ({ className, ...props }: StatusIndicatorProps) => (
+export const StatusIndicator = ({
+  className,
+  ...props
+}: StatusIndicatorProps) => (
   <span className={cn("relative flex h-2 w-2", className)} {...props}>
     <span
       className={cn(
@@ -43,11 +45,15 @@ export const StatusIndicator = ({ className, ...props }: StatusIndicatorProps) =
       )}
     />
   </span>
-)
+);
 
-export type StatusLabelProps = HTMLAttributes<HTMLSpanElement>
+export type StatusLabelProps = HTMLAttributes<HTMLSpanElement>;
 
-export const StatusLabel = ({ className, children, ...props }: StatusLabelProps) => (
+export const StatusLabel = ({
+  className,
+  children,
+  ...props
+}: StatusLabelProps) => (
   <span className={cn("text-muted-foreground", className)} {...props}>
     {children ?? (
       <>
@@ -59,10 +65,14 @@ export const StatusLabel = ({ className, children, ...props }: StatusLabelProps)
       </>
     )}
   </span>
-)
+);
 
-export const StatusStats = ({ className, count, ...props }: Omit<StatusProps, "status">) => (
+export const StatusStats = ({
+  className,
+  count,
+  ...props
+}: Omit<StatusProps, "status">) => (
   <span className={cn("text-soft-black", className)} {...props}>
     {count ? `${count} memories relived thus far` : ""}
   </span>
-)
+);

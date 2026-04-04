@@ -25,7 +25,11 @@ import type { DateRange } from "react-day-picker";
 export type PeriodOption = "surprise" | "custom period" | "custom date";
 
 interface PeriodPickerProps {
-  onSelect: (period: PeriodOption, customDate?: Date, range?: { from: Date; to: Date }) => void;
+  onSelect: (
+    period: PeriodOption,
+    customDate?: Date,
+    range?: { from: Date; to: Date },
+  ) => void;
   prefillDate?: Date;
   prefillRange?: { from: Date; to: Date };
 }
@@ -109,16 +113,34 @@ function isPastLastSlotInTimezone(date: Date, timezone: string): boolean {
 }
 
 export const PeriodPicker = React.memo(
-  ({ onSelect, defaultValue, prefillDate, prefillRange }: PeriodPickerProps & { defaultValue?: PeriodOption }) => {
-    const [selected, setSelected] = useState<PeriodOption>(defaultValue ?? "surprise");
-    const [showCustomDate, setShowCustomDate] = useState(defaultValue === "custom date");
-    const [showCustomPeriod, setShowCustomPeriod] = useState(defaultValue === "custom period");
-    const [customDate, setCustomDate] = useState<string>(prefillDate ? prefillDate.toISOString() : "");
-    const [customPeriod, setCustomPeriod] = useState<CustomPeriodState | undefined>(prefillRange);
+  ({
+    onSelect,
+    defaultValue,
+    prefillDate,
+    prefillRange,
+  }: PeriodPickerProps & { defaultValue?: PeriodOption }) => {
+    const [selected, setSelected] = useState<PeriodOption>(
+      defaultValue ?? "surprise",
+    );
+    const [showCustomDate, setShowCustomDate] = useState(
+      defaultValue === "custom date",
+    );
+    const [showCustomPeriod, setShowCustomPeriod] = useState(
+      defaultValue === "custom period",
+    );
+    const [customDate, setCustomDate] = useState<string>(
+      prefillDate ? prefillDate.toISOString() : "",
+    );
+    const [customPeriod, setCustomPeriod] = useState<
+      CustomPeriodState | undefined
+    >(prefillRange);
     const [randomDate, setRandomDate] = useState<Date | undefined>(
       prefillRange
-        ? (prefillDate ?? new Date((prefillRange.from.getTime() + prefillRange.to.getTime()) / 2))
-        : undefined
+        ? (prefillDate ??
+            new Date(
+              (prefillRange.from.getTime() + prefillRange.to.getTime()) / 2,
+            ))
+        : undefined,
     );
 
     // Tracks whether the user has interacted with any picker control.
@@ -141,7 +163,9 @@ export const PeriodPicker = React.memo(
         setCustomPeriod(prefillRange);
         setRandomDate(
           prefillDate ??
-            new Date((prefillRange.from.getTime() + prefillRange.to.getTime()) / 2),
+            new Date(
+              (prefillRange.from.getTime() + prefillRange.to.getTime()) / 2,
+            ),
         );
       }
     }, [defaultValue, prefillDate, prefillRange, selected]);
@@ -205,7 +229,10 @@ export const PeriodPicker = React.memo(
         setCustomPeriod({ from: range.from, to: range.to });
         const randomDeliveryDate = getRandomDateInRange(range.from, range.to);
         setRandomDate(randomDeliveryDate);
-        onSelect("custom period", randomDeliveryDate, { from: range.from, to: range.to });
+        onSelect("custom period", randomDeliveryDate, {
+          from: range.from,
+          to: range.to,
+        });
       },
       [onSelect],
     );

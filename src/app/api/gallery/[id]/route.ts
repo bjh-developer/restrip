@@ -11,12 +11,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import { Resend } from "resend";
-import { checkRateLimit, rateLimitResponse, DELETE_LIMIT } from "../../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  DELETE_LIMIT,
+} from "../../../../lib/rate-limit";
 
 /**
  * Supabase admin client for direct database and storage access.
  */
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -73,36 +80,48 @@ export async function DELETE(
     // Fetch the snap to verify ownership and get storage path
     const { data: snap, error: fetchError } = await supabaseAdmin
       .from("snaps")
-      .select("id, user_id, storage_path, delivery_method, delivery_status, resend_email_id")
+      .select(
+        "id, user_id, storage_path, delivery_method, delivery_status, resend_email_id",
+      )
       .eq("id", id)
       .single();
 
     if (fetchError || !snap) {
-      return NextResponse.json(
-        { error: "Snap not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Snap not found" }, { status: 404 });
     }
 
     // Verify the user owns this snap
     if (snap.user_id !== userId) {
-      return NextResponse.json(
-        { error: "Snap not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Snap not found" }, { status: 404 });
     }
 
-    if ( snap.delivery_method === "email" && snap.resend_email_id && snap.delivery_status !== "sent" ) {
+    if (
+      snap.delivery_method === "email" &&
+      snap.resend_email_id &&
+      snap.delivery_status !== "sent"
+    ) {
       try {
         const resend = getResend();
-        const { error: cancelError } = await resend.emails.cancel(snap.resend_email_id);
+        const { error: cancelError } = await resend.emails.cancel(
+          snap.resend_email_id,
+        );
         if (cancelError) {
           const message = cancelError.message ?? JSON.stringify(cancelError);
-          return NextResponse.json( { error: `Failed to cancel scheduled email before deletion: ${message}`, }, { status: 409 }, );
+          return NextResponse.json(
+            {
+              error: `Failed to cancel scheduled email before deletion: ${message}`,
+            },
+            { status: 409 },
+          );
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return NextResponse.json( { error: `Failed to cancel scheduled email before deletion: ${message}`, }, { status: 409 }, );
+        return NextResponse.json(
+          {
+            error: `Failed to cancel scheduled email before deletion: ${message}`,
+          },
+          { status: 409 },
+        );
       }
     }
 

@@ -103,24 +103,24 @@ Edit `.env.local` with your configuration values. The example file contains all 
 
 **Key environment variables:**
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
-| `CLERK_SECRET_KEY` | Yes | Clerk secret key (server-side only) |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key (server-side only) |
-| `ENCRYPTION_SECRET` | Yes | Server-side encryption key (generate with `openssl rand -base64 32`) |
-| `RESEND_API_KEY` | Yes | Resend API key for email delivery |
-| `RESEND_FROM_EMAIL` | Yes | From email address (e.g., `ReStrip Memories <memories@restrip.app>`) |
-| `CROP_BACKEND` | No | `local` or `runpod` (default: `runpod`) |
-| `LOCAL_CROP_URL` | No | Local FastAPI crop server URL |
-| `RUNPOD_API_KEY` | No | RunPod API key for AI cropping |
-| `RUNPOD_ENDPOINT_ID` | No | RunPod endpoint ID |
-| `TURNSTILE_SECRET_KEY` | No | Cloudflare Turnstile secret key |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | No | Cloudflare Turnstile site key |
-| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token |
-| `TELEGRAM_WEBHOOK_SECRET` | No | Telegram webhook secret |
+| Variable                            | Required | Description                                                          |
+| ----------------------------------- | -------- | -------------------------------------------------------------------- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                                                |
+| `CLERK_SECRET_KEY`                  | Yes      | Clerk secret key (server-side only)                                  |
+| `NEXT_PUBLIC_SUPABASE_URL`          | Yes      | Your Supabase project URL                                            |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | Yes      | Supabase anonymous key                                               |
+| `SUPABASE_SERVICE_ROLE_KEY`         | Yes      | Supabase service role key (server-side only)                         |
+| `ENCRYPTION_SECRET`                 | Yes      | Server-side encryption key (generate with `openssl rand -base64 32`) |
+| `RESEND_API_KEY`                    | Yes      | Resend API key for email delivery                                    |
+| `RESEND_FROM_EMAIL`                 | Yes      | From email address (e.g., `ReStrip Memories <memories@restrip.app>`) |
+| `CROP_BACKEND`                      | No       | `local` or `runpod` (default: `runpod`)                              |
+| `LOCAL_CROP_URL`                    | No       | Local FastAPI crop server URL                                        |
+| `RUNPOD_API_KEY`                    | No       | RunPod API key for AI cropping                                       |
+| `RUNPOD_ENDPOINT_ID`                | No       | RunPod endpoint ID                                                   |
+| `TURNSTILE_SECRET_KEY`              | No       | Cloudflare Turnstile secret key                                      |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | No       | Cloudflare Turnstile site key                                        |
+| `TELEGRAM_BOT_TOKEN`                | No       | Telegram bot token                                                   |
+| `TELEGRAM_WEBHOOK_SECRET`           | No       | Telegram webhook secret                                              |
 
 #### 4. Supabase Setup
 
@@ -143,18 +143,18 @@ After running migrations, verify with:
 
 ```sql
 -- Check tables exist
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' 
+SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public'
 AND table_name IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 
 -- Check snaps table structure
-SELECT column_name, data_type 
-FROM information_schema.columns 
+SELECT column_name, data_type
+FROM information_schema.columns
 WHERE table_name = 'snaps';
 
 -- Verify RLS is enabled
-SELECT schemaname, tablename, rowsecurity 
-FROM pg_tables 
+SELECT schemaname, tablename, rowsecurity
+FROM pg_tables
 WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 ```
 
@@ -179,22 +179,23 @@ npm run lint   # Run ESLint
 Here's a quick mental map of how everything connects:
 
 **User Journey:**
+
 ```
 Sign Up (Clerk) → Upload Photo → Auto-Crop (optional) → Add Caption → Schedule → Encrypt (server) → Store → [Time Passes] → Deliver → View
 ```
 
 **Key Files to Understand First:**
 
-| File | Purpose | Priority |
-|------|---------|----------|
-| `src/app/(protected)/upload/page.tsx` | Main upload flow (start here!) | ⭐⭐⭐ |
-| `src/app/(protected)/gallery/page.tsx` | Gallery view for browsing memories | ⭐⭐⭐ |
-| `src/app/(protected)/scrapbook/[bookId]/page.tsx` | Scrapbook editor with drag-and-drop | ⭐⭐⭐ |
-| `src/proxy.ts` | Clerk middleware for route protection | ⭐⭐ |
-| `src/lib/simple-encryption.ts` | Server-side encryption utilities | ⭐⭐ |
-| `src/lib/rate-limit.ts` | API rate limiting | ⭐⭐ |
-| `src/lib/scrapbook-api.ts` | Scrapbook API client | ⭐⭐ |
-| `runpod/handler.py` | AI image cropping | ⭐ |
+| File                                              | Purpose                               | Priority |
+| ------------------------------------------------- | ------------------------------------- | -------- |
+| `src/app/(protected)/upload/page.tsx`             | Main upload flow (start here!)        | ⭐⭐⭐   |
+| `src/app/(protected)/gallery/page.tsx`            | Gallery view for browsing memories    | ⭐⭐⭐   |
+| `src/app/(protected)/scrapbook/[bookId]/page.tsx` | Scrapbook editor with drag-and-drop   | ⭐⭐⭐   |
+| `src/proxy.ts`                                    | Clerk middleware for route protection | ⭐⭐     |
+| `src/lib/simple-encryption.ts`                    | Server-side encryption utilities      | ⭐⭐     |
+| `src/lib/rate-limit.ts`                           | API rate limiting                     | ⭐⭐     |
+| `src/lib/scrapbook-api.ts`                        | Scrapbook API client                  | ⭐⭐     |
+| `runpod/handler.py`                               | AI image cropping                     | ⭐       |
 
 **Data Flow Summary:**
 
@@ -326,7 +327,7 @@ sequenceDiagram
 
     User->>Client: 1. Click link in delivery email
     Client->>Clerk: 2. Check authentication status
-    
+
     alt Not authenticated
         Clerk->>Client: 3. Redirect to sign-in
         User->>Clerk: 4. Authenticate via OAuth
@@ -337,12 +338,12 @@ sequenceDiagram
     Server->>Clerk: 7. Verify session & get user ID
     Server->>Supabase: 8. Query snaps table (user_id match)
     Supabase-->>Server: 9. Return snap metadata
-    
+
     Server->>Server: 10. Decrypt caption with server key
     Server->>Supabase: 11. storage.download(storage_path)
     Supabase-->>Server: 12. Return encrypted image blob
     Server->>Server: 13. Decrypt image with server key + IV
-    
+
     Server-->>Client: 14. Return decrypted data
     Client-->>User: 15. Display memory in gallery
 ```
@@ -677,12 +678,10 @@ ReStrip uses **Clerk** for authentication, providing a modern OAuth-based authen
    - User selects their preferred method (Google, email, etc.)
    - Clerk handles the OAuth flow or credential verification
    - Session token issued and stored in secure HTTP-only cookie
-   
 2. **Session Management:**
    - Sessions automatically refreshed by Clerk
    - Token verified on every API request
    - `auth()` helper from `@clerk/nextjs/server` provides user ID
-   
 3. **Route Protection:**
    - Clerk middleware (`src/proxy.ts`) protects routes
    - Unauthorized users redirected to sign-in page
@@ -732,17 +731,14 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function POST(request: Request) {
   const { userId } = auth();
-  
+
   if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   // Use userId to query/store data
-  const snaps = await supabase
-    .from("snaps")
-    .select("*")
-    .eq("user_id", userId);
-    
+  const snaps = await supabase.from("snaps").select("*").eq("user_id", userId);
+
   return Response.json(snaps);
 }
 ```
@@ -755,10 +751,10 @@ import { useUser } from "@clerk/nextjs";
 
 export function UserProfile() {
   const { user, isLoaded, isSignedIn } = useUser();
-  
+
   if (!isLoaded) return <div>Loading...</div>;
   if (!isSignedIn) return <div>Sign in required</div>;
-  
+
   return <div>Hello, {user.firstName}!</div>;
 }
 ```
@@ -768,7 +764,7 @@ export function UserProfile() {
 The current codebase has migrated from a passkey/WebAuthn authentication system to Clerk. Key changes:
 
 - ❌ Removed: `passkey_credentials` table
-- ❌ Removed: `webauthn_challenges` table  
+- ❌ Removed: `webauthn_challenges` table
 - ❌ Removed: WebAuthn API endpoints (`/api/auth/passkey/*`)
 - ❌ Removed: Client-side authentication hooks (`useAuth`, `usePasskeySupport`)
 - ❌ Removed: Account linking system
@@ -800,7 +796,7 @@ graph LR
     A["User Data"] --> B["Upload to<br/>Server"]
     B --> C["Server Encryption<br/>(AES-256-GCM)"]
     C --> D["Supabase Storage<br/>(Encrypted at Rest)"]
-    
+
     style A fill:#fff2c9
     style B fill:#cfe7ff
     style C fill:#ffc9d1
@@ -827,13 +823,13 @@ const IV_LENGTH = 12; // 96 bits for AES-GCM
 export function encrypt(text: string): { encrypted: string; iv: string } {
   const key = Buffer.from(process.env.ENCRYPTION_SECRET!, "base64");
   const iv = crypto.randomBytes(IV_LENGTH);
-  
+
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(text, "utf8", "base64");
   encrypted += cipher.final("base64");
-  
+
   const authTag = cipher.getAuthTag();
-  
+
   return {
     encrypted: encrypted + authTag.toString("base64"),
     iv: iv.toString("base64"),
@@ -843,18 +839,18 @@ export function encrypt(text: string): { encrypted: string; iv: string } {
 export function decrypt(encrypted: string, ivHex: string): string {
   const key = Buffer.from(process.env.ENCRYPTION_SECRET!, "base64");
   const iv = Buffer.from(ivHex, "base64");
-  
+
   const authTagLength = 16; // 128 bits
   const encryptedData = Buffer.from(encrypted, "base64");
   const authTag = encryptedData.slice(-authTagLength);
   const ciphertext = encryptedData.slice(0, -authTagLength);
-  
+
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
-  
+
   let decrypted = decipher.update(ciphertext);
   decrypted = Buffer.concat([decrypted, decipher.final()]);
-  
+
   return decrypted.toString("utf8");
 }
 ```
@@ -868,15 +864,15 @@ import { encrypt, decrypt } from "@/lib/simple-encryption";
 export async function POST(request: Request) {
   const { userId } = auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  
+
   const { caption, image } = await request.json();
-  
+
   // Encrypt caption
   const { encrypted: encryptedCaption, iv: captionIv } = encrypt(caption);
-  
+
   // Encrypt image (if needed)
   const { encrypted: encryptedImage, iv: imageIv } = encrypt(image);
-  
+
   // Store encrypted data
   await supabase.from("snaps").insert({
     user_id: userId,
@@ -884,7 +880,7 @@ export async function POST(request: Request) {
     image_iv: imageIv,
     storage_path: await uploadEncryptedImage(encryptedImage),
   });
-  
+
   return Response.json({ success: true });
 }
 ```
@@ -950,35 +946,35 @@ Run the current migrations in order in your Supabase SQL Editor:
 
 > [!CAUTION]
 > If you have existing data in database, make sure to do the following steps before running migration 020 and 021
+>
 > 1. Run migration 020
-> 2. Run ```NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts``` in terminal
-> 3. Run ```SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';``` & ```SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';``` in supabase sql editor (make sure output is 0 for both)
+> 2. Run `NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts` in terminal
+> 3. Run `SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';` & `SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';` in supabase sql editor (make sure output is 0 for both)
 > 4. Run migration 021
 
-
-| Step | Migration File | Purpose |
-|------|----------------|---------|
-| 1 | `supabase/migrations/001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
-| 2 | `supabase/migrations/002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
-| 3 | `supabase/migrations/003_delivery_status.sql` | Delivery tracking columns |
-| 4 | `supabase/migrations/004_check_user_exists_rpc.sql` | User existence check RPC |
-| 5 | `supabase/migrations/005_rpc_get_account_type.sql` | Account type lookup RPC |
-| 6 | `supabase/migrations/006_consolidate_snap_image_urls.sql` | Consolidate image columns |
-| 7 | `supabase/migrations/007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
-| 8 | `supabase/migrations/008_telegram_bot_integration.sql` | Telegram bot support |
-| 9 | `supabase/migrations/009_add_key_wrapping.sql` | Cross-auth key wrapping |
-| 10 | `supabase/migrations/010_gallery_rls_indexes.sql` | Gallery rls indexes |
-| 11 | `supabase/migrations/011_clerk_migration.sql` | Clerk migration |
-| 12 | `supabase/migrations/012_ensure_encryption_columns.sql` | Ensure encryption columns |
-| 13 | `supabase/migrations/013_telegram_link_token.sql` | Telegram link token |
-| 14 | `supabase/migrations/014_canvas_books.sql` | Scrapbook tables (initial) |
-| 15 | `supabase/migrations/015_rename_to_scrapbook.sql` | Rename to scrapbook |
-| 16 | `supabase/migrations/016_nonce.sql` | Nonce Table for Upload Verification |
-| 17 | `supabase/migrations/017_resend_schedule_tracking.sql` | Resend Schedule Metadata on Snaps |
-| 18 | `supabase/migrations/018_testing_workflow.sql` | Test GitHub Actions |
-| 19 | `supabase/migrations/019_pending_uploads.sql` | Pending Uploads for Sign-Up Flow |
-| 20 | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
-| 21 | `supabase/migrations/21_scrapbook_drop_plaintext.sql` | Drop Plaintext Title and Elements Column |
+| Step | Migration File                                             | Purpose                                                            |
+| ---- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1    | `supabase/migrations/001_passkey_auth.sql`                 | Core tables, RLS policies, storage bucket                          |
+| 2    | `supabase/migrations/002_add_prf_salt_to_credentials.sql`  | WebAuthn salt column                                               |
+| 3    | `supabase/migrations/003_delivery_status.sql`              | Delivery tracking columns                                          |
+| 4    | `supabase/migrations/004_check_user_exists_rpc.sql`        | User existence check RPC                                           |
+| 5    | `supabase/migrations/005_rpc_get_account_type.sql`         | Account type lookup RPC                                            |
+| 6    | `supabase/migrations/006_consolidate_snap_image_urls.sql`  | Consolidate image columns                                          |
+| 7    | `supabase/migrations/007_add_image_iv_to_snaps.sql`        | Add image IV for decryption                                        |
+| 8    | `supabase/migrations/008_telegram_bot_integration.sql`     | Telegram bot support                                               |
+| 9    | `supabase/migrations/009_add_key_wrapping.sql`             | Cross-auth key wrapping                                            |
+| 10   | `supabase/migrations/010_gallery_rls_indexes.sql`          | Gallery rls indexes                                                |
+| 11   | `supabase/migrations/011_clerk_migration.sql`              | Clerk migration                                                    |
+| 12   | `supabase/migrations/012_ensure_encryption_columns.sql`    | Ensure encryption columns                                          |
+| 13   | `supabase/migrations/013_telegram_link_token.sql`          | Telegram link token                                                |
+| 14   | `supabase/migrations/014_canvas_books.sql`                 | Scrapbook tables (initial)                                         |
+| 15   | `supabase/migrations/015_rename_to_scrapbook.sql`          | Rename to scrapbook                                                |
+| 16   | `supabase/migrations/016_nonce.sql`                        | Nonce Table for Upload Verification                                |
+| 17   | `supabase/migrations/017_resend_schedule_tracking.sql`     | Resend Schedule Metadata on Snaps                                  |
+| 18   | `supabase/migrations/018_testing_workflow.sql`             | Test GitHub Actions                                                |
+| 19   | `supabase/migrations/019_pending_uploads.sql`              | Pending Uploads for Sign-Up Flow                                   |
+| 20   | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
+| 21   | `supabase/migrations/21_scrapbook_drop_plaintext.sql`      | Drop Plaintext Title and Elements Column                           |
 
 **Tables Created:**
 
@@ -1002,12 +998,12 @@ Run the current migrations in order in your Supabase SQL Editor:
 CREATE TABLE public.snaps (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id TEXT NOT NULL,  -- Clerk user ID
-    
+
     -- Encrypted data
     storage_path TEXT NOT NULL,  -- Supabase Storage path
     image_iv TEXT NOT NULL,      -- IV for image decryption
     caption TEXT,                -- Caption (encrypted at rest)
-    
+
     -- Delivery metadata
     delivery_method TEXT NOT NULL,
     delivery_address TEXT NOT NULL,
@@ -1016,7 +1012,7 @@ CREATE TABLE public.snaps (
     scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
     delivered BOOLEAN DEFAULT FALSE,
     delivered_at TIMESTAMP WITH TIME ZONE,
-    
+
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -1024,6 +1020,7 @@ CREATE TABLE public.snaps (
 ```
 
 Key changes from legacy schema:
+
 - Removed `encrypted_caption` and `caption_iv` columns
 - Added plain `caption` column (encrypted at rest in DB)
 - Added `telegram_link_token` for Telegram account linking
@@ -1061,6 +1058,7 @@ CREATE TABLE public.scrapbook_pages (
 ```
 
 Stores individual pages in scrapbooks. `encrypted_elements` contains an AES-256-GCM encrypted JSON array of:
+
 - Image elements (with position, size, rotation)
 - Text elements (with content, styling, position)
 - Sticker elements (with type, position, size)
@@ -1068,6 +1066,7 @@ Stores individual pages in scrapbooks. `encrypted_elements` contains an AES-256-
 **Row Level Security:**
 
 RLS policies are simplified in the Clerk migration:
+
 - Service role has full access
 - API routes validate Clerk authentication before database access
 - Database policies trust the service role (no user-level RLS)
@@ -1324,12 +1323,12 @@ LOCAL_CROP_URL=http://localhost:8000/crop
 
 #### Troubleshooting Local RunPod
 
-| Issue | Solution |
-|-------|----------|
-| `ModuleNotFoundError: No module named 'ultralytics'` | Run `pip install ultralytics` |
-| `FileNotFoundError: runs/segment/train/weights/best.pt` | Obtain model weights from team lead |
-| CUDA out of memory | Use CPU version of PyTorch or reduce image size |
-| Slow inference on CPU | Expected - GPU recommended for production |
+| Issue                                                   | Solution                                        |
+| ------------------------------------------------------- | ----------------------------------------------- |
+| `ModuleNotFoundError: No module named 'ultralytics'`    | Run `pip install ultralytics`                   |
+| `FileNotFoundError: runs/segment/train/weights/best.pt` | Obtain model weights from team lead             |
+| CUDA out of memory                                      | Use CPU version of PyTorch or reduce image size |
+| Slow inference on CPU                                   | Expected - GPU recommended for production       |
 
 ### Docker Configuration
 
@@ -1400,12 +1399,14 @@ Email delivery is now handled immediately via Resend API when a snap is created:
 4. Email is delivered with the memory image as an attachment
 
 **Key Features:**
+
 - ✅ Immediate delivery (no cron job needed)
 - ✅ React Email templates (`src/components/emails/MemoryEmail.tsx`)
 - ✅ Image attachments supported
 - ✅ Reliable delivery via Resend infrastructure
 
 **Required Environment Variables:**
+
 - `RESEND_API_KEY` - Your Resend API key
 - `RESEND_FROM_EMAIL` - From email address (e.g., `memories@restrip.app`)
 
@@ -1420,16 +1421,17 @@ Can be used to manually trigger or retry email delivery for a specific snap.
 
 ### Supabase Edge Functions Overview
 
-| Function | Location | Purpose |
-|----------|----------|---------|
+| Function           | Location                               | Purpose                                                               |
+| ------------------ | -------------------------------------- | --------------------------------------------------------------------- |
 | `restrip-memories` | `supabase/functions/restrip-memories/` | Scheduled memory checks (legacy function, now primarily for Telegram) |
-| `telegram-bot` | `supabase/functions/telegram-bot/` | Webhook handler for Telegram bot interactions |
+| `telegram-bot`     | `supabase/functions/telegram-bot/`     | Webhook handler for Telegram bot interactions                         |
 
 ### Memory Delivery Function (`restrip-memories`)
 
 **File:** `supabase/functions/restrip-memories/index.ts`
 
 This function now primarily handles:
+
 1. Telegram delivery for scheduled memories
 2. Fallback checks for any memories that need delivery
 3. Updates delivery status in the database
@@ -1454,13 +1456,13 @@ supabase functions deploy restrip-memories
 
 **Required Secrets (set in Supabase Dashboard > Edge Functions > Secrets):**
 
-| Secret | Description |
-|--------|-------------|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (admin access) |
-| `ENCRYPTION_SECRET` | Server-side decryption key (base64-encoded AES-256 key) |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather |
-| `BASE_URL` | Your application URL |
+| Secret                      | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `SUPABASE_URL`              | Your Supabase project URL                               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (admin access)                         |
+| `ENCRYPTION_SECRET`         | Server-side decryption key (base64-encoded AES-256 key) |
+| `TELEGRAM_BOT_TOKEN`        | Telegram bot token from BotFather                       |
+| `BASE_URL`                  | Your application URL                                    |
 
 **Note:** Email delivery secrets (Gmail credentials) are no longer needed as email is handled by Resend API.
 
@@ -1487,6 +1489,7 @@ SELECT cron.schedule(
 **File:** `supabase/functions/telegram-bot/index.ts`
 
 This function handles Telegram bot webhooks for:
+
 - `/start snap_<id>` - Links a user's Telegram chat to their memory for delivery
 
 **Deployment:**
@@ -1497,12 +1500,12 @@ supabase functions deploy telegram-bot
 
 **Required Secrets:**
 
-| Secret | Description |
-|--------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather |
-| `TELEGRAM_WEBHOOK_SECRET` | Random secret for webhook verification |
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key |
+| Secret                      | Description                            |
+| --------------------------- | -------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`        | Bot token from @BotFather              |
+| `TELEGRAM_WEBHOOK_SECRET`   | Random secret for webhook verification |
+| `SUPABASE_URL`              | Your Supabase project URL              |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key                       |
 
 **Setting Up the Telegram Bot:**
 
@@ -1512,6 +1515,7 @@ supabase functions deploy telegram-bot
    - Save the bot token
 
 2. **Set up the webhook:**
+
    ```bash
    curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
      -H "Content-Type: application/json" \
@@ -1534,10 +1538,10 @@ For the delivery system to work, the server needs the `ENCRYPTION_SECRET` enviro
 
 ```javascript
 // Run this in a Node.js environment
-const crypto = require('crypto');
+const crypto = require("crypto");
 const key = crypto.randomBytes(32); // 256 bits
-const keyBase64 = key.toString('base64');
-console.log('ENCRYPTION_SECRET:', keyBase64);
+const keyBase64 = key.toString("base64");
+console.log("ENCRYPTION_SECRET:", keyBase64);
 ```
 
 ### Testing Edge Functions Locally
@@ -1575,11 +1579,12 @@ Authentication is handled by **Clerk** - no custom authentication endpoints need
 
 ### Image Processing
 
-| Endpoint          | Method | Purpose                                      |
-| ----------------- | ------ | -------------------------------------------- |
-| `/api/crop-image` | POST   | Proxy to RunPod/FastAPI for AI cropping     |
+| Endpoint          | Method | Purpose                                 |
+| ----------------- | ------ | --------------------------------------- |
+| `/api/crop-image` | POST   | Proxy to RunPod/FastAPI for AI cropping |
 
 **Request:**
+
 ```json
 {
   "image": "base64-encoded-image"
@@ -1587,6 +1592,7 @@ Authentication is handled by **Clerk** - no custom authentication endpoints need
 ```
 
 **Response:**
+
 ```json
 {
   "croppedImage": "base64-encoded-cropped-image"
@@ -1595,18 +1601,18 @@ Authentication is handled by **Clerk** - no custom authentication endpoints need
 
 ### Memory Management
 
-| Endpoint              | Method | Purpose                            |
-| --------------------- | ------ | ---------------------------------- |
-| `/api/create-snap`    | POST   | Create new memory (triggers immediate email) |
-| `/api/upload`         | POST   | Upload image (anonymous)           |
-| `/api/upload/authenticated` | POST | Upload image (authenticated, triggers immediate email) |
-| `/api/snaps/[id]`     | GET    | Get specific memory metadata       |
-| `/api/snaps/[id]`     | PATCH  | Update memory                      |
-| `/api/snaps/[id]`     | DELETE | Delete memory                      |
-| `/api/send-memory`    | POST   | Manual email delivery/retry        |
-| `/api/pending-upload` | POST   | Track pending uploads for sign-up flow |
-| `/api/resend/webhook` | POST   | Resend email delivery webhook      |
-| `/api/stats`          | GET    | Usage statistics                   |
+| Endpoint                    | Method | Purpose                                                |
+| --------------------------- | ------ | ------------------------------------------------------ |
+| `/api/create-snap`          | POST   | Create new memory (triggers immediate email)           |
+| `/api/upload`               | POST   | Upload image (anonymous)                               |
+| `/api/upload/authenticated` | POST   | Upload image (authenticated, triggers immediate email) |
+| `/api/snaps/[id]`           | GET    | Get specific memory metadata                           |
+| `/api/snaps/[id]`           | PATCH  | Update memory                                          |
+| `/api/snaps/[id]`           | DELETE | Delete memory                                          |
+| `/api/send-memory`          | POST   | Manual email delivery/retry                            |
+| `/api/pending-upload`       | POST   | Track pending uploads for sign-up flow                 |
+| `/api/resend/webhook`       | POST   | Resend email delivery webhook                          |
+| `/api/stats`                | GET    | Usage statistics                                       |
 
 **Send Memory Endpoint:**
 
@@ -1620,13 +1626,14 @@ Used to manually trigger or retry email delivery for a specific snap.
 
 ### Gallery
 
-| Endpoint          | Method | Purpose                           |
-| ----------------- | ------ | --------------------------------- |
-| `/api/gallery`    | GET    | List all user's memories (paginated) |
-| `/api/gallery/[id]` | GET  | Get specific memory details       |
-| `/api/images/[id]` | GET   | Serve image with caching          |
+| Endpoint            | Method | Purpose                              |
+| ------------------- | ------ | ------------------------------------ |
+| `/api/gallery`      | GET    | List all user's memories (paginated) |
+| `/api/gallery/[id]` | GET    | Get specific memory details          |
+| `/api/images/[id]`  | GET    | Serve image with caching             |
 
 **Gallery list response:**
+
 ```json
 {
   "snaps": [
@@ -1644,20 +1651,21 @@ Used to manually trigger or retry email delivery for a specific snap.
 
 ### Scrapbook
 
-| Endpoint                                        | Method | Purpose                     |
-| ----------------------------------------------- | ------ | --------------------------- |
-| `/api/scrapbook/books`                          | GET    | List user's scrapbooks      |
-| `/api/scrapbook/books`                          | POST   | Create new scrapbook        |
-| `/api/scrapbook/books/[bookId]`                 | GET    | Get scrapbook details       |
-| `/api/scrapbook/books/[bookId]`                 | PUT    | Update scrapbook            |
-| `/api/scrapbook/books/[bookId]`                 | DELETE | Delete scrapbook            |
-| `/api/scrapbook/books/[bookId]/pages`           | GET    | List pages in scrapbook     |
-| `/api/scrapbook/books/[bookId]/pages`           | POST   | Create new page             |
-| `/api/scrapbook/books/[bookId]/pages/[pageId]` | GET    | Get page details            |
-| `/api/scrapbook/books/[bookId]/pages/[pageId]` | PUT    | Update page elements        |
-| `/api/scrapbook/books/[bookId]/pages/[pageId]` | DELETE | Delete page                 |
+| Endpoint                                       | Method | Purpose                 |
+| ---------------------------------------------- | ------ | ----------------------- |
+| `/api/scrapbook/books`                         | GET    | List user's scrapbooks  |
+| `/api/scrapbook/books`                         | POST   | Create new scrapbook    |
+| `/api/scrapbook/books/[bookId]`                | GET    | Get scrapbook details   |
+| `/api/scrapbook/books/[bookId]`                | PUT    | Update scrapbook        |
+| `/api/scrapbook/books/[bookId]`                | DELETE | Delete scrapbook        |
+| `/api/scrapbook/books/[bookId]/pages`          | GET    | List pages in scrapbook |
+| `/api/scrapbook/books/[bookId]/pages`          | POST   | Create new page         |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | GET    | Get page details        |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | PUT    | Update page elements    |
+| `/api/scrapbook/books/[bookId]/pages/[pageId]` | DELETE | Delete page             |
 
 **Page elements structure:**
+
 ```json
 {
   "elements": [
@@ -1694,6 +1702,7 @@ Used to manually trigger or retry email delivery for a specific snap.
 ```
 
 **All authenticated endpoints:**
+
 - Require Clerk session token in cookie
 - Return 401 if unauthorized
 - Validate user ownership of resources
@@ -1783,7 +1792,10 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return Response.json({ userId, email: user?.emailAddresses[0]?.emailAddress });
+  return Response.json({
+    userId,
+    email: user?.emailAddresses[0]?.emailAddress,
+  });
 }
 ```
 
@@ -1836,14 +1848,14 @@ const cache = new Map<string, { data: any; timestamp: number }>();
 export function getCachedData(key: string) {
   const cached = cache.get(key);
   if (!cached) return null;
-  
+
   // Check if cache is still valid (5 minutes)
   const age = Date.now() - cached.timestamp;
   if (age > 5 * 60 * 1000) {
     cache.delete(key);
     return null;
   }
-  
+
   return cached.data;
 }
 

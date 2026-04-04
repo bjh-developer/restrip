@@ -22,7 +22,11 @@ import {
   encryptData,
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
-import { checkRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "../../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  UPLOAD_LIMIT,
+} from "../../../../lib/rate-limit";
 import { scheduleOrSendMemoryEmail } from "../../../../lib/resend";
 
 /** Maximum request body size: 10 MB */
@@ -64,7 +68,10 @@ const STORAGE_BUCKET = "encrypted-images";
 /**
  * Supabase admin client for elevated storage/database access.
  */
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -99,7 +106,9 @@ export async function POST(
     }
 
     // Body size check
-    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
     if (contentLength > MAX_BODY_SIZE) {
       return NextResponse.json(
         { error: "Request body too large (max 10 MB)" },
@@ -187,19 +196,23 @@ export async function POST(
     // stripping anything outside [a-zA-Z0-9_-] ensures no '../' can sneak through.
     const safeUserId = userId.replace(/[^a-zA-Z0-9_\-]/g, "");
     if (!safeUserId) {
-      return NextResponse.json({ error: "Invalid user identity" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid user identity" },
+        { status: 400 },
+      );
     }
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(2, 9);
     const filePath = `${safeUserId}/${timestamp}-${randomId}.enc`;
 
     // Upload encrypted image to Supabase Storage
-    const { data: uploadData, error: storageError } = await supabaseAdmin.storage
-      .from(STORAGE_BUCKET)
-      .upload(filePath, encryptedBuffer, {
-        contentType: "application/octet-stream",
-        upsert: false,
-      });
+    const { data: uploadData, error: storageError } =
+      await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .upload(filePath, encryptedBuffer, {
+          contentType: "application/octet-stream",
+          upsert: false,
+        });
 
     if (storageError) {
       console.error("Storage upload error:", storageError);
@@ -213,9 +226,8 @@ export async function POST(
 
     // Generate a link token for telegram delivery to prevent IDOR
     // 8 bytes = 16 hex chars (keeps deep link under Telegram's 64-char limit)
-    const telegramLinkToken = deliveryMethod === "telegram"
-      ? randomBytes(8).toString("hex")
-      : null;
+    const telegramLinkToken =
+      deliveryMethod === "telegram" ? randomBytes(8).toString("hex") : null;
 
     // Insert snap record into database with user_id and encrypted data
     const { data: snapData, error: dbError } = await supabaseAdmin
@@ -231,9 +243,13 @@ export async function POST(
         delivery_method: deliveryMethod,
         delivery_address: deliveryAddress ?? "",
         period_type: periodType,
-        ...(telegramLinkToken ? { telegram_link_token: telegramLinkToken } : {}),
+        ...(telegramLinkToken
+          ? { telegram_link_token: telegramLinkToken }
+          : {}),
       })
-      .select("id, storage_path, encrypted_caption, caption_iv, image_iv, telegram_link_token")
+      .select(
+        "id, storage_path, encrypted_caption, caption_iv, image_iv, telegram_link_token",
+      )
       .single();
 
     if (dbError || !snapData) {
@@ -251,7 +267,10 @@ export async function POST(
 
     // once again, 30d on resend
     if (deliveryMethod === "email") {
-      console.log("[authenticated] Enqueueing email delivery for snap:", snapData.id);
+      console.log(
+        "[authenticated] Enqueueing email delivery for snap:",
+        snapData.id,
+      );
       try {
         const emailResult = await scheduleOrSendMemoryEmail(snapData.id);
         console.log("[authenticated] Email result:", emailResult);

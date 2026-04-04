@@ -6,9 +6,16 @@ import {
   decryptDataAsString,
   getServerEncryptionKey,
 } from "../../../../lib/simple-encryption";
-import { checkRateLimit, rateLimitResponse, READ_LIMIT } from "../../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  READ_LIMIT,
+} from "../../../../lib/rate-limit";
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -54,19 +61,17 @@ export async function GET(
 
     // Verify the snap belongs to the authenticated user
     if (snap.user_id !== userId) {
-      return NextResponse.json(
-        { error: "Snap not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Snap not found" }, { status: 404 });
     }
 
     // Get server encryption key
     const encryptionKey = getServerEncryptionKey();
 
     // Download encrypted image from storage
-    const { data: encryptedBlob, error: downloadError } = await supabaseAdmin.storage
-      .from("encrypted-images")
-      .download(snap.storage_path);
+    const { data: encryptedBlob, error: downloadError } =
+      await supabaseAdmin.storage
+        .from("encrypted-images")
+        .download(snap.storage_path);
 
     if (downloadError || !encryptedBlob) {
       console.error("Failed to download encrypted image:", downloadError);

@@ -14,7 +14,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { checkRateLimit, getClientIp, rateLimitResponse, CROP_LIMIT } from "../../../lib/rate-limit";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+  CROP_LIMIT,
+} from "../../../lib/rate-limit";
 
 /** Maximum request body size: 10 MB */
 const MAX_BODY_SIZE = 10 * 1024 * 1024;
@@ -94,8 +99,7 @@ function isLocalBackend(): boolean {
 async function cropViaLocal(
   base64Data: string,
 ): Promise<NextResponse<SuccessResponse | ErrorResponse>> {
-  const localUrl =
-    process.env.LOCAL_CROP_URL ?? "http://localhost:8000/crop";
+  const localUrl = process.env.LOCAL_CROP_URL ?? "http://localhost:8000/crop";
 
   console.log(`🏠 Sending image to local crop server at ${localUrl}...`);
 
@@ -221,7 +225,9 @@ export async function POST(
     }
 
     // Body size check
-    const contentLength = parseInt(request.headers.get("content-length") ?? "0");
+    const contentLength = parseInt(
+      request.headers.get("content-length") ?? "0",
+    );
     if (contentLength > MAX_BODY_SIZE) {
       return NextResponse.json(
         { error: "Request body too large (max 10 MB)" },

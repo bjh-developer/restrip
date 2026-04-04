@@ -18,12 +18,19 @@ import {
   DELETE_LIMIT,
   UPLOAD_LIMIT,
 } from "../../../../../lib/rate-limit";
-import { encryptData, decryptDataAsString, getServerEncryptionKey } from "../../../../../lib/simple-encryption";
+import {
+  encryptData,
+  decryptDataAsString,
+  getServerEncryptionKey,
+} from "../../../../../lib/simple-encryption";
 
 // -----------------------------------------------------------------------------
 // Supabase admin client
 // -----------------------------------------------------------------------------
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error("FATAL: Supabase environment variables are not set");
 }
 
@@ -84,7 +91,10 @@ type RouteContext = { params: Promise<{ bookId: string }> };
 // -----------------------------------------------------------------------------
 // Helper: fetch book + verify ownership
 // -----------------------------------------------------------------------------
-async function getOwnedBook(bookId: string, userId: string): Promise<BookDbRow | null> {
+async function getOwnedBook(
+  bookId: string,
+  userId: string,
+): Promise<BookDbRow | null> {
   const { data, error } = await supabaseAdmin
     .from("scrapbook_books")
     .select("*")
@@ -106,7 +116,10 @@ export async function GET(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-book:${userId}`, READ_LIMIT);
@@ -126,29 +139,49 @@ export async function GET(
 
     if (pagesErr) {
       console.error("[Canvas Book API] Error fetching pages:", pagesErr);
-      return NextResponse.json({ error: "Failed to load pages" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to load pages" },
+        { status: 500 },
+      );
     }
 
     // Decrypt
     const key = getServerEncryptionKey();
-    const title = book.encrypted_title && book.title_iv
-      ? await decryptDataAsString(book.encrypted_title, book.title_iv, key)
-      : "";
+    const title =
+      book.encrypted_title && book.title_iv
+        ? await decryptDataAsString(book.encrypted_title, book.title_iv, key)
+        : "";
 
     const decryptedPages: PageRow[] = [];
     for (const p of (pages || []) as PageDbRow[]) {
-      const elements = p.encrypted_elements && p.elements_iv
-        ? JSON.parse(await decryptDataAsString(p.encrypted_elements, p.elements_iv, key))
-        : [];
+      const elements =
+        p.encrypted_elements && p.elements_iv
+          ? JSON.parse(
+              await decryptDataAsString(
+                p.encrypted_elements,
+                p.elements_iv,
+                key,
+              ),
+            )
+          : [];
       decryptedPages.push({
-        id: p.id, book_id: p.book_id, page_number: p.page_number,
-        background: p.background, elements, created_at: p.created_at, updated_at: p.updated_at,
+        id: p.id,
+        book_id: p.book_id,
+        page_number: p.page_number,
+        background: p.background,
+        elements,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
       });
     }
 
     const bookRow: BookRow = {
-      id: book.id, user_id: book.user_id, title, cover_color: book.cover_color,
-      created_at: book.created_at, updated_at: book.updated_at,
+      id: book.id,
+      user_id: book.user_id,
+      title,
+      cover_color: book.cover_color,
+      created_at: book.created_at,
+      updated_at: book.updated_at,
     };
 
     return NextResponse.json({
@@ -156,7 +189,10 @@ export async function GET(
     });
   } catch (err) {
     console.error("[Canvas Book API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -170,7 +206,10 @@ export async function PATCH(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-book-update:${userId}`, UPLOAD_LIMIT);
@@ -195,7 +234,10 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 },
+      );
     }
 
     const { data, error } = await supabaseAdmin
@@ -207,25 +249,36 @@ export async function PATCH(
 
     if (error || !data) {
       console.error("[Canvas Book API] Error updating book:", error);
-      return NextResponse.json({ error: "Failed to update book" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to update book" },
+        { status: 500 },
+      );
     }
 
     // Decrypt for the response
     const dbRow = data as BookDbRow;
     const key = getServerEncryptionKey();
-    const title = dbRow.encrypted_title && dbRow.title_iv
-      ? await decryptDataAsString(dbRow.encrypted_title, dbRow.title_iv, key)
-      : "";
+    const title =
+      dbRow.encrypted_title && dbRow.title_iv
+        ? await decryptDataAsString(dbRow.encrypted_title, dbRow.title_iv, key)
+        : "";
 
     return NextResponse.json({
       book: {
-        id: dbRow.id, user_id: dbRow.user_id, title, cover_color: dbRow.cover_color,
-        created_at: dbRow.created_at, updated_at: dbRow.updated_at,
+        id: dbRow.id,
+        user_id: dbRow.user_id,
+        title,
+        cover_color: dbRow.cover_color,
+        created_at: dbRow.created_at,
+        updated_at: dbRow.updated_at,
       } as BookRow,
     });
   } catch (err) {
     console.error("[Canvas Book API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -239,7 +292,10 @@ export async function DELETE(
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
     }
 
     const rl = checkRateLimit(`canvas-book-delete:${userId}`, DELETE_LIMIT);
@@ -259,12 +315,18 @@ export async function DELETE(
 
     if (error) {
       console.error("[Canvas Book API] Error deleting book:", error);
-      return NextResponse.json({ error: "Failed to delete book" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to delete book" },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[Canvas Book API] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

@@ -69,12 +69,16 @@ function DeleteConfirmModal({
           </div>
         </div>
 
-        <h2 id="delete-title" className="font-display text-lg font-bold text-soft-black text-center mb-2">
+        <h2
+          id="delete-title"
+          className="font-display text-lg font-bold text-soft-black text-center mb-2"
+        >
           Delete {bookCount} {bookCount === 1 ? "book" : "books"}?
         </h2>
 
         <p id="delete-desc" className="text-sm text-grey text-center mb-6">
-          All pages and content will be permanently deleted. This cannot be undone.
+          All pages and content will be permanently deleted. This cannot be
+          undone.
         </p>
 
         <div className="flex gap-3">
@@ -224,7 +228,10 @@ export default function CanvasPage() {
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  const [actionError, setActionError] = useState<{ user: string; detail?: string } | null>(null);
+  const [actionError, setActionError] = useState<{
+    user: string;
+    detail?: string;
+  } | null>(null);
 
   const handleCreate = useCallback(
     async (title: string, color: string) => {
@@ -283,7 +290,10 @@ export default function CanvasPage() {
 
     const failedIds = new Set(failedResults.map(({ id }) => id));
 
-    mutateBooks((prev = []) => prev.filter((b) => !deletedIds.has(b.id)), false);
+    mutateBooks(
+      (prev = []) => prev.filter((b) => !deletedIds.has(b.id)),
+      false,
+    );
 
     setSelectedIds(failedIds);
 
@@ -321,7 +331,9 @@ export default function CanvasPage() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm">
           <p className="text-red-800">{actionError.user}</p>
           {actionError.detail && (
-            <p className="mt-1 font-mono text-xs text-red-400 break-all">Error: {actionError.detail}</p>
+            <p className="mt-1 font-mono text-xs text-red-400 break-all">
+              Error: {actionError.detail}
+            </p>
           )}
         </div>
       )}

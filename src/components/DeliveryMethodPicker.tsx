@@ -90,8 +90,15 @@ const DELIVERY_METHODS: readonly DeliveryMethodConfig[] = [
  * ```
  */
 export const DeliveryMethodPicker = React.memo(
-  ({ onSelect, error, hideEmailInput, defaultValue }: DeliveryMethodPickerProps & { defaultValue?: DeliveryMethod }) => {
-    const [selected, setSelected] = useState<DeliveryMethod>(defaultValue ?? "email");
+  ({
+    onSelect,
+    error,
+    hideEmailInput,
+    defaultValue,
+  }: DeliveryMethodPickerProps & { defaultValue?: DeliveryMethod }) => {
+    const [selected, setSelected] = useState<DeliveryMethod>(
+      defaultValue ?? "email",
+    );
     const [emailInput, setEmailInput] = useState<string>("");
 
     /**

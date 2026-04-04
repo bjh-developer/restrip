@@ -36,13 +36,18 @@ export default async function SignUpPage({
 }) {
   const params = await searchParams;
   // Only allow whitelisted redirect paths to prevent open redirect
-  const baseRedirect = params.redirect_url && ALLOWED_REDIRECTS.has(params.redirect_url)
-    ? params.redirect_url
-    : undefined;
+  const baseRedirect =
+    params.redirect_url && ALLOWED_REDIRECTS.has(params.redirect_url)
+      ? params.redirect_url
+      : undefined;
 
   // Append prefill_token to redirect URL so /new can fetch saved form data
   let redirectUrl = baseRedirect;
-  if (baseRedirect && params.prefill_token && /^[a-f0-9]{64}$/.test(params.prefill_token)) {
+  if (
+    baseRedirect &&
+    params.prefill_token &&
+    /^[a-f0-9]{64}$/.test(params.prefill_token)
+  ) {
     redirectUrl = `${baseRedirect}?prefill_token=${params.prefill_token}`;
   }
 

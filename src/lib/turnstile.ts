@@ -12,7 +12,8 @@
  * @module lib/turnstile
  */
 
-const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+const TURNSTILE_VERIFY_URL =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
 interface TurnstileVerifyResponse {
   success: boolean;
@@ -45,7 +46,9 @@ export async function verifyTurnstileToken(
       );
       return false;
     }
-    console.warn("[Turnstile] TURNSTILE_SECRET_KEY not set; skipping verification in non-production.");
+    console.warn(
+      "[Turnstile] TURNSTILE_SECRET_KEY not set; skipping verification in non-production.",
+    );
     return true;
   }
 
@@ -72,7 +75,7 @@ export async function verifyTurnstileToken(
     });
 
     const data = (await response.json()) as TurnstileVerifyResponse;
-    
+
     console.log("[Turnstile] Verification response:", {
       success: data.success,
       errorCodes: data["error-codes"],

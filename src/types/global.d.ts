@@ -10,7 +10,7 @@ interface Window {
     [key: string]: unknown;
   };
   $ujq?: Array<[string, ...unknown[]]>;
-  
+
   // Cloudflare Turnstile CAPTCHA types
   turnstile?: {
     render: (
@@ -22,7 +22,7 @@ interface Window {
         "expired-callback"?: () => void;
         theme?: "light" | "dark" | "auto";
         size?: "normal" | "compact";
-      }
+      },
     ) => string;
     reset: (widgetId?: string) => void;
     remove: (widgetId?: string) => void;
@@ -31,7 +31,7 @@ interface Window {
 }
 
 // Allow importing CSS modules without TypeScript errors
-declare module '*.css' {
+declare module "*.css" {
   const content: Record<string, string>;
   export default content;
 }

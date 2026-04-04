@@ -15,8 +15,15 @@ COPY runpod/requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy model weights directory
-COPY runpod/runs/segment/train/weights/best.pt /app/runs/segment/train/weights/best.pt
+# Download model weights from HuggingFace (private repo)
+ARG HF_TOKEN
+RUN mkdir -p /app/runs/segment/train/weights && \
+    pip install --no-cache-dir huggingface_hub && \
+    huggingface-cli download ReStrip/restrip_photostrip_detection_crop \
+        runs/segment/train/weights/Best.pth \
+        --token $HF_TOKEN \
+        --local-dir /app/runs/segment/train/weights \
+        --local-dir-use-symlinks False
 
 # Copy handler and metrics scripts
 COPY runpod/handler.py .

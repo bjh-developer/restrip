@@ -136,8 +136,7 @@ export function MemoryEmail({ caption }: MemoryEmailProps) {
                           textAlign: "center" as const,
                         }}
                       >
-                        ReStrip &bull; Photo strips that come back
-                        to you.
+                        ReStrip &bull; Photo strips that come back to you.
                       </p>
                       <p
                         style={{

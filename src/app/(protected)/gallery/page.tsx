@@ -16,7 +16,13 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import {
@@ -85,7 +91,9 @@ const LOAD_BATCH_SIZE = 4;
 const ALLOWED_API_PREFIX = "/api/";
 
 /** SWR fetcher for gallery metadata */
-const galleryFetcher = async (url: string): Promise<{ snaps: SnapRecord[] }> => {
+const galleryFetcher = async (
+  url: string,
+): Promise<{ snaps: SnapRecord[] }> => {
   // Guard: only allow relative same-origin API paths — never external URLs
   if (!url.startsWith(ALLOWED_API_PREFIX)) {
     throw new Error("Invalid API URL");
@@ -97,7 +105,11 @@ const galleryFetcher = async (url: string): Promise<{ snaps: SnapRecord[] }> => 
       const data = await res.json();
       message = data.error ?? message;
     } catch {
-      try { message = (await res.text()) || message; } catch { /* noop */ }
+      try {
+        message = (await res.text()) || message;
+      } catch {
+        /* noop */
+      }
     }
     throw new Error(message);
   }
@@ -150,9 +162,15 @@ function DeleteConfirmModal({
         </div>
 
         {/* Title */}
-        <h2 id="delete-title" className="font-display text-lg font-bold text-soft-black text-center mb-2">
+        <h2
+          id="delete-title"
+          className="font-display text-lg font-bold text-soft-black text-center mb-2"
+        >
           Are you sure you want to delete{" "}
-          {isSingleSnap ? "photo strip" : `${snapCount} photo strip${snapCount !== 1 ? "s" : ""}`}?
+          {isSingleSnap
+            ? "photo strip"
+            : `${snapCount} photo strip${snapCount !== 1 ? "s" : ""}`}
+          ?
         </h2>
 
         {/* Description with warning */}
@@ -161,14 +179,16 @@ function DeleteConfirmModal({
         </p>
 
         {/* Warning note if snap hasn't been delivered */}
-        {isSingleSnap && selectedSnap && selectedSnap.delivery_status !== "sent" && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-xs text-amber-800 flex items-start gap-2 justify-center text-center">
-              <span className="text-amber-600 mt-0.5">⚠</span>
-              <span>This memory will not be delivered anymore.</span>
-            </p>
-          </div>
-        )}
+        {isSingleSnap &&
+          selectedSnap &&
+          selectedSnap.delivery_status !== "sent" && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-800 flex items-start gap-2 justify-center text-center">
+                <span className="text-amber-600 mt-0.5">⚠</span>
+                <span>This memory will not be delivered anymore.</span>
+              </p>
+            </div>
+          )}
 
         {/* Buttons */}
         <div className="flex gap-3">
@@ -239,7 +259,9 @@ export default function GalleryPage() {
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [lightboxSectionSnaps, setLightboxSectionSnaps] = useState<DisplaySnap[]>([]);
+  const [lightboxSectionSnaps, setLightboxSectionSnaps] = useState<
+    DisplaySnap[]
+  >([]);
 
   // Delete / selection
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -249,8 +271,12 @@ export default function GalleryPage() {
 
   // Delete confirmation modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteModalMode, setDeleteModalMode] = useState<"single" | "batch">("single");
-  const [deletePendingSnapId, setDeletePendingSnapId] = useState<string | null>(null);
+  const [deleteModalMode, setDeleteModalMode] = useState<"single" | "batch">(
+    "single",
+  );
+  const [deletePendingSnapId, setDeletePendingSnapId] = useState<string | null>(
+    null,
+  );
 
   // Context menu
   const [contextMenu, setContextMenu] = useState<{
@@ -263,12 +289,15 @@ export default function GalleryPage() {
   type GroupBy = "all" | "year" | "month" | "day";
   const [groupBy, setGroupBy] = useState<GroupBy>("all");
   const [groupByOpen, setGroupByOpen] = useState(false);
-  
+
   // Mobile menu
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Action error (delete failures)
-  const [actionError, setActionError] = useState<{ user: string; detail?: string } | null>(null);
+  const [actionError, setActionError] = useState<{
+    user: string;
+    detail?: string;
+  } | null>(null);
 
   // Lightbox focus trap
   const lightboxRef = useRef<HTMLDivElement>(null);
@@ -297,14 +326,19 @@ export default function GalleryPage() {
         // 2. Fall back to network fetch
         if (!blob) {
           // Validate snapId is a UUID to prevent path traversal in the fetch URL
-          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const UUID_REGEX =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           if (!UUID_REGEX.test(snapId)) {
-            console.error(`[Gallery] Rejected invalid snap ID format: ${snapId}`);
+            console.error(
+              `[Gallery] Rejected invalid snap ID format: ${snapId}`,
+            );
             return;
           }
           const res = await fetch(`/api/images/${snapId}`);
           if (!res.ok) {
-            console.error(`[Gallery] Image fetch failed for ${snapId}: ${res.status}`);
+            console.error(
+              `[Gallery] Image fetch failed for ${snapId}: ${res.status}`,
+            );
             return;
           }
           blob = await res.blob();
@@ -317,18 +351,26 @@ export default function GalleryPage() {
         objectUrlsRef.current.set(snapId, url);
 
         // Measure dimensions inline (avoid callback dependency)
-        const dims = await new Promise<{ width: number; height: number }>((resolve) => {
-          const img = new window.Image();
-          img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-          img.onerror = () => resolve({ width: 300, height: 400 });
-          img.src = url;
-        });
+        const dims = await new Promise<{ width: number; height: number }>(
+          (resolve) => {
+            const img = new window.Image();
+            img.onload = () =>
+              resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            img.onerror = () => resolve({ width: 300, height: 400 });
+            img.src = url;
+          },
+        );
 
         // Update this snap in state
         setSnaps((prev) =>
           prev.map((s) =>
             s.id === snapId
-              ? { ...s, image_url: url, naturalWidth: dims.width, naturalHeight: dims.height }
+              ? {
+                  ...s,
+                  image_url: url,
+                  naturalWidth: dims.width,
+                  naturalHeight: dims.height,
+                }
               : s,
           ),
         );
@@ -359,7 +401,9 @@ export default function GalleryPage() {
     });
 
     // Start image loading only for IDs we haven't processed yet
-    const newIds = rawSnaps.map((s) => s.id).filter((id) => !loadedSnapIdsRef.current.has(id));
+    const newIds = rawSnaps
+      .map((s) => s.id)
+      .filter((id) => !loadedSnapIdsRef.current.has(id));
     if (newIds.length === 0) return;
     newIds.forEach((id) => loadedSnapIdsRef.current.add(id));
 
@@ -408,13 +452,15 @@ export default function GalleryPage() {
 
   // Count how many images have loaded
   const loadedImageCount = snaps.filter((s) => s.image_url !== null).length;
-  const isLoadingImages = !isLoading && snaps.length > 0 && loadedImageCount < snaps.length;
+  const isLoadingImages =
+    !isLoading && snaps.length > 0 && loadedImageCount < snaps.length;
 
   // Show masonry only once ALL images in the current batch have loaded.
   // Once shown, never hide again (background SWR revalidations should not
   // interrupt a visible gallery — new snaps just pop in naturally).
   useEffect(() => {
-    const allLoaded = !isLoading && snaps.length > 0 && loadedImageCount === snaps.length;
+    const allLoaded =
+      !isLoading && snaps.length > 0 && loadedImageCount === snaps.length;
     if (allLoaded) {
       setShowMasonry(true);
     } else if (isLoading || snaps.length === 0) {
@@ -462,7 +508,9 @@ export default function GalleryPage() {
 
     // Focus the close button when lightbox opens
     setTimeout(() => {
-      const closeButton = lightboxRef.current?.querySelector('button[aria-label="Close viewer"]') as HTMLElement;
+      const closeButton = lightboxRef.current?.querySelector(
+        'button[aria-label="Close viewer"]',
+      ) as HTMLElement;
       if (closeButton) {
         closeButton.focus();
       }
@@ -497,7 +545,9 @@ export default function GalleryPage() {
 
     try {
       setDeletingIds((prev) => new Set(prev).add(snapId));
-      const response = await fetch(`/api/gallery/${snapId}`, { method: "DELETE" });
+      const response = await fetch(`/api/gallery/${snapId}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -529,7 +579,10 @@ export default function GalleryPage() {
 
       // Remove from SWR cache so it doesn't reappear on next revisit
       mutateGallery(
-        (prev) => prev ? { ...prev, snaps: prev.snaps.filter((s) => s.id !== snapId) } : prev,
+        (prev) =>
+          prev
+            ? { ...prev, snaps: prev.snaps.filter((s) => s.id !== snapId) }
+            : prev,
         false,
       );
     } catch (err) {
@@ -556,88 +609,91 @@ export default function GalleryPage() {
    * Share one or more photostrips as PNG files.
    * Uses native share when available, falls back to file downloads.
    */
-  const shareSnapsAsPng = useCallback(
-    async (snapIds: string[]) => {
-      if (snapIds.length === 0) return;
+  const shareSnapsAsPng = useCallback(async (snapIds: string[]) => {
+    if (snapIds.length === 0) return;
 
-      setSharingIds(new Set(snapIds));
-      setActionError(null);
+    setSharingIds(new Set(snapIds));
+    setActionError(null);
 
-      try {
-        const files: File[] = [];
-        const cachedIds = await getCachedIds();
+    try {
+      const files: File[] = [];
+      const cachedIds = await getCachedIds();
 
-        for (let i = 0; i < snapIds.length; i++) {
-          const snapId = snapIds[i];
-          try {
-            let blob: Blob | null = null;
+      for (let i = 0; i < snapIds.length; i++) {
+        const snapId = snapIds[i];
+        try {
+          let blob: Blob | null = null;
 
-            // Prefer IndexedDB cache when available to avoid network failures.
-            if (cachedIds.has(snapId)) {
-              blob = await getCachedImage(snapId);
-            }
-
-            // Fallback to API fetch. Avoid fetching object URLs here since they
-            // can be revoked and trigger intermittent "Failed to fetch" on mobile.
-            if (!blob) {
-              const fallbackRes = await fetch(`/api/images/${snapId}`);
-              if (!fallbackRes.ok) continue;
-              blob = await fallbackRes.blob();
-            }
-
-            files.push(
-              new File([blob], `restrip-memory-${i + 1}.png`, {
-                type: "image/png",
-              }),
-            );
-          } catch (itemErr) {
-            console.error(`[Gallery] Failed to prepare share file for ${snapId}:`, itemErr);
+          // Prefer IndexedDB cache when available to avoid network failures.
+          if (cachedIds.has(snapId)) {
+            blob = await getCachedImage(snapId);
           }
+
+          // Fallback to API fetch. Avoid fetching object URLs here since they
+          // can be revoked and trigger intermittent "Failed to fetch" on mobile.
+          if (!blob) {
+            const fallbackRes = await fetch(`/api/images/${snapId}`);
+            if (!fallbackRes.ok) continue;
+            blob = await fallbackRes.blob();
+          }
+
+          files.push(
+            new File([blob], `restrip-memory-${i + 1}.png`, {
+              type: "image/png",
+            }),
+          );
+        } catch (itemErr) {
+          console.error(
+            `[Gallery] Failed to prepare share file for ${snapId}:`,
+            itemErr,
+          );
         }
+      }
 
-        if (files.length === 0) {
-          throw new Error("No PNG files were available to share.");
-        }
+      if (files.length === 0) {
+        throw new Error("No PNG files were available to share.");
+      }
 
-        const canUseNativeShare =
-          typeof navigator.share === "function" &&
-          (typeof navigator.canShare !== "function" || navigator.canShare({ files }));
+      const canUseNativeShare =
+        typeof navigator.share === "function" &&
+        (typeof navigator.canShare !== "function" ||
+          navigator.canShare({ files }));
 
-        if (canUseNativeShare) {
-          // Fire-and-forget like scrapbook page: close app-level loading
-          // immediately and let native share sheet own the interaction.
-          navigator.share({ files, title: "ReStrip Memories" }).catch((err: unknown) => {
+      if (canUseNativeShare) {
+        // Fire-and-forget like scrapbook page: close app-level loading
+        // immediately and let native share sheet own the interaction.
+        navigator
+          .share({ files, title: "ReStrip Memories" })
+          .catch((err: unknown) => {
             if (err instanceof Error && err.name === "InvalidStateError") {
               // Previous share promise never settled (iOS WebKit bug) — reload to clear it
               window.location.reload();
             }
             // AbortError (user cancelled) and other native share errors are non-fatal.
           });
-          return;
-        }
-
-        // Fallback for browsers without file-share support.
-        for (const file of files) {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = file.name;
-          a.click();
-          URL.revokeObjectURL(url);
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-      } catch (err) {
-        const detail = err instanceof Error ? err.message : String(err);
-        setActionError({
-          user: "Couldn't share memories right now. Please try again.",
-          detail,
-        });
-      } finally {
-        setSharingIds(new Set());
+        return;
       }
-    },
-    [],
-  );
+
+      // Fallback for browsers without file-share support.
+      for (const file of files) {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      setActionError({
+        user: "Couldn't share memories right now. Please try again.",
+        detail,
+      });
+    } finally {
+      setSharingIds(new Set());
+    }
+  }, []);
 
   /** Share all currently selected snaps as PNG */
   const handleBatchShare = useCallback(() => {
@@ -672,13 +728,13 @@ export default function GalleryPage() {
         const res = await fetch(`/api/gallery/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Failed");
         return id;
-      })
+      }),
     );
 
     const deletedIds = new Set(
       results
         .filter((r) => r.status === "fulfilled")
-        .map((r) => (r as PromiseFulfilledResult<string>).value)
+        .map((r) => (r as PromiseFulfilledResult<string>).value),
     );
 
     // Clean up IndexedDB cache and object URLs for deleted snaps
@@ -699,18 +755,18 @@ export default function GalleryPage() {
 
     // Remove successfully deleted snaps
     setSnaps((prev) => prev.filter((s) => !deletedIds.has(s.id)));
-    
+
     // Keep only failed IDs selected for retry
     setSelectedIds(failedIds);
-    
+
     // Clear deleting status
     setDeletingIds(new Set());
-    
+
     // Only exit select mode if all succeeded
     if (failedIds.size === 0) {
       setSelectMode(false);
     }
-    
+
     setLightboxIndex(null);
 
     // Close modal and reset state
@@ -718,7 +774,10 @@ export default function GalleryPage() {
 
     // Remove deleted snaps from SWR cache
     mutateGallery(
-      (prev) => prev ? { ...prev, snaps: prev.snaps.filter((s) => !deletedIds.has(s.id)) } : prev,
+      (prev) =>
+        prev
+          ? { ...prev, snaps: prev.snaps.filter((s) => !deletedIds.has(s.id)) }
+          : prev,
       false,
     );
 
@@ -774,10 +833,14 @@ export default function GalleryPage() {
 
     // Sort snaps by created_at descending
     const sorted = [...snaps].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 
-    const groups = new Map<string, { label: string; snapsList: DisplaySnap[] }>();
+    const groups = new Map<
+      string,
+      { label: string; snapsList: DisplaySnap[] }
+    >();
 
     for (const snap of sorted) {
       const date = new Date(snap.created_at);
@@ -789,11 +852,18 @@ export default function GalleryPage() {
         label = key;
       } else if (groupBy === "month") {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-        label = date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        label = date.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
       } else {
         // day
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-        label = date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+        label = date.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
       }
 
       if (!groups.has(key)) {
@@ -839,7 +909,10 @@ export default function GalleryPage() {
     }
   };
 
-  const handleContextMenu = (id: string, event: { clientX: number; clientY: number }) => {
+  const handleContextMenu = (
+    id: string,
+    event: { clientX: number; clientY: number },
+  ) => {
     setContextMenu({ snapId: id, x: event.clientX, y: event.clientY });
   };
 
@@ -856,22 +929,34 @@ export default function GalleryPage() {
         {/* Status indicator — top-right corner */}
         <div className="absolute top-2 right-2 z-10">
           {snap.delivery_status === "sent" && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500/90 text-white text-xs shadow-sm" title="Delivered">
+            <span
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500/90 text-white text-xs shadow-sm"
+              title="Delivered"
+            >
               ✓
             </span>
           )}
           {snap.delivery_status === "pending" && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm" title="Scheduled">
+            <span
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm"
+              title="Scheduled"
+            >
               🗓
             </span>
           )}
           {snap.delivery_status === "scheduled" && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm" title="Scheduled">
+            <span
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/90 text-white text-xs shadow-sm"
+              title="Scheduled"
+            >
               🗓
             </span>
           )}
           {snap.delivery_status === "failed" && (
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/90 text-white text-xs shadow-sm" title="Failed">
+            <span
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/90 text-white text-xs shadow-sm"
+              title="Failed"
+            >
               ✗
             </span>
           )}
@@ -881,7 +966,10 @@ export default function GalleryPage() {
         {selectMode && (
           <div className="absolute top-2 left-2 z-10">
             {selectedIds.has(id) ? (
-              <CheckCircle2 className="w-6 h-6 text-white drop-shadow-md" fill="rgba(59,130,246,0.9)" />
+              <CheckCircle2
+                className="w-6 h-6 text-white drop-shadow-md"
+                fill="rgba(59,130,246,0.9)"
+              />
             ) : (
               <Circle className="w-6 h-6 text-white/70 drop-shadow-md" />
             )}
@@ -940,7 +1028,8 @@ export default function GalleryPage() {
   // =========================================================================
 
   return (
-    <div id="gallery-content" className="container mx-auto px-4 py-8">{/* Header */}
+    <div id="gallery-content" className="container mx-auto px-4 py-8">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-soft-black">
@@ -987,7 +1076,9 @@ export default function GalleryPage() {
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition disabled:opacity-50"
                 aria-label="Refresh gallery"
               >
-                <RefreshCw className={`w-4 h-4 ${swrValidating ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${swrValidating ? "animate-spin" : ""}`}
+                />
               </button>
 
               {/* Menu button */}
@@ -1003,7 +1094,7 @@ export default function GalleryPage() {
                   <Menu className="w-4 h-4" />
                 </button>
                 {mobileMenuOpen && (
-                  <div 
+                  <div
                     className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-150"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -1042,7 +1133,9 @@ export default function GalleryPage() {
                             : "text-soft-black hover:bg-mist-grey/30"
                         }`}
                       >
-                        {groupBy === option.value && <span className="text-xs">✓</span>}
+                        {groupBy === option.value && (
+                          <span className="text-xs">✓</span>
+                        )}
                         {option.label}
                       </button>
                     ))}
@@ -1069,7 +1162,7 @@ export default function GalleryPage() {
                   {GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label}
                 </button>
                 {groupByOpen && (
-                  <div 
+                  <div
                     className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-mist-grey py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-150"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -1088,7 +1181,9 @@ export default function GalleryPage() {
                             : "text-soft-black hover:bg-mist-grey/30"
                         }`}
                       >
-                        {groupBy === option.value && <span className="text-xs">✓</span>}
+                        {groupBy === option.value && (
+                          <span className="text-xs">✓</span>
+                        )}
                         {option.label}
                       </button>
                     ))}
@@ -1134,7 +1229,9 @@ export default function GalleryPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-mist-grey text-soft-black hover:bg-mist-grey/80 transition disabled:opacity-50"
               title="Refresh gallery"
             >
-              <RefreshCw className={`w-4 h-4 ${swrValidating ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${swrValidating ? "animate-spin" : ""}`}
+              />
             </button>
 
             <button
@@ -1191,7 +1288,9 @@ export default function GalleryPage() {
             <div>
               <p className="text-red-800">{actionError.user}</p>
               {actionError.detail && (
-                <p className="mt-1 font-mono text-xs text-red-400 break-all">Error: {actionError.detail}</p>
+                <p className="mt-1 font-mono text-xs text-red-400 break-all">
+                  Error: {actionError.detail}
+                </p>
               )}
             </div>
           )}
@@ -1203,8 +1302,17 @@ export default function GalleryPage() {
         <div>
           {(() => {
             const measured = snaps
-              .filter((s) => s.naturalWidth > 0 && s.naturalHeight > 0 && !(s.naturalWidth === 300 && s.naturalHeight === 400))
-              .map((s) => ({ id: s.id, width: s.naturalWidth, height: s.naturalHeight }));
+              .filter(
+                (s) =>
+                  s.naturalWidth > 0 &&
+                  s.naturalHeight > 0 &&
+                  !(s.naturalWidth === 300 && s.naturalHeight === 400),
+              )
+              .map((s) => ({
+                id: s.id,
+                width: s.naturalWidth,
+                height: s.naturalHeight,
+              }));
             if (measured.length === 0) return null;
             return <GallerySkeleton count={measured.length} items={measured} />;
           })()}
@@ -1212,56 +1320,63 @@ export default function GalleryPage() {
       )}
 
       {/* Empty state — only show when SWR has confirmed zero snaps */}
-      {!swrLoading && galleryData !== undefined && galleryData.snaps.length === 0 && !error && (
-        <div className="text-center py-20">
-          <ImageOff className="w-12 h-12 text-grey/40 mx-auto mb-4" />
-          <h2 className="font-display text-xl font-semibold text-soft-black mb-2">
-            No photo strips yet
-          </h2>
-          <p className="text-grey text-sm mb-6">
-            Create your first memory to see it here.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push("/new")}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Create Memory
-          </button>
-        </div>
-      )}
+      {!swrLoading &&
+        galleryData !== undefined &&
+        galleryData.snaps.length === 0 &&
+        !error && (
+          <div className="text-center py-20">
+            <ImageOff className="w-12 h-12 text-grey/40 mx-auto mb-4" />
+            <h2 className="font-display text-xl font-semibold text-soft-black mb-2">
+              No photo strips yet
+            </h2>
+            <p className="text-grey text-sm mb-6">
+              Create your first memory to see it here.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/new")}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-soft-black text-warm-beige rounded-lg hover:bg-soft-black/90 transition text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Create Memory
+            </button>
+          </div>
+        )}
 
       {/* Masonry Gallery — grouped sections */}
       {showMasonry && snaps.length > 0 && (
         <div className="animate-in fade-in duration-300">
           {groupedSections.map((section, sectionIdx) => (
-          <div key={section.label ?? "all"} className={sectionIdx > 0 ? "mt-10" : ""}>
-            {/* Section header */}
-            {section.label && (
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className="font-display text-xl font-semibold text-soft-black">
-                  {section.label}
-                </h2>
-                <span className="text-xs text-grey ml-1 mt-1">
-                  {section.items.length} {section.items.length === 1 ? "strip" : "strips"}
-                </span>
-              </div>
-            )}
+            <div
+              key={section.label ?? "all"}
+              className={sectionIdx > 0 ? "mt-10" : ""}
+            >
+              {/* Section header */}
+              {section.label && (
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="font-display text-xl font-semibold text-soft-black">
+                    {section.label}
+                  </h2>
+                  <span className="text-xs text-grey ml-1 mt-1">
+                    {section.items.length}{" "}
+                    {section.items.length === 1 ? "strip" : "strips"}
+                  </span>
+                </div>
+              )}
 
-            <Masonry
-              items={section.items}
-              skipPreload
-              columnBreakpoints={[4, 4, 3, 2]}
-              gap={10}
-              scaleOnHover
-              hoverScale={0.99}
-              duration={0.3}
-              onItemClick={(id) => handleItemClick(id, section.snaps)}
-              onItemContextMenu={handleContextMenu}
-              renderOverlay={renderOverlay}
-            />
-          </div>
+              <Masonry
+                items={section.items}
+                skipPreload
+                columnBreakpoints={[4, 4, 3, 2]}
+                gap={10}
+                scaleOnHover
+                hoverScale={0.99}
+                duration={0.3}
+                onItemClick={(id) => handleItemClick(id, section.snaps)}
+                onItemContextMenu={handleContextMenu}
+                renderOverlay={renderOverlay}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -1280,7 +1395,7 @@ export default function GalleryPage() {
               if (snap) {
                 // Find which section this snap belongs to
                 const section = groupedSections.find((sec) =>
-                  sec.snaps.some((s) => s.id === snap.id)
+                  sec.snaps.some((s) => s.id === snap.id),
                 );
                 if (section) {
                   const idx = section.snaps.findIndex((s) => s.id === snap.id);
@@ -1331,8 +1446,16 @@ export default function GalleryPage() {
         open={deleteModalOpen}
         snapCount={deleteModalMode === "batch" ? selectedIds.size : 1}
         isSingleSnap={deleteModalMode === "single"}
-        selectedSnap={deletePendingSnapId ? snaps.find((s) => s.id === deletePendingSnapId) : undefined}
-        onConfirm={deleteModalMode === "single" ? confirmDeleteSingleSnap : confirmBatchDelete}
+        selectedSnap={
+          deletePendingSnapId
+            ? snaps.find((s) => s.id === deletePendingSnapId)
+            : undefined
+        }
+        onConfirm={
+          deleteModalMode === "single"
+            ? confirmDeleteSingleSnap
+            : confirmBatchDelete
+        }
         onCancel={() => {
           setDeleteModalOpen(false);
           setDeletePendingSnapId(null);
@@ -1428,7 +1551,9 @@ export default function GalleryPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={lightboxSectionSnaps[lightboxIndex].image_url!}
-                    alt={lightboxSectionSnaps[lightboxIndex].caption ?? "Memory"}
+                    alt={
+                      lightboxSectionSnaps[lightboxIndex].caption ?? "Memory"
+                    }
                     className="max-w-full max-h-[calc(100vh-200px)] sm:max-h-[calc(100vh-160px)] object-contain rounded-lg"
                   />
                 )}
@@ -1445,15 +1570,19 @@ export default function GalleryPage() {
                 </p>
               )}
               <p className="text-white/60 text-sm">
-                Created {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
+                Created{" "}
+                {formatDate(lightboxSectionSnaps[lightboxIndex].created_at)} ·{" "}
                 {lightboxSectionSnaps[lightboxIndex].delivery_status === "sent"
                   ? "Delivered"
-                  : lightboxSectionSnaps[lightboxIndex].delivery_status === "scheduled" ||
-                    lightboxSectionSnaps[lightboxIndex].delivery_status === "pending"
-                  ? "Scheduled"
-                  : lightboxSectionSnaps[lightboxIndex].delivery_status === "failed"
-                  ? "Failed"
-                  : "Scheduled"}
+                  : lightboxSectionSnaps[lightboxIndex].delivery_status ===
+                        "scheduled" ||
+                      lightboxSectionSnaps[lightboxIndex].delivery_status ===
+                        "pending"
+                    ? "Scheduled"
+                    : lightboxSectionSnaps[lightboxIndex].delivery_status ===
+                        "failed"
+                      ? "Failed"
+                      : "Scheduled"}
               </p>
             </div>
           </div>

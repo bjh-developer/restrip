@@ -66,7 +66,7 @@ async function importKey(keyBase64: string): Promise<CryptoKey> {
     "raw",
     keyBuffer,
     { name: "AES-GCM", length: 256 },
-    false,       // non-extractable — key is confined to this runtime instance
+    false, // non-extractable — key is confined to this runtime instance
     ["decrypt"],
   );
 }
@@ -97,7 +97,11 @@ async function decryptCaption(
   captionIv: string,
   encryptionKey: string,
 ): Promise<string> {
-  const decrypted = await decryptData(encryptedCaption, captionIv, encryptionKey);
+  const decrypted = await decryptData(
+    encryptedCaption,
+    captionIv,
+    encryptionKey,
+  );
   return new TextDecoder().decode(decrypted);
 }
 
@@ -107,7 +111,11 @@ async function decryptImage(
   imageIv: string,
   encryptionKey: string,
 ): Promise<Uint8Array> {
-  const decrypted = await decryptData(encryptedImageBase64, imageIv, encryptionKey);
+  const decrypted = await decryptData(
+    encryptedImageBase64,
+    imageIv,
+    encryptionKey,
+  );
   return new Uint8Array(decrypted);
 }
 
@@ -131,7 +139,7 @@ function buildEmailHtml(caption: string): string {
   return `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;line-height:1.5;color:#111">
       <h2 style="margin:0 0 12px">A memory from your past 📸</h2>
-      ${safeCaption ? `<p style="margin:0">${safeCaption}</p>` : "<p style=\"margin:0\">Your photostrip memory is attached.</p>"}
+      ${safeCaption ? `<p style="margin:0">${safeCaption}</p>` : '<p style="margin:0">Your photostrip memory is attached.</p>'}
     </div>
   `;
 }
@@ -153,7 +161,8 @@ async function scheduleEmailWithResend(
   if (!resendKey) {
     throw new Error("RESEND_API_KEY not configured");
   }
-  const from = Deno.env.get("RESEND_FROM_EMAIL") ?? "ReStrip <onboarding@resend.dev>";
+  const from =
+    Deno.env.get("RESEND_FROM_EMAIL") ?? "ReStrip <onboarding@resend.dev>";
   // Resend expects attachments as base64-encoded strings.
   const imageBase64 = base64Encode(imageBytes);
   const payload: Record<string, unknown> = {
@@ -213,7 +222,11 @@ async function sendTelegramPhoto(
 
   const formData = new FormData();
   formData.append("chat_id", chatId.toString());
-  formData.append("photo", new Blob([imageBytes], { type: "image/png" }), "memory.png");
+  formData.append(
+    "photo",
+    new Blob([imageBytes], { type: "image/png" }),
+    "memory.png",
+  );
   formData.append("caption", telegramCaption);
 
   const response = await fetch(
@@ -270,7 +283,7 @@ serve(async () => {
       })
       .eq("delivery_method", "email")
       .eq("delivery_status", "scheduling")
-      .is("resend_email_id", null)         // no email ID means Resend was never called
+      .is("resend_email_id", null) // no email ID means Resend was never called
       .lt("updated_at", staleSchedulingIso);
     if (recoverError) {
       console.error("Failed to recover stale scheduling locks:", recoverError);
@@ -288,7 +301,9 @@ serve(async () => {
       .from("snaps")
       .select("*")
       .eq("delivery_method", "email")
-      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      .or(
+        "delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null",
+      )
       .is("resend_email_id", null)
       .lte("send_time", scheduleWindowEnd.toISOString())
       .limit(MAX_MEMORIES_TO_PROCESS);
@@ -307,7 +322,9 @@ serve(async () => {
           })
           .eq("id", strip.id)
           .is("resend_email_id", null)
-          .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+          .or(
+            "delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null",
+          )
           .select("id")
           .single();
 
@@ -362,7 +379,9 @@ serve(async () => {
             })
             .eq("id", strip.id);
           if (updateError) {
-            throw new Error(`Failed to save scheduled state: ${updateError.message}`);
+            throw new Error(
+              `Failed to save scheduled state: ${updateError.message}`,
+            );
           }
           console.log(
             `📬 Scheduled email for strip ${strip.id} at ${scheduledAt} (Resend id: ${resendEmailId})`,
@@ -379,7 +398,9 @@ serve(async () => {
             })
             .eq("id", strip.id);
           if (updateError) {
-            throw new Error(`Failed to save sent state: ${updateError.message}`);
+            throw new Error(
+              `Failed to save sent state: ${updateError.message}`,
+            );
           }
           console.log(
             `✅ Sent email immediately for strip ${strip.id} (Resend id: ${resendEmailId})`,
@@ -391,7 +412,10 @@ serve(async () => {
           deliveryError instanceof Error
             ? deliveryError.message
             : String(deliveryError);
-        console.error(`❌ Failed to schedule email for strip ${strip.id}:`, message);
+        console.error(
+          `❌ Failed to schedule email for strip ${strip.id}:`,
+          message,
+        );
         await supabase
           .from("snaps")
           .update({
@@ -411,7 +435,9 @@ serve(async () => {
       .from("snaps")
       .select("*")
       .eq("delivery_method", "telegram")
-      .or("delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null")
+      .or(
+        "delivery_status.eq.pending,delivery_status.eq.failed,delivery_status.is.null",
+      )
       .lte("send_time", nowIso)
       .limit(MAX_MEMORIES_TO_PROCESS);
 
