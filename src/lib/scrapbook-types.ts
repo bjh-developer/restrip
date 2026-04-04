@@ -30,6 +30,7 @@ export interface PageElement {
   fontSize?: number;
   fontFamily?: string;
   fontColor?: string;
+  textAlign?: "left" | "center" | "right";
 }
 
 /** Background configuration for a page */

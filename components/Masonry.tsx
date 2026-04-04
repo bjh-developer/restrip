@@ -100,7 +100,7 @@ const Masonry: React.FC<MasonryProps> = ({
   const columns = useMedia(
     ['(min-width:1500px)', '(min-width:1000px)', '(min-width:600px)', '(min-width:400px)'],
     columnBreakpoints,
-    1
+    2
   );
 
   const [containerRef, { width }] = useMeasure<HTMLDivElement>();
@@ -231,7 +231,7 @@ const Masonry: React.FC<MasonryProps> = ({
           onMouseEnter={() => handleMouseEnter(item.id)}
           onMouseLeave={() => handleMouseLeave(item.id)}
         >
-          <div className="relative w-full h-full rounded-xl shadow-[0px_8px_30px_-8px_rgba(0,0,0,0.15)] overflow-hidden">
+          <div className="relative w-full h-full rounded-lg shadow-[0px_4px_12px_-4px_rgba(0,0,0,0.15)] overflow-hidden border border-mist-grey/50">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={item.img}

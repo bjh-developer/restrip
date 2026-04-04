@@ -58,7 +58,7 @@ export default clerkMiddleware(async (auth, request: NextRequest) => {
     // Per Clerk docs the dynamic prop on <ClerkProvider> is required so that Next.js
     // forces dynamic rendering — preventing a cached nonce from going stale vs the
     // per-request CSP header.
-    `script-src 'self' 'strict-dynamic' 'nonce-${nonce}' https: 'unsafe-inline'`,
+    `script-src 'self' 'strict-dynamic' 'nonce-${nonce}' https: 'unsafe-inline' 'unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'", // unsafe-inline required for Tailwind + styled-jsx
     "img-src 'self' data: blob: https: https://img.clerk.com",
     "font-src 'self' data:",

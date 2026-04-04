@@ -1,18 +1,3 @@
-/**
- * Authenticated Upload Page (/new)
- *
- * Allows signed-in users to create memories that are saved
- * to their gallery.
- *
- * Key differences from anonymous /upload:
- * - Uploads stored under user's folder: {userId}/...
- * - Snap records have user_id set
- * - Optional delivery (email/telegram)
- * - Auth managed by Clerk
- *
- * @module app/(protected)/new/page
- */
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -73,10 +58,6 @@ import {
 import { Spinner } from "../../../components/ui/shadcn-io/spinner";
 import { computeScheduledSendTime } from "../../../lib/delivery-scheduling";
 
-// =============================================================================
-// Constants
-// =============================================================================
-
 /** Maximum file size before compression (in MB) */
 const COMPRESSION_THRESHOLD_MB = 3;
 
@@ -89,19 +70,11 @@ const MAX_IMAGE_DIMENSION = 2048;
 /** Initial quality for image compression (0-1) */
 const COMPRESSION_QUALITY = 0.9;
 
-// =============================================================================
-// GSAP Setup
-// =============================================================================
-
 try {
   gsap.registerPlugin(ScrollTrigger);
 } catch {
   // Plugin already registered
 }
-
-// =============================================================================
-// Types
-// =============================================================================
 
 /** Field-specific validation error messages */
 interface FieldErrors {
@@ -109,10 +82,6 @@ interface FieldErrors {
   caption?: string;
   period?: string;
 }
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
 
 /**
  * Converts a base64 data URL to a Blob (CSP-friendly).
@@ -226,10 +195,6 @@ async function canvasPreview(
   ctx.restore();
   return canvas.toDataURL("image/jpeg", 0.95);
 }
-
-// =============================================================================
-// Sub-components
-// =============================================================================
 
 /** Image upload with drag-and-drop */
 const UploadImage = React.memo(
@@ -349,10 +314,6 @@ const AutoCropSwitch = React.memo(
   },
 );
 AutoCropSwitch.displayName = "AutoCropSwitch";
-
-// =============================================================================
-// Main Page Component
-// =============================================================================
 
 function NewMemoryPageContent() {
   const router = useRouter();
