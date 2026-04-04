@@ -45,22 +45,13 @@ export default function LandingPage() {
   const handleRevealStart = useCallback(() => setIsAboutRevealed(true), []);
   const [stats, setStats] = useState<{
     count: number;
-    status: "online" | "offline" | "maintenance" | "degraded" | "error";
   } | null>(null);
 
   // retrieve stats
   useEffect(() => {
     void fetch("/api/stats")
       .then((res) => res.json())
-      .then(
-        ({
-          count,
-          status,
-        }: {
-          count: number;
-          status: "online" | "offline" | "maintenance" | "degraded" | "error";
-        }) => setStats({ count, status }),
-      );
+      .then(({ count }: { count: number }) => setStats({ count }));
   }, []);
 
   return (
@@ -95,7 +86,7 @@ export default function LandingPage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Status status={stats?.status ?? "online"}>
+              <Status status="deprecated">
                 <StatusIndicator />
                 <StatusLabel />
                 <StatusStats count={stats?.count?.toString() || "0"} />

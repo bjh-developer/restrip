@@ -5,7 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export type StatusProps = ComponentProps<typeof Badge> & {
-  status: "online" | "offline" | "maintenance" | "degraded" | "error";
+  status:
+    | "online"
+    | "offline"
+    | "maintenance"
+    | "degraded"
+    | "error"
+    | "deprecated";
   count?: string | number;
 };
 
@@ -32,6 +38,7 @@ export const StatusIndicator = ({
         "group-[.maintenance]:bg-blue-500",
         "group-[.degraded]:bg-amber-500",
         "group-[.error]:bg-red-500",
+        "group-[.deprecated]:bg-neutral-400",
       )}
     />
     <span
@@ -42,6 +49,7 @@ export const StatusIndicator = ({
         "group-[.maintenance]:bg-blue-500",
         "group-[.degraded]:bg-amber-500",
         "group-[.error]:bg-red-500",
+        "group-[.deprecated]:bg-neutral-400",
       )}
     />
   </span>
@@ -62,6 +70,7 @@ export const StatusLabel = ({
         <span className="hidden group-[.maintenance]:block">Maintenance</span>
         <span className="hidden group-[.degraded]:block">Degraded</span>
         <span className="hidden group-[.error]:block">Error</span>
+        <span className="hidden group-[.deprecated]:block">Deprecated</span>
       </>
     )}
   </span>
