@@ -19,11 +19,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 ARG HF_TOKEN
 RUN mkdir -p /app/runs/segment/train/weights && \
     pip install --no-cache-dir huggingface_hub && \
-    huggingface-cli download ReStrip/restrip_photostrip_detection_crop \
-        runs/segment/train/weights/Best.pth \
-        --token $HF_TOKEN \
-        --local-dir /app/runs/segment/train/weights \
-        --local-dir-use-symlinks False
+    python -c "\
+from huggingface_hub import hf_hub_download; \
+import os; \
+hf_hub_download( \
+    repo_id='ReStrip/restrip_photostrip_detection_crop', \
+    filename='runs/segment/train/weights/Best.pth', \
+    token=os.environ['HF_TOKEN'], \
+    local_dir='/app/runs/segment/train/weights', \
+)"
 
 # Copy handler and metrics scripts
 COPY runpod/handler.py .
