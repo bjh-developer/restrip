@@ -17,10 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Download model weights from HuggingFace (private repo)
 ARG HF_TOKEN
-RUN echo ${HF_TOKEN}
 RUN mkdir -p /app/runs/segment/train/weights && \
-    pip install --no-cache-dir huggingface_hub && \
-    python -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='ReStrip/restrip_photostrip_detection_crop', filename='runs/segment/train/weights/Best.pth', token='${HF_TOKEN}', local_dir='/app')"
+    HF_TOKEN=${HF_TOKEN} hf download \
+        ReStrip/restrip_photostrip_detection_crop \
+        runs/segment/train/weights/Best.pth \
+        --local-dir /app/runs/segment/train/weights
 
 # Copy handler and metrics scripts
 COPY runpod/handler.py .
