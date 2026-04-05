@@ -32,6 +32,9 @@ from numpy.typing import NDArray
 from PIL import Image
 from rfdetr import RFDETRSegNano
 
+import os
+
+from huggingface_hub import hf_hub_download
 import runpod
 
 # Configure logging for better debugging in serverless environment
@@ -61,11 +64,18 @@ class ErrorResult(TypedDict):
 ProcessingResult = Union[SuccessResult, ErrorResult]
 
 
-# Model path configuration
-MODEL_PATH = "runs\segments\train\weights\best.pth"
+# Resolve model weights from RunPod's HuggingFace cache volume
+HF_CACHE_DIR = "/runpod-volume/huggingface-cache/hub"
+logger.info("Resolving model weights from cache...")
+MODEL_PATH = hf_hub_download(
+    repo_id="ReStrip/restrip_photostrip_detection_crop",
+    filename="runs/segment/train/weights/Best.pth",
+    cache_dir=HF_CACHE_DIR,
+    local_files_only=True,
+)
 
 # Initialize RF-DETR model at module level for reuse across requests
-# While optimize_for_inference() could be used, the difference between with and without is minimal and just overall does not clog up the terminal a lot. Because running that command produces at least 5 lines of Tracer Warning 
+# While optimize_for_inference() could be used, the difference between with and without is minimal and just overall does not clog up the terminal a lot. Because running that command produces at least 5 lines of Tracer Warning
 logger.info("Loading RF-DETR model from %s", MODEL_PATH)
 model = RFDETRSegNano(pretrain_weights=MODEL_PATH)
 logger.info("Model loaded successfully")

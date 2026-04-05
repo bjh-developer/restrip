@@ -15,14 +15,6 @@ COPY runpod/requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download model weights from HuggingFace (private repo)
-ARG HF_TOKEN
-RUN mkdir -p /app/runs/segment/train/weights && \
-    HF_TOKEN=${HF_TOKEN} hf download \
-        ReStrip/restrip_photostrip_detection_crop \
-        runs/segment/train/weights/Best.pth \
-        --local-dir /app/runs/segment/train/weights
-
 # Copy handler and metrics scripts
 COPY runpod/handler.py .
 COPY runpod/metrics.py .
