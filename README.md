@@ -135,6 +135,7 @@ npm run dev
 | Choco | [@Choco-Bloop](https://github.com/Choco-Bloop) |
 | Naresh | [Nareshix](mailto:Nareshix66@gmail.com) |
 | he | [wonghonern](mailto:wonghonern@gmail.com) |
+| yanganyi | [@yanganyi](https://github.com/yanganyi) |
 
 ---
 
