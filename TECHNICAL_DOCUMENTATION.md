@@ -5,6 +5,8 @@
   <p><em>Last updated: 10 Mar 2026</em></p>
 </div>
 
+> **This project is archived.** ReStrip is no longer actively maintained or deployed. This documentation is preserved for reference and for anyone exploring the codebase.
+
 This document provides comprehensive technical documentation for the ReStrip project. It's designed to help developers—especially those with beginner to intermediate web development experience—understand the entire codebase, architecture, and development workflow.
 
 ---
@@ -60,8 +62,8 @@ ReStrip prioritizes:
 
 ### Project Status
 
-**Version**: 2.0 (Production)  
-**Status**: Production - Core features complete, new features added (Gallery, Scrapbook)
+**Version**: 2.0  
+**Status**: Archived — Core features complete (Gallery, Scrapbook). No longer actively maintained.
 
 ---
 
