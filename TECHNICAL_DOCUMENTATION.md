@@ -71,12 +71,20 @@ ReStrip prioritizes:
 
 ### Prerequisites
 
-- **Node.js**: v18.0.0 or higher ([Download](https://nodejs.org/))
-- **npm**: v9.0.0 or higher (comes with Node.js)
-- **Git**: For version control
-- **Clerk Account**: For authentication ([Sign up](https://clerk.com/))
-- **Supabase Account**: For database and storage ([Sign up](https://supabase.com/))
-- **RunPod Account** (optional): For AI image processing
+| Tool | Minimum Version | Download |
+| ---- | --------------- | -------- |
+| **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
+| **npm** | v9.0.0+ | Comes with Node.js |
+| **Git** | Latest | [git-scm.com](https://git-scm.com/) |
+| **Docker** *(optional)* | Latest | [docker.com](https://www.docker.com/) — for RunPod local testing |
+
+Verify your installations:
+
+```bash
+node --version   # Should be v18+
+npm --version    # Should be v9+
+git --version    # Any recent version
+```
 
 ### Installation Steps
 
@@ -93,7 +101,55 @@ cd restrip
 npm install
 ```
 
-#### 3. Environment Variables Setup
+This will install all required packages including Next.js, React, Supabase clients, and UI libraries.
+
+#### 3. Set Up External Services
+
+You'll need accounts for the following services:
+
+##### A. Clerk (Required for Authentication)
+
+1. Create a free account at [clerk.com](https://clerk.com/)
+2. Create a new application
+3. Navigate to **API Keys** to find your publishable and secret keys
+4. Configure OAuth providers (Google, etc.) in the Clerk dashboard
+5. Set redirect URLs to match your local development URL (e.g., `http://localhost:3000`)
+
+##### B. Supabase (Required for Database & Storage)
+
+1. Create a free account at [supabase.com](https://supabase.com/)
+2. Create a new project
+3. Navigate to **Settings > API** to find your project URL and keys
+4. **Run database migrations** (see Step 5)
+
+##### C. Resend (Required for Email Delivery)
+
+1. Create a free account at [resend.com](https://resend.com/)
+2. Navigate to **API Keys** to create a new API key
+3. Configure your sending domain or use Resend's testing domain
+4. Set the from email address (e.g., `memories@yourdomain.com`)
+
+##### D. Photo Strip Crop Backend (Optional — choose one)
+
+**Option 1: Local Crop Server (Recommended for Development)**
+
+- Free, runs on your machine
+- No RunPod account needed
+- Requires model weights (`runpod/runs/segment/train/weights/best.pt`)
+
+**Option 2: RunPod Serverless (For Production)**
+
+1. Create an account at [runpod.io](https://www.runpod.io/)
+2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
+3. Get your API key and endpoint ID from the RunPod dashboard
+
+##### E. Turnstile CAPTCHA (Optional but Recommended)
+
+1. Create an account at [cloudflare.com](https://www.cloudflare.com/)
+2. Go to Turnstile in the dashboard
+3. Create a new site and get your site key and secret key
+
+#### 4. Environment Variables Setup
 
 Copy the example environment file and configure it:
 
@@ -101,43 +157,92 @@ Copy the example environment file and configure it:
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` with your configuration values. The example file contains all available options with descriptions.
+Edit `.env.local` with your configuration values:
 
-**Key environment variables:**
+```dotenv
+# Clerk Authentication (Required)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 
-| Variable                            | Required | Description                                                          |
-| ----------------------------------- | -------- | -------------------------------------------------------------------- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes      | Clerk publishable key                                                |
-| `CLERK_SECRET_KEY`                  | Yes      | Clerk secret key (server-side only)                                  |
-| `NEXT_PUBLIC_SUPABASE_URL`          | Yes      | Your Supabase project URL                                            |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY`     | Yes      | Supabase anonymous key                                               |
-| `SUPABASE_SERVICE_ROLE_KEY`         | Yes      | Supabase service role key (server-side only)                         |
-| `ENCRYPTION_SECRET`                 | Yes      | Server-side encryption key (generate with `openssl rand -base64 32`) |
-| `RESEND_API_KEY`                    | Yes      | Resend API key for email delivery                                    |
-| `RESEND_FROM_EMAIL`                 | Yes      | From email address (e.g., `ReStrip Memories <memories@restrip.app>`) |
-| `CROP_BACKEND`                      | No       | `local` or `runpod` (default: `runpod`)                              |
-| `LOCAL_CROP_URL`                    | No       | Local FastAPI crop server URL                                        |
-| `RUNPOD_API_KEY`                    | No       | RunPod API key for AI cropping                                       |
-| `RUNPOD_ENDPOINT_ID`                | No       | RunPod endpoint ID                                                   |
-| `TURNSTILE_SECRET_KEY`              | No       | Cloudflare Turnstile secret key                                      |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | No       | Cloudflare Turnstile site key                                        |
-| `TELEGRAM_BOT_TOKEN`                | No       | Telegram bot token                                                   |
-| `TELEGRAM_WEBHOOK_SECRET`           | No       | Telegram webhook secret                                              |
+# Supabase Configuration (Required)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-#### 4. Supabase Setup
+# Encryption (Required)
+# Generate with: openssl rand -base64 32
+ENCRYPTION_SECRET=your-generated-secret
+
+# Resend Email Delivery (Required for email delivery)
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL="ReStrip Memories <memories@restrip.app>"
+
+# Crop Backend Selection (Optional)
+CROP_BACKEND=local                         # Use "local" for dev, "runpod" for production
+LOCAL_CROP_URL=http://localhost:8000/crop   # Local crop server address
+
+# RunPod Configuration (only needed if CROP_BACKEND=runpod)
+RUNPOD_API_KEY=your-runpod-key
+RUNPOD_ENDPOINT_ID=your-endpoint-id
+
+# Turnstile CAPTCHA (Optional but Recommended)
+TURNSTILE_SECRET_KEY=your-turnstile-secret
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-turnstile-site-key
+
+# Telegram Bot (Optional)
+NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your_bot
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
+
+# Application URLs
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+APP_URL=https://restrip.vercel.app
+NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
+```
+
+> For `ENCRYPTION_SECRET` and `TELEGRAM_WEBHOOK_SECRET`, generate your own secrets using: `openssl rand -base64 32` or `openssl rand -hex 32`
+
+#### 5. Supabase Setup
 
 **Run Database Migrations:**
 
-Apply migrations from `supabase/migrations/` in order in your Supabase SQL Editor:
+Apply migrations from `supabase/migrations/` in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
 
-10. **010_gallery_rls_indexes.sql** - Gallery RLS policies and indexes
-11. **011_clerk_migration.sql** - Clerk authentication migration (core tables and policies)
-12. **012_ensure_encryption_columns.sql** - Ensure encryption columns exist
-13. **013_telegram_link_token.sql** - Telegram link token support
-14. **014_canvas_books.sql** - Scrapbook tables (initial creation as canvas_books/canvas_pages)
-15. **015_rename_to_scrapbook.sql** - Rename canvas to scrapbook
+> [!CAUTION]
+> If you have existing data in the database, follow these steps before running migrations 020 and 021:
+>
+> 1. Run migration 020
+> 2. Run `NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... ENCRYPTION_SECRET=... npx tsx scripts/migrate-scrapbook-encryption.ts` in terminal
+> 3. Run `SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';` and `SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';` in the Supabase SQL editor (both outputs must be 0)
+> 4. Run migration 021
 
-**Note:** Migration 011 creates all core tables needed for the current system. Migrations 001-009 are legacy migrations for the old passkey authentication system and are not needed.
+| Step | Migration File | Purpose |
+| ---- | -------------- | ------- |
+| 1 | `001_passkey_auth.sql` | Core tables, RLS policies, storage bucket |
+| 2 | `002_add_prf_salt_to_credentials.sql` | WebAuthn salt column |
+| 3 | `003_delivery_status.sql` | Delivery tracking columns |
+| 4 | `004_check_user_exists_rpc.sql` | User existence check RPC |
+| 5 | `005_rpc_get_account_type.sql` | Account type lookup RPC |
+| 6 | `006_consolidate_snap_image_urls.sql` | Consolidate image columns |
+| 7 | `007_add_image_iv_to_snaps.sql` | Add image IV for decryption |
+| 8 | `008_telegram_bot_integration.sql` | Telegram bot support |
+| 9 | `009_add_key_wrapping.sql` | Cross-auth key wrapping |
+| 10 | `010_gallery_rls_indexes.sql` | Gallery RLS policies and indexes |
+| 11 | `011_clerk_migration.sql` | **Clerk migration — core tables and policies** |
+| 12 | `012_ensure_encryption_columns.sql` | Ensure encryption columns exist |
+| 13 | `013_telegram_link_token.sql` | Telegram link token support |
+| 14 | `014_canvas_books.sql` | Scrapbook tables (initial creation) |
+| 15 | `015_rename_to_scrapbook.sql` | Rename canvas to scrapbook |
+| 16 | `016_nonce.sql` | Nonce table for upload verification |
+| 17 | `017_resend_schedule_tracking.sql` | Resend schedule metadata on snaps |
+| 18 | `018_testing_workflow.sql` | Test GitHub Actions |
+| 19 | `019_pending_uploads.sql` | Pending uploads for sign-up flow |
+| 20 | `020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book → scrapbook_books, add encrypted columns |
+| 21 | `21_scrapbook_drop_plaintext.sql` | Drop plaintext title and elements columns |
+
+**Note:** Migration 011 creates all core tables needed for the current system. Migrations 001–009 are legacy migrations for the old passkey authentication system and are not needed for fresh installs.
 
 **Verification:**
 
@@ -160,21 +265,79 @@ FROM pg_tables
 WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
 ```
 
-#### 5. Run Development Server
+#### 6. Set Up Supabase Edge Functions (Optional — for Telegram Delivery)
+
+Email delivery uses the Resend API directly. Edge Functions are only needed for Telegram delivery and scheduled memory checks.
+
+1. In your Supabase project, go to **Edge Functions > Deploy a new function > Via Editor**
+2. Paste the code from `supabase/functions/telegram-bot/index.ts`, name it `telegram-bot`, and deploy
+   - **Important:** after deploying, toggle **OFF** "Verify JWT with legacy secret" for this function
+3. Repeat with `supabase/functions/restrip-memories/index.ts`, name it `restrip-memories`
+
+**Configure Telegram Bot:**
+
+4. Create a bot via [@BotFather](https://t.me/BotFather) and get your bot token and username
+5. Set webhook: `curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<FUNCTION_URL>/<BOT_TOKEN>"`
+6. Verify: `curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"`
+
+**Add Edge Function Secrets** (Supabase project > **Edge Functions > Secrets**):
+
+- `BASE_URL` — your app URL (e.g., `http://localhost:3000`)
+- `TELEGRAM_BOT_TOKEN` — your bot token
+- `TELEGRAM_WEBHOOK_SECRET` — generate with `openssl rand -hex 32`
+- `ENCRYPTION_SECRET` — same value as in `.env.local`
+
+**Set Up Cron Job** (Supabase project > **Integrations > Cron > Install Cron**):
+
+- Name: `restrip_memories`
+- Schedule: `*/5 * * * *` (every 5 minutes)
+- Type: Supabase Edge Functions, Method: POST
+- Edge Function: `restrip-memories`, Timeout: 1000ms
+- HTTP Headers: `Authorization: Bearer <SUPABASE_ANON_KEY>`, `Content-Type: application/json`
+- HTTP Request Body: `{"name":"Functions"}`
+
+#### 7. Start the Crop Server (Optional — Local Development)
+
+If using the local crop backend:
+
+```bash
+cd runpod
+python server.py
+```
+
+This starts the FastAPI server on `http://localhost:8000/crop`. Leave it running in the background while developing.
+
+#### 8. Start the Development Server
 
 ```bash
 npm run dev
 # Open http://localhost:3000
 ```
 
-### Project Scripts
+**Switching crop backends:**
 
 ```bash
-npm run dev    # Start development server
-npm run build  # Create production build
-npm run start  # Start production server
-npm run lint   # Run ESLint
+CROP_BACKEND=local npm run dev    # local FastAPI (development)
+CROP_BACKEND=runpod npm run dev   # RunPod serverless (production)
 ```
+
+#### 9. Test Your Setup
+
+1. **Sign in** — Authenticate with Clerk (Google OAuth or email/password)
+2. **Upload** — Navigate to `/upload` and try uploading an image
+3. **AI crop** — Upload with auto-crop enabled and verify the crop server responds
+4. **Gallery** — View memories at `/gallery`
+5. **Scrapbook** — Create a digital photo album at `/scrapbook`
+
+### Project Scripts
+
+| Command | Description |
+| ------- | ----------- |
+| `npm run dev` | Start development server (hot reload) |
+| `npm run build` | Create production build |
+| `npm run start` | Run production server |
+| `npm run lint` | Run ESLint code linting |
+| `python runpod/server.py` | Start local crop server (development) |
 
 ### Quick Reference for New Developers
 
@@ -2208,12 +2371,27 @@ npm install
 - Check the key was generated with `openssl rand -base64 32`
 - Ensure the key is the same across all environments that need to decrypt data
 
+#### Database Issues
+
+**Issue**: Supabase connection fails
+
+**Solutions:**
+
+- Verify `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set correctly in `.env.local`
+- Confirm your Supabase project is active and the API keys haven't been rotated
+
 #### Image Processing Issues
+
+**Issue**: "Local crop server error"
+
+**Solution:**
+Ensure `python server.py` is running in the `runpod/` directory before starting the dev server.
 
 **Issue**: Crop image fails
 
 **Solutions:**
 
+- Check `CROP_BACKEND` is set correctly (`local` or `runpod`)
 - Check `RUNPOD_API_KEY` is set correctly
 - Verify `RUNPOD_ENDPOINT_ID` is correct
 - Check RunPod endpoint is running
