@@ -1,988 +1,144 @@
-# 📸 ReStrip
-
-**Photo strips that come back to you.**
-
-A nostalgic memory platform that transforms your photostrips into emotional time capsules. Memories resurface when you least expect them, creating joy, nostalgia, and shared experiences.
-
-![ReStrip Banner](ReStrip_logo_v2.png)
-
----
-
-## ✨ What is ReStrip?
-
-ReStrip is a time-delayed memory delivery platform. You upload a photostrip today, and we send it back to you months later via a beautiful surprise email.
-
-**Core Loop:**
-
-1. 🔐 **Sign In** — Create an account with Clerk authentication (Google, email, or other OAuth providers)
-2. 📷 **Upload** — Take a photo of your photo strip or upload a digital one
-3. ✨ **Auto-crop** — Optional AI-powered cropping (YOLO11 segmentation model)
-4. 💬 **Caption** — Add a note for your future self
-5. 📅 **Schedule** — Pick a future date (surprise me, custom period, or specific date)
-6. 🔒 **Secure Storage** — Your photo and caption are securely encrypted and stored
-7. 💌 **Receive** — Months later, get notified via email or Telegram
-8. 👀 **View** — Authenticate to view your memory in the gallery or scrapbook
-
-**That's it. That's the magic.**
+<div align="center">
+  <img src="ReStrip_logo_v2.png" alt="ReStrip Logo" width="120" height="120">
+  <h1>ReStrip</h1>
+  <p><strong>Photo strips that come back to you.</strong></p>
+  <p>
+    <img src="https://img.shields.io/badge/status-archived-lightgrey" alt="Archived">
+    <img src="https://img.shields.io/badge/Next.js-16-black" alt="Next.js 16">
+    <img src="https://img.shields.io/badge/TypeScript-5-blue" alt="TypeScript">
+    <img src="https://img.shields.io/badge/Python-3.11-yellow" alt="Python">
+    <img src="https://img.shields.io/badge/Supabase-PostgreSQL-green" alt="Supabase">
+  </p>
+</div>
 
 ---
 
-## 🚀 Current Status
+## What is ReStrip?
 
-### ✅ Completed Features (Version 1.0)
+Photo booths are one of the few physical things left in the digital age — a strip of four moments, held in your hand. I built ReStrip to honour that: upload your photo strip today, forget about it, and get it back as a surprise months later in your inbox.
 
-**Authentication & Security:**
-
-- ✅ **Clerk Authentication** — Modern OAuth with Google, email, and other providers
-- ✅ **Session Management** — Secure sessions with middleware route protection
-- ✅ **Server-Side Encryption** — AES-256-GCM encryption for secure data storage
-- ✅ **Rate Limiting** — Protection against abuse with smart rate limiting
-- ✅ **CAPTCHA Protection** — Turnstile CAPTCHA for upload endpoints
-
-**Upload & Processing:**
-
-- ✅ **Image Upload** — Drag & drop or click to upload
-- ✅ **AI Auto-Crop** — YOLO11 segmentation model (RunPod serverless GPU or local FastAPI)
-- ✅ **In-Memory Caching** — Cropped images cached to avoid re-processing
-- ✅ **Image Preview** — Toggle between original and cropped versions
-- ✅ **Switchable Backend** — Choose between local FastAPI or cloud RunPod for cropping
-- ✅ **Storage Management** — Images securely stored in Supabase Storage
-
-**User Experience:**
-
-- ✅ **Period Picker** — Surprise me / Custom period / Specific date
-- ✅ **Caption Input** — Add notes for your future self
-- ✅ **Delivery Method** — Email or Telegram
-- ✅ **Working Delivery** — Email via Resend API (immediate delivery), Telegram via Supabase Edge Functions
-- ✅ **Gallery View** — Browse and view all your delivered memories with smart caching
-- ✅ **Scrapbook Feature** — Create digital photo albums with drag-and-drop layouts, stickers, and text
-- ✅ **Memory Viewing** — Secure view interface for delivered memories
-- ✅ **Form Validation** — Zod schemas with user-friendly error messages
-- ✅ **Scroll Animations** — GSAP ScrollTrigger for smooth reveals
-- ✅ **Responsive Design** — Mobile-first with Tailwind CSS
-
-**Developer Experience:**
-
-- ✅ **Next.js 16 App Router** — File-based routing with route groups
-- ✅ **TypeScript** — Full type safety
-- ✅ **Middleware** — Route protection and session validation
-- ✅ **API Routes** — Backend endpoints for auth and processing
-- ✅ **Technical Documentation** — Comprehensive docs for onboarding developers
-
-### 🔄 In Progress
-
-### 📋 Roadmap
-
-**Phase 2: Memory Management** ✅ Completed
-
-- ✅ Gallery view with paginated memory browsing
-- ✅ View past and scheduled memories
-- ✅ Digital scrapbook for organizing photo strips
-- ✅ Drag-and-drop photo layouts with stickers and text
-
-**Phase 3: Social & Discovery**
-
-- [ ] Face detection and friend tagging (optional, privacy-respecting)
-- [ ] Share memories with friends
-- [ ] Social graph for connections
-
-**Phase 4: Advanced Features**
-
-- [ ] Mobile app (React Native)
-- [ ] Advanced image processing (color enhancement, filters)
-- [ ] Multiple delivery methods (push notifications, SMS)
-- [ ] Premium features and monetization
+ReStrip is a **time-delayed memory delivery platform**. Users upload photo strips that are encrypted and stored securely, then delivered as a surprise email or Telegram message on a future date they set — or let the platform choose for them. The result is a small, unexpected hit of nostalgia.
 
 ---
 
-## 🔐 Authentication & Security System
+## How it Works
 
-ReStrip implements a modern authentication and security architecture using **Clerk** for user management and **server-side encryption** for data protection.
+1. **Sign in** — Authenticate with Google or email via Clerk OAuth
+2. **Upload** — Drag and drop a photo strip image
+3. **Auto-crop** *(optional)* — AI-powered segmentation detects and isolates the strip
+4. **Caption** — Write a note for your future self
+5. **Schedule** — Choose a surprise window, a custom period, or a specific date
+6. **Store** — Photo and caption are encrypted server-side and stored securely
+7. **Receive** — Months later, a surprise email or Telegram message arrives
+8. **Revisit** — View and organise delivered memories in the gallery or scrapbook editor
 
-### Authentication with Clerk
+---
 
-#### 🔑 Modern OAuth Authentication
+## Features
 
-- **Technology**: Clerk authentication platform
-- **Methods Supported**:
-  - Google OAuth
-  - Email/Password
-  - Other OAuth providers (configurable)
-- **Security**: Industry-standard OAuth 2.0 flows
-- **Benefits**:
-  - Fast and secure authentication
-  - Social login support
-  - Built-in security features (rate limiting, bot protection)
-  - Easy user management
-  - Session management and token refresh
+**Memory delivery** — Flexible scheduling (surprise me in 30–180 days, custom period, or pick an exact date). Delivery via Resend-powered email or a Telegram bot backed by Supabase Edge Functions.
 
-#### 🛡️ Session Management
+**AI auto-crop** — An optional preprocessing step that isolates the photo strip from backgrounds, handles orientation correction, and applies perspective transforms. Originally built on YOLO11, later evolved to RF-DETR running on RunPod serverless GPU infrastructure.
 
-- **Middleware Protection**: Routes are protected using Clerk middleware
-- **Session Verification**: API routes verify user identity with `auth()` from `@clerk/nextjs/server`
-- **Automatic Token Refresh**: Sessions are automatically refreshed
-- **Secure Cookies**: HttpOnly cookies for session tokens
+**Gallery** — A paginated masonry view of all delivered memories with client-side IndexedDB caching to avoid redundant decryption round-trips.
 
-### Security Architecture
+**Scrapbook editor** — A drag-and-drop canvas editor (Fabric.js) where users arrange photo strips, text, and stickers into digital albums. Canvas state is serialised and encrypted before persistence.
+
+**Security throughout** — AES-256-GCM server-side encryption for all images and captions, Clerk OAuth, Cloudflare Turnstile CAPTCHA, token bucket rate limiting, Content Security Policy with per-request nonces, and Row-Level Security on the database.
+
+---
+
+## Architecture
+
+ReStrip is a full-stack Next.js application deployed on Vercel, backed by Supabase for storage and database, with a Python sidecar for AI image processing on RunPod.
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Shadcn UI, Radix UI |
+| **Animations** | GSAP with ScrollTrigger, Fabric.js (scrapbook canvas) |
+| **Backend** | Next.js API Routes (serverless / edge runtime), Supabase PostgreSQL |
+| **Authentication** | Clerk (OAuth 2.0 — Google, email) |
+| **Storage** | Supabase Storage (encrypted blobs) |
+| **Encryption** | Web Crypto API — AES-256-GCM, server-side |
+| **Delivery — email** | Resend API (scheduled sends + webhook tracking) |
+| **Delivery — Telegram** | Supabase Edge Functions (Deno), Telegram Bot API |
+| **AI processing** | RF-DETR (Python), RunPod serverless GPU, local FastAPI for dev |
+| **Security** | Cloudflare Turnstile, token bucket rate limiter, CSP nonces, RLS |
+| **Hosting** | Vercel (frontend + API), RunPod (GPU inference) |
+
+**Data flow at a glance:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    CLIENT (Browser)                     │
-│                                                         │
-│  1. User authenticates via Clerk (OAuth or email/pwd)  │
-│  2. Clerk issues secure session token                  │
-│  3. Token stored in secure HttpOnly cookie             │
-│  4. User uploads photo and caption                     │
-│  5. Data sent to server with session token             │
-└─────────────────────────────────────────────────────────┘
-                             ↓ HTTPS
-┌─────────────────────────────────────────────────────────┐
-│                    SERVER (Vercel/API)                  │
-│                                                         │
-│  1. Verify session token with Clerk                    │
-│  2. Encrypt photo and caption (AES-256-GCM)            │
-│  3. Store encrypted data in Supabase                   │
-│  4. At delivery time: Decrypt and send to user         │
-│                                                         │
-│  ✅ Server encrypts data at rest                       │
-│  ✅ Server controls encryption keys securely           │
-│  ✅ Session tokens verified on every request           │
-└─────────────────────────────────────────────────────────┘
-```
+User uploads image
+  → POST /api/upload (Clerk auth verified)
+  → [optional] POST /api/crop-image → RunPod RF-DETR → perspective-corrected PNG
+  → Server encrypts image with AES-256-GCM (random IV per upload)
+  → Encrypted blob stored in Supabase Storage
+  → Snap record (with IV, schedule, delivery method) written to PostgreSQL
 
-### Security Features
-
-✅ **Server-Side Encryption**: Data encrypted at rest using AES-256-GCM  
-✅ **Secure Authentication**: OAuth 2.0 with Clerk  
-✅ **Rate Limiting**: Smart rate limiting to prevent abuse  
-✅ **CAPTCHA Protection**: Turnstile CAPTCHA on upload endpoints  
-✅ **HTTPS Only**: All data transmission over secure connections  
-✅ **Row-Level Security**: Database policies enforced via Supabase
-
-### Implementation Details
-
-**Libraries Used:**
-
-- `@clerk/nextjs` — Authentication and session management
-- Web Crypto API — Server-side encryption
-- Supabase — Database and storage
-- `zod` — Request validation and schema enforcement
-
-**Key Files:**
-
-- `src/proxy.ts` — Clerk middleware for route protection
-- `src/lib/simple-encryption.ts` — Encryption utilities
-- `src/lib/rate-limit.ts` — Rate limiting implementation
-- `src/lib/turnstile.ts` — CAPTCHA verification
-- `src/app/api/*` — API routes with Clerk auth verification
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-
-- **Next.js 16.1.6** — React framework with App Router and TypeScript
-- **React 19.2.0** — UI library
-- **Tailwind CSS** — Utility-first styling
-- **Shadcn UI** — Component library (customized)
-- **Radix UI** — Accessible UI primitives (Switch, Popover, Radio, etc.)
-- **GSAP** — Professional animations (ScrollTrigger)
-- **Lucide React** — Icon library
-- **Zod 4.2.1** — Schema validation
-- **date-fns** — Date manipulation
-
-### Authentication & Security
-
-- **@clerk/nextjs** — Modern OAuth authentication platform
-- **Supabase** — Database and storage (authentication handled by Clerk)
-- **Web Crypto API** — Server-side encryption (AES-256-GCM)
-- **Turnstile** — CAPTCHA protection
-
-### Backend
-
-- **Next.js API Routes** — Serverless functions (Edge Runtime)
-- **Supabase** — PostgreSQL database, auth, and storage
-- **@supabase/ssr** — Server-side Supabase client
-- **Vercel** — Hosting and deployment
-
-### External Services
-
-- **RunPod Serverless** — GPU-based AI image processing (optional, for cloud deployment)
-- **Local Crop Server** — FastAPI server for local development (optional, zero cost)
-- **UserJot** — Feedback and feature request widget
-- **Vercel Analytics** — Usage analytics
-- **Vercel Speed Insights** — Performance monitoring
-
-### Image Processing (Python on RunPod)
-
-- **Ultralytics YOLO11** — Object detection & segmentation for photostrip detection
-- **PyTorch 2.1.0 + CUDA 11.8** — Deep learning inference
-- **OpenCV** — Image processing & perspective transforms
-- **NumPy 1.26.4** — Array operations
-- **Pillow** — Image handling & format conversion
-- **Docker** — Containerization
-
----
-
-## 📁 Project Structure
-
-```
-restrip/
-├── src/
-│   ├── app/                         # Next.js App Router
-│   │   ├── (protected)/            # Protected route group (requires auth)
-│   │   │   ├── gallery/
-│   │   │   │   └── page.tsx        # Browse all memories
-│   │   │   ├── scrapbook/
-│   │   │   │   ├── page.tsx        # Scrapbook list view
-│   │   │   │   └── [bookId]/
-│   │   │   │       └── page.tsx    # Scrapbook editor
-│   │   │   ├── new/
-│   │   │   │   └── page.tsx        # Create new content
-│   │   │   └── layout.tsx          # Protected layout with Clerk auth
-│   │   ├── upload/                 # Upload flow (public, no auth required)
-│   │   │   ├── page.tsx            # Main upload form
-│   │   │   └── layout.tsx          # Upload layout
-│   │   ├── (misc)/                 # Miscellaneous pages
-│   │   │   ├── contact/            # Contact page
-│   │   │   └── privacy-policy/     # Privacy policy
-│   │   ├── sign-in/                # Clerk sign-in page
-│   │   ├── sign-up/                # Clerk sign-up page
-│   │   ├── api/                    # Backend API routes
-│   │   │   ├── create-snap/        # Create new memory
-│   │   │   ├── crop-image/         # RunPod/FastAPI proxy for AI cropping
-│   │   │   ├── upload/             # Upload data
-│   │   │   │   └── authenticated/  # Authenticated upload
-│   │   │   ├── snaps/
-│   │   │   │   └── [id]/           # Fetch/update/delete specific snap
-│   │   │   ├── gallery/            # Gallery endpoints
-│   │   │   │   ├── route.ts        # List memories
-│   │   │   │   └── [id]/           # Get specific memory
-│   │   │   ├── images/
-│   │   │   │   └── [id]/           # Serve images with caching
-│   │   │   ├── pending-upload/     # Track pending uploads for sign-up flow
-│   │   │   ├── send-memory/        # Manual email delivery/retry
-│   │   │   ├── resend/
-│   │   │   │   └── webhook/        # Resend email delivery webhook
-│   │   │   ├── stats/              # Usage statistics
-│   │   │   └── scrapbook/          # Scrapbook API
-│   │   │       └── books/          # Book CRUD operations
-│   │   │           ├── route.ts    # List/create books
-│   │   │           └── [bookId]/
-│   │   │               ├── route.ts # Get/update/delete book
-│   │   │               └── pages/  # Page CRUD operations
-│   │   ├── page.tsx                # Landing page
-│   │   └── layout.tsx              # Root layout (ClerkProvider)
-│   ├── components/
-│   │   ├── ui/
-│   │   │   └── shadcn-io/          # Custom shadcn-io components
-│   │   │       ├── dropzone/       # File upload with drag-and-drop
-│   │   │       ├── spinner/        # Loading indicator (pinwheel)
-│   │   │       ├── banner/         # Dismissible announcements
-│   │   │       ├── announcement/   # Info pills
-│   │   │       ├── choicebox/      # Selection component
-│   │   │       └── status/         # Status indicator
-│   │   ├── emails/
-│   │   │   └── MemoryEmail.tsx     # React Email template for delivery
-│   │   ├── CaptionForm.tsx         # Caption input form
-│   │   ├── Providers.tsx           # React Context providers (ClerkProvider)
-│   │   ├── PeriodPicker.tsx        # Date/period selection
-│   │   ├── DeliveryMethodPicker.tsx # Email/Telegram selection
-│   │   ├── ScrollReveal.tsx        # GSAP scroll animations
-│   │   └── ShinyText.tsx           # Animated text effect
-│   ├── lib/
-│   │   ├── simple-encryption.ts    # Server-side AES-256-GCM encryption
-│   │   ├── rate-limit.ts           # API rate limiting (token bucket)
-│   │   ├── turnstile.ts            # CAPTCHA verification
-│   │   ├── resend.ts               # Resend email delivery integration
-│   │   ├── delivery-scheduling.ts  # Schedule computation (surprise, custom, date)
-│   │   ├── fonts.ts                # Google Fonts configuration (14 fonts)
-│   │   ├── gallery-cache.ts        # Client-side gallery caching (IndexedDB)
-│   │   ├── scrapbook-api.ts        # Scrapbook API client
-│   │   ├── scrapbook-types.ts      # TypeScript types for scrapbook
-│   │   ├── stickers.ts             # Sticker assets helper
-│   │   ├── userjot.ts              # UserJot integration
-│   │   ├── utils.ts                # General utilities (cn, etc.)
-│   │   └── validators/
-│   │       └── index.ts            # Zod schemas
-│   ├── proxy.ts                    # Clerk middleware + CSP nonce generation
-│   └── types/
-│       └── global.d.ts             # Global TypeScript types
-├── components/ui/                   # Legacy shadcn UI location
-├── public/                         # Static assets
-│   └── stickers/                   # Scrapbook sticker assets
-├── supabase/                       # Database migrations & Edge Functions
-│   ├── migrations/                 # SQL migration files (001-021)
-│   └── functions/                  # Edge Functions (delivery system)
-├── runpod/                         # AI Image Processing (Python)
-│   ├── handler.py                  # RunPod serverless handler (YOLO model)
-│   ├── server.py                   # Local FastAPI server (dev alternative)
-│   ├── metrics.py                  # Metrics collection for RunPod
-│   ├── requirements.txt            # Python dependencies
-│   └── tests/                      # Python tests
-├── next.config.ts                  # Next.js configuration
-├── tailwind.config.ts              # Tailwind CSS config
-├── tsconfig.json                   # TypeScript config
-├── package.json                    # Dependencies
-├── TECHNICAL_DOCUMENTATION.md      # Full technical docs
-└── README.md                       # This file
+At scheduled time:
+  → Supabase Edge Function cron wakes up
+  → Queries snaps due for delivery
+  → Server decrypts image
+  → Sends via Resend (email) or Telegram Bot API
+  → Marks snap as delivered
 ```
 
 ---
 
-## 🎨 Brand & Design
+## Notable Engineering
 
-**Tagline:** "Photo strips that come back to you."
+### End-to-end encryption pipeline
 
-**Color Palette:**
+Every image and caption is encrypted server-side using AES-256-GCM before it touches the database or storage. Each upload gets a random IV, so identical inputs produce different ciphertext. Keys never leave the server — the client only ever sees encrypted data or pre-signed URLs for already-delivered content. Decryption happens at delivery time, not at rest.
 
-- Warm Beige: \`#F3E8D8\` (background)
-- Soft Black: \`#1C1C1C\` (text)
-- Blush Pink: \`#FFC9D1\` (primary CTA, hover: \`#FFB3BD\`)
-- Yellow Cream: \`#FFF2C9\` (hover state)
-- Pastel Blue: \`#CFE7FF\` (accent)
-- Mist Grey: \`#EBEBEB\` (borders/dividers)
-- Grey: \`#6B6B6B\` (secondary text)
+### AI auto-crop evolution
 
-**Components:**
+The photo strip detection pipeline started with YOLO11 (object detection) and evolved to RF-DETR (Recurrent Feature Dense Transformer) for better segmentation accuracy on varied backgrounds. The Python handler running on RunPod serverless GPU does more than detection: it applies perspective transforms to correct skew and rotation, extracts the alpha channel, and returns a clean PNG. A local FastAPI server mirrors the same interface for zero-cost development.
 
-- Shadcn UI base
-- Custom animations with GSAP
-- Smooth scroll reveals
-- Pinwheel loading spinner (128px, pastel-blue)
+### Time-delayed delivery system
 
----
+Delivery is a two-path system. Email delivery uses Resend's scheduled send API (supports up to 30 days ahead), with a webhook endpoint to track delivery status. Telegram delivery uses a Supabase Edge Function running on a cron schedule — it queries all snaps due in the current window, decrypts them, and sends via the Telegram Bot API. Both paths share the same scheduling logic in `src/lib/delivery-scheduling.ts`.
 
-## 🔐 Security & Privacy
+### Scrapbook editor
 
-**Privacy Promise:**
+The scrapbook feature uses Fabric.js to provide a drag-and-drop canvas editor where users position photo strips, free text, and sticker assets. The entire canvas state (object positions, scales, rotations, content) is serialised to JSON, encrypted with AES-256-GCM, and stored in Supabase. Loading a page re-fetches, decrypts, and rehydrates the canvas — preserving exact layouts across sessions.
 
-**Privacy Philosophy:**
+### Gallery caching
 
-- ✅ **Server-Side Encryption** — Data encrypted at rest with AES-256-GCM
-- ✅ **Secure Storage** — Encrypted photos stored in Supabase with strict access controls
-- ✅ **No Third-Party Training** — Your photos are never used for AI training
-- ✅ **Transparent Security** — Open about implementation and threat model
-- ✅ **User Control** — You own your data (delete anytime)
+The gallery fetches memories in pages using SWR for data-fetching. To avoid re-decrypting images on every visit, decrypted image blobs are cached in the browser's IndexedDB keyed by snap ID and an ETag. Subsequent loads hit the cache instead of the API, significantly reducing server load and latency for users with large galleries.
 
-**Security Implementation:**
+### Security layers
 
-- ✅ AES-256-GCM encryption (military-grade)
-- ✅ OAuth 2.0 authentication via Clerk
-- ✅ TLS/HTTPS everywhere (Vercel + RunPod + Supabase)
-- ✅ Content Security Policy headers
-- ✅ Rate limiting and CAPTCHA protection
-- ✅ Row Level Security on Supabase
-- ✅ Secure session management
-- ✅ Secure API architecture with token verification
+Security is applied at multiple levels: Cloudflare Turnstile CAPTCHA on the upload endpoint to block bots, a token bucket rate limiter (5 uploads/minute/IP) implemented in-process, CSP headers with a per-request nonce generated in Clerk middleware, and Supabase Row-Level Security policies as a final backstop. Authentication is handled entirely by Clerk — the app never touches password hashing.
 
 ---
 
-## 📈 Database Schema
+## Getting Started
 
-### Current Schema (v2.0 - Clerk Migration)
-
-```sql
--- Users managed by Clerk (external service)
--- User IDs are TEXT (Clerk user IDs) instead of UUID
-
--- Encrypted memories/snaps
-CREATE TABLE public.snaps (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,                      -- Clerk user ID (TEXT, not UUID)
-
-    -- Encrypted data
-    storage_path TEXT NOT NULL,                 -- Supabase Storage path to encrypted image
-    image_iv TEXT NOT NULL,                     -- Initialization vector for image
-
-    -- Caption data (now plain text with optional encryption)
-    caption TEXT,                               -- Caption text (encrypted at rest in DB)
-
-    -- Metadata (not encrypted)
-    delivery_method TEXT NOT NULL,              -- 'email' or 'telegram'
-    delivery_address TEXT NOT NULL,             -- Email address or Telegram username
-    telegram_chat_id BIGINT,                    -- Telegram chat ID for bot delivery
-    telegram_link_token TEXT,                   -- Token for linking Telegram account
-    scheduled_send_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    delivered BOOLEAN DEFAULT FALSE,
-    delivered_at TIMESTAMP WITH TIME ZONE,
-
-    -- Timestamps
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    -- Constraints
-    CONSTRAINT valid_delivery_method CHECK (delivery_method IN ('email', 'telegram'))
-);
-
--- Indexes for efficient queries
-CREATE INDEX idx_snaps_user_id ON public.snaps(user_id);
-CREATE INDEX idx_snaps_scheduled_send ON public.snaps(scheduled_send_time, delivered);
-CREATE INDEX idx_snaps_delivery_status ON public.snaps(user_id, delivered);
-CREATE INDEX idx_snaps_telegram_chat_id ON public.snaps(telegram_chat_id);
-
--- Row Level Security (simplified - API handles auth)
-ALTER TABLE public.snaps ENABLE ROW LEVEL SECURITY;
-
--- Service role can do everything (API validates Clerk auth before DB access)
-CREATE POLICY "Service role full access"
-    ON public.snaps
-    USING (true)
-    WITH CHECK (true);
-```
-
-```sql
--- Scrapbook / Digital Photo Albums
-CREATE TABLE public.scrapbook_books (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id TEXT NOT NULL,                      -- Clerk user ID
-    encrypted_title TEXT NOT NULL,              -- AES-256-GCM encrypted title
-    title_iv TEXT NOT NULL,                     -- IV for title decryption
-    cover_color TEXT NOT NULL,                  -- One of 10 preset colors
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE public.scrapbook_pages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    book_id UUID NOT NULL REFERENCES public.scrapbook_books(id) ON DELETE CASCADE,
-    page_number INTEGER NOT NULL,
-    encrypted_elements TEXT NOT NULL,           -- AES-256-GCM encrypted JSONB elements
-    elements_iv TEXT NOT NULL,                  -- IV for elements decryption
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT unique_page_number UNIQUE (book_id, page_number)
-);
-
-CREATE INDEX idx_scrapbook_books_user_id ON public.scrapbook_books(user_id);
-CREATE INDEX idx_scrapbook_pages_book_id ON public.scrapbook_pages(book_id);
-```
-
-### Storage Buckets (Supabase Storage)
-
-```sql
--- Encrypted images bucket
--- Images are stored encrypted with server-side key
-CREATE BUCKET IF NOT EXISTS encrypted_images;
-
--- Storage structure: {user_id}/{snap_id}/image.png
--- Path stored in snaps.storage_path column
-
--- RLS policies for storage (simplified)
-CREATE POLICY "Service role full access"
-    ON storage.objects FOR ALL
-    USING (bucket_id = 'encrypted_images');
-```
-
----
-
-## 🐛 Known Issues & Troubleshooting
-
-### Common Setup Issues
-
-**Issue**: Clerk authentication not working
-
-- **Solution**: Verify `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are set correctly in `.env.local`
-- **Root Cause**: Clerk requires valid API keys for authentication
-
-**Issue**: Build fails with prerendering errors
-
-- **Solution**: Add `export const dynamic = "force-dynamic"` to layouts using Clerk auth
-- **Root Cause**: Client components with auth hooks cannot be prerendered
-
-**Issue**: Database connection errors
-
-- **Solution**: Check Supabase environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
-- **Root Cause**: Invalid or missing Supabase credentials
-
-**Issue**: Image cropping not working
-
-- **Solution**: Check `CROP_BACKEND` setting and verify RunPod/FastAPI credentials
-- **Root Cause**: Cropping backend not configured or not running
-
-### Browser Compatibility
-
-**Authentication Support:**
-
-- ✅ Chrome/Edge 90+ (Windows, macOS, Android)
-- ✅ Safari 15+ (macOS, iOS)
-- ✅ Firefox 90+
-- ❌ Internet Explorer (not supported)
-
-**Web Crypto API:**
-
-- ✅ All modern browsers (Chrome, Firefox, Safari, Edge)
-- ❌ IE 11 and older
-
-### Performance Tips
-
-1. **Enable auto-crop selectively**: AI processing takes 2-5 seconds
-2. **Use local FastAPI for development**: Faster than RunPod for testing
-3. **Optimize images before upload**: Smaller files = faster processing
-4. **Clear browser cache periodically**: Prevents storage buildup
-
----
-
-## 🎯 Project Goals & Metrics
-
-**Current Focus (Q1 2026):**
-
-- ✅ Migrate to Clerk authentication
-- ✅ Implement server-side encryption architecture
-- ✅ Complete gallery and scrapbook features
-- ✅ Finish upload and storage integration
-- ✅ Launch email and Telegram delivery systems
-- 🎯 Get first 100 beta users
-- 🎯 Validate core concept and user satisfaction
-
-**Success Metrics:**
-
-- **User Retention**: 50%+ of users create second memory
-- **Delivery Success**: 95%+ messages delivered on time
-- **Security**: Zero data breaches or leaks
-- **Privacy**: 100% of uploaded data encrypted at rest
-- **Performance**: < 3s image processing time
-- **Satisfaction**: 4+ star average rating on feedback
-
-**Long-term Vision:**
-
-- Build the most trusted platform for private memories
-- Enable 1M+ memories delivered annually
-- Expand to social features while preserving privacy
-- Mobile app for easier photo capture
-- Premium features for power users
-
----
-
-## 👥 Team
-
-- **Bek Joon Hao** — Full-stack development, product design
-
----
-
-## 📞 Support
-
-- **Feature Requests:** [UserJot Board](https://restrip.userjot.com/)
-- **Contact:** [/contact](/contact)
-- **Issues:** [GitHub Issues](https://github.com/bjh-developer/restrip/issues)
-
----
-
-## 💝 Acknowledgments
-
-Inspired by photobooth culture and the magic of surprise. Built with love for nostalgia and privacy.
-
-**Special Thanks:**
-
-- The Next.js team for an amazing framework
-- Supabase for making backend development accessible
-- Clerk for seamless authentication
-- Ultralytics for YOLO11 and computer vision tools
-- The open-source community
-
-**Powered by:**
-
-- [Next.js](https://nextjs.org/) — React framework
-- [Supabase](https://supabase.com/) — Backend as a Service
-- [Clerk](https://clerk.com/) — Authentication platform
-- [Shadcn UI](https://ui.shadcn.com/) — Component library
-- [Tailwind CSS](https://tailwindcss.com/) — Styling
-- [Radix UI](https://www.radix-ui.com/) — Accessible primitives
-- [GSAP](https://greensock.com/gsap/) — Professional animations
-- [Resend](https://resend.com/) — Email delivery
-- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) — AI image processing
-- [RunPod](https://www.runpod.io/) — Serverless GPU compute
-- [Vercel](https://vercel.com/) — Hosting and deployment
-
----
-
-## 🚀 Getting Started for New Team Members
-
-Welcome to the ReStrip team! This section will guide you through setting up your local development environment from scratch.
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-| Tool                  | Minimum Version | Download                                                         |
-| --------------------- | --------------- | ---------------------------------------------------------------- |
-| **Node.js**           | v18.0.0+        | [nodejs.org](https://nodejs.org/)                                |
-| **npm**               | v9.0.0+         | Comes with Node.js                                               |
-| **Git**               | Latest          | [git-scm.com](https://git-scm.com/)                              |
-| **Docker** (optional) | Latest          | [docker.com](https://www.docker.com/) - for RunPod local testing |
-
-Verify your installations:
-
-```bash
-node --version   # Should be v18+
-npm --version    # Should be v9+
-git --version    # Any recent version
-```
-
-### Step 1: Clone the Repository
+Full setup instructions including prerequisites, environment variables, database migrations, and the Python AI pipeline are in [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md).
 
 ```bash
 git clone https://github.com/bjh-developer/restrip.git
-cd restrip
-```
-
-### Step 2: Install Dependencies
-
-```bash
-npm install
-```
-
-This will install all required packages including Next.js, React, Supabase clients, and UI libraries.
-
-### Step 3: Set Up External Services
-
-You'll need accounts for the following services:
-
-#### A. Clerk (Required for Authentication)
-
-1. Create a free account at [clerk.com](https://clerk.com/)
-2. Create a new application
-3. Navigate to **API Keys** to find your publishable and secret keys
-4. Configure OAuth providers (Google, etc.) in the Clerk dashboard
-5. Set redirect URLs to match your local development URL (e.g., `http://localhost:3000`)
-
-#### B. Supabase (Required for Database & Storage)
-
-1. Create a free account at [supabase.com](https://supabase.com/)
-2. Create a new project
-3. Navigate to **Settings > API** to find your project URL and keys
-4. **Run database migrations** (see Step 5)
-
-#### C. Resend (Required for Email Delivery)
-
-1. Create a free account at [resend.com](https://resend.com/)
-2. Navigate to **API Keys** to create a new API key
-3. Configure your sending domain or use Resend's testing domain
-4. Set the from email address (e.g., `memories@yourdomain.com`)
-
-#### D. Photo Strip Crop Backend (Optional - choose one)
-
-**Option 1: Local Crop Server (Recommended for Development)**
-
-- Free, runs on your machine
-- No RunPod account needed
-- Requires YOLO model weights (`runpod/runs/segment/train/weights/best.pt`)
-
-**Option 2: RunPod Serverless (For Production)**
-
-1. Create an account at [runpod.io](https://www.runpod.io/)
-2. Deploy the photostrip detection handler (see `runpod/DEPLOYMENT.md`)
-3. Get your API key and endpoint ID from the RunPod dashboard
-
-#### E. Turnstile CAPTCHA (Optional but Recommended)
-
-1. Create an account at [cloudflare.com](https://www.cloudflare.com/)
-2. Go to Turnstile in the dashboard
-3. Create a new site and get your site key and secret key
-
-### Step 4: Configure Environment Variables
-
-Copy the example environment file and fill in your values:
-
-```bash
-cp .env.local.example .env.local
-```
-
-Then edit `.env.local` with your configuration. See `.env.local.example` for all available options and descriptions.
-
-**Key Environment Variables:**
-
-```dotenv
-# Clerk Authentication (Required)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-
-# Supabase Configuration (Required)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-# Crop Backend Selection (Optional)
-CROP_BACKEND=local                      # Use "local" for dev, "runpod" for production
-LOCAL_CROP_URL=http://localhost:8000/crop  # Local crop server address
-
-# RunPod Configuration (only needed if CROP_BACKEND=runpod)
-RUNPOD_API_KEY=your-runpod-key
-RUNPOD_ENDPOINT_ID=your-endpoint-id
-
-# Encryption (Required)
-# Generate with: openssl rand -base64 32
-ENCRYPTION_SECRET=your-generated-secret
-
-# Resend Email Delivery (Required for email delivery)
-RESEND_API_KEY=your-resend-api-key
-RESEND_FROM_EMAIL="ReStrip Memories <memories@restrip.app>"
-
-# Turnstile CAPTCHA (Optional but Recommended)
-TURNSTILE_SECRET_KEY=your-turnstile-secret
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-turnstile-site-key
-
-# Telegram Bot (Optional)
-NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=your_bot
-TELEGRAM_BOT_TOKEN=your-bot-token
-TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
-
-# Application URLs
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-APP_URL=https://restrip.vercel.app
-NEXT_PUBLIC_ALLOWED_ORIGINS=*.vercel.app
-```
-
-**_For ENCRYPTION_SECRET and TELEGRAM_WEBHOOK_SECRET, generate your own secrets using: `openssl rand -base64 32` or `openssl rand -hex 32`_**
-
-### Step 5: Set Up Supabase Database
-
-Run the SQL migrations in order in your Supabase SQL Editor (**Dashboard > SQL Editor**):
-
-> [!CAUTION]
-> If you have existing data in database, make sure to do the following steps before running migration 020 and 021
->
-> 1. Run migration 020
-> 2. Run `NEXT_PUBLIC_SUPABASE_URL=... \ SUPABASE_SERVICE_ROLE_KEY=... \ ENCRYPTION_SECRET=... \ npx tsx scripts/migrate-scrapbook-encryption.ts` in terminal
-> 3. Run `SELECT COUNT(*) FROM scrapbook_books WHERE encrypted_title = '';` & `SELECT COUNT(*) FROM scrapbook_pages WHERE encrypted_elements = '';` in supabase sql editor (make sure output is 0 for both)
-> 4. Run migration 021
-
-| Step | Migration File                                             | Purpose                                                            |
-| ---- | ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| 1    | `supabase/migrations/001_passkey_auth.sql`                 | Core tables, RLS policies, storage bucket                          |
-| 2    | `supabase/migrations/002_add_prf_salt_to_credentials.sql`  | WebAuthn salt column                                               |
-| 3    | `supabase/migrations/003_delivery_status.sql`              | Delivery tracking columns                                          |
-| 4    | `supabase/migrations/004_check_user_exists_rpc.sql`        | User existence check RPC                                           |
-| 5    | `supabase/migrations/005_rpc_get_account_type.sql`         | Account type lookup RPC                                            |
-| 6    | `supabase/migrations/006_consolidate_snap_image_urls.sql`  | Consolidate image columns                                          |
-| 7    | `supabase/migrations/007_add_image_iv_to_snaps.sql`        | Add image IV for decryption                                        |
-| 8    | `supabase/migrations/008_telegram_bot_integration.sql`     | Telegram bot support                                               |
-| 9    | `supabase/migrations/009_add_key_wrapping.sql`             | Cross-auth key wrapping                                            |
-| 10   | `supabase/migrations/010_gallery_rls_indexes.sql`          | Gallery rls indexes                                                |
-| 11   | `supabase/migrations/011_clerk_migration.sql`              | Clerk migration                                                    |
-| 12   | `supabase/migrations/012_ensure_encryption_columns.sql`    | Ensure encryption columns                                          |
-| 13   | `supabase/migrations/013_telegram_link_token.sql`          | Telegram link token                                                |
-| 14   | `supabase/migrations/014_canvas_books.sql`                 | Scrapbook tables (initial)                                         |
-| 15   | `supabase/migrations/015_rename_to_scrapbook.sql`          | Rename to scrapbook                                                |
-| 16   | `supabase/migrations/016_nonce.sql`                        | Nonce Table for Upload Verification                                |
-| 17   | `supabase/migrations/017_resend_schedule_tracking.sql`     | Resend Schedule Metadata on Snaps                                  |
-| 18   | `supabase/migrations/018_testing_workflow.sql`             | Test GitHub Actions                                                |
-| 19   | `supabase/migrations/019_pending_uploads.sql`              | Pending Uploads for Sign-Up Flow                                   |
-| 20   | `supabase/migrations/020_scrapbook_encrypt_and_rename.sql` | Rename scrapbook_book to scrapbook_books and Add Encrypted Columns |
-| 21   | `supabase/migrations/21_scrapbook_drop_plaintext.sql`      | Drop Plaintext Title and Elements Column                           |
-
-**Verification queries:**
-
-```sql
--- Check tables exist
-SELECT table_name FROM information_schema.tables
-WHERE table_schema = 'public'
-AND table_name IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
-
--- Verify snaps structure
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name = 'snaps';
-
--- Confirm RLS is enabled
-SELECT schemaname, tablename, rowsecurity
-FROM pg_tables
-WHERE tablename IN ('snaps', 'scrapbook_books', 'scrapbook_pages');
-```
-
-### Step 6: Set Up Supabase Edge Functions (Optional - for Telegram Delivery)
-
-**Note:** Email delivery now uses Resend API (immediate delivery). Supabase Edge Functions are only needed for Telegram delivery and scheduled checks.
-
-**Setting up Supabase Edge Functions for Telegram functionality:**
-
-1. In your Supabase project, go to Edge Functions > Deploy a new function > Via Editor
-2. Replace the code inside with the code in supabase/functions/telegram-bot/index.ts (included in repo)
-3. Rename the function name to "telegram-bot"
-4. Click "deploy function"
-   - **TAKE NOTE: for telegram-bot function, make sure to toggle OFF "Verify JWT with legacy secret" after you've deployed the function.**
-
-5. Repeat steps 1-4 but with supabase/functions/restrip-memories/index.ts (for scheduled memory checks)
-   - Rename the function name to "restrip-memories"
-
-**Configure Telegram Bot (Optional):**
-
-6. Create a Telegram bot via [@BotFather](https://t.me/BotFather)
-7. Get your bot token and username
-8. Set webhook: `curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook?url=<FUNCTION_URL>/<BOT_TOKEN>"`
-9. Verify: `curl "https://api.telegram.org/bot<BOT_TOKEN>/getWebhookInfo"`
-
-**Configure Edge Function Secrets:**
-
-10. In your Supabase project, go to Edge Functions > Secrets
-11. Add the following secrets:
-    - `BASE_URL` → (your app URL, e.g., http://localhost:3000)
-    - `TELEGRAM_BOT_TOKEN` → (your bot token)
-    - `TELEGRAM_WEBHOOK_SECRET` → (generate with `openssl rand -hex 32`)
-    - `ENCRYPTION_SECRET` → (use the same one from .env.local)
-
-**Set Up Cron Job (Optional - for scheduled memory checks):**
-
-12. In your Supabase project, go to Integrations > Cron > Install Cron
-13. Create a new job:
-    - Name: restrip_memories
-    - Schedule: `*/5 * * * *` (every 5 minutes)
-    - Type: Supabase Edge Functions
-    - Method: POST
-    - Edge Function: restrip-memories
-    - Timeout: 1000ms
-    - HTTP Headers:
-      - `Authorization: Bearer <SUPABASE_ANON_KEY>`
-      - `Content-Type: application/json`
-    - HTTP Request Body: `{"name":"Functions"}`
-14. Click save cron job
-
-### Step 7: Start the Crop Server (Optional)
-
-If using **local crop backend** (recommended for development):
-
-```bash
-cd runpod
-python server.py
-```
-
-This starts the FastAPI server on `http://localhost:8000/crop`. Leave it running in the background.
-
-### Step 8: Start the Development Server
-
-In a new terminal:
-
-```bash
+cd restrip && npm install
+cp .env.local.example .env.local  # fill in your keys
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. You should see the ReStrip landing page!
+---
 
-### Step 9: Test Your Setup
+## Contributors
 
-1. **Sign in**: Click "Sign In" and authenticate with Clerk (Google OAuth or email/password)
-2. **Test upload flow**: Navigate to `/upload` and try uploading an image
-3. **Test AI cropping**: Upload an image with auto-crop enabled
-4. **Test gallery**: View your memories at `/gallery`
-5. **Test scrapbook**: Create a digital photo album at `/scrapbook`
-
-### Available Scripts
-
-| Command         | Description                           |
-| --------------- | ------------------------------------- | --- | ------------------------- | ------------------------------------- |
-| `npm run dev`   | Start development server (hot reload) |
-| `npm run build` | Create production build               |
-| `npm run start` | Run production server                 |
-| `npm run lint`  | Run ESLint code linting               |     | `python runpod/server.py` | Start local crop server (development) |
-
-**Switching Crop Backends:**
-
-```bash
-# Use local server (development)
-CROP_BACKEND=local npm run dev
-
-# Use RunPod (production)
-CROP_BACKEND=runpod npm run dev
-```
-
-### Troubleshooting Setup Issues
-
-| Issue                                  | Solution                                                         |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| `Module not found` errors              | Delete `node_modules` and run `npm install`                      |
-| Supabase connection fails              | Verify env variables are set correctly                           |
-| Clerk sign-in issues                   | Verify `NEXT_PUBLIC_CLERK_*` env variables are set correctly     |
-| Build/prerender errors                 | Add `export const dynamic = "force-dynamic"` to affected layouts |
-| "Local crop server error"              | Ensure `python server.py` is running in `runpod/` directory      |
-| Crop processing fails                  | Check `CROP_BACKEND` is set correctly (`local` or `runpod`)      |
-| "Connection refused" on localhost:8000 | Verify local server is running: `python runpod/server.py`        |
-
-For more detailed troubleshooting, see `TECHNICAL_DOCUMENTATION.md` Section 17.
+| Contributor | GitHub |
+|-------------|--------|
+| Joon Hao | [@bjh-developer](https://github.com/bjh-developer) |
+| Choco | [@Choco-Bloop](https://github.com/Choco-Bloop) |
+| Naresh | [Nareshix](mailto:Nareshix66@gmail.com) |
+| he | [wonghonern](mailto:wonghonern@gmail.com) |
+| yanganyi | [@yanganyi](https://github.com/yanganyi) |
 
 ---
 
-## 🤝 Contributing
+## License
 
-ReStrip is currently in active development. Contributions are welcome!
-
-### Development Workflow
-
-1. **Fork the repository** and clone your fork locally
-2. **Create a feature branch** from `main`:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-3. **Make your changes** following our code standards
-4. **Test thoroughly** - ensure builds pass and features work
-5. **Commit with meaningful messages**:
-   ```bash
-   git commit -m "feat: add new awesome feature"
-   ```
-6. **Push and create a Pull Request**:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-### Commit Message Convention
-
-We follow conventional commits:
-
-| Type        | Description                  |
-| ----------- | ---------------------------- |
-| `feat:`     | New feature                  |
-| `fix:`      | Bug fix                      |
-| `docs:`     | Documentation changes        |
-| `style:`    | Formatting, no code change   |
-| `refactor:` | Code restructuring           |
-| `test:`     | Adding/fixing tests          |
-| `chore:`    | Build, dependencies, tooling |
-
-### Code Standards
-
-- **TypeScript**: All code must be type-safe
-- **ESLint**: Run `npm run lint` before committing
-- **Formatting**: Use Prettier (config in `.prettierrc`)
-- **Components**: Follow existing patterns in `src/components/`
-- **API Routes**: Place in `src/app/api/` with proper error handling
-
-### Areas for Contribution
-
-| Area                 | Description                               |
-| -------------------- | ----------------------------------------- |
-| 🐛 **Bug fixes**     | Check GitHub Issues for reported bugs     |
-| 📖 **Documentation** | Improve docs, add examples                |
-| 🎨 **UI/UX**         | Enhance user interface and experience     |
-| ⚡ **Performance**   | Optimize rendering, reduce bundle size    |
-| 🔒 **Security**      | Security audits, vulnerability fixes      |
-| ♿ **Accessibility** | Improve ARIA support, keyboard navigation |
-| 🧪 **Testing**       | Add unit/integration tests                |
-
-### Before Contributing
-
-1. **Read `TECHNICAL_DOCUMENTATION.md`** - Understand the architecture
-2. **Check existing issues** - Avoid duplicate work
-3. **Discuss major changes** - Open an issue first for big features
-4. **Keep PRs focused** - One feature/fix per PR
-
----
-
-## 🎬 The Vision
-
-We live in a world where memories are fleeting, photo strips pile up, and feelings fade. ReStrip slows time down. You capture a moment today and, months later, it comes back to make you smile.
-
-**ReStrip is a time machine for your happiest moments.**
-
----
-
-**Photo strips that come back to you.** 📸✨
-
----
-
-## ⭐ Star This Project
-
-If you like ReStrip, please give it a star! It helps us reach more people and build a better product.
-
-[![GitHub stars](https://img.shields.io/github/stars/bjh-developer/restrip?style=social)](https://github.com/bjh-developer/restrip)
+No license has been added to this repository yet. If you intend to use or build on this code, please open an issue or reach out.
