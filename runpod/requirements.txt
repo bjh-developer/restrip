@@ -6,7 +6,7 @@ fastapi>=0.104.0
 uvicorn>=0.24.0
 
 # Image Processing
-Pillow==12.1.1
+Pillow==12.2.0
 numpy==1.26.4
 opencv-python-headless==4.10.0.84
 
