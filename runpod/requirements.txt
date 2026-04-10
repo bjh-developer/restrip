@@ -20,4 +20,4 @@ rfdetr>=1.4.0
 supervision
 
 # Observability
-requests==2.33.0
+requests==2.33.1
