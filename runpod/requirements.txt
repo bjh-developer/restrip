@@ -12,7 +12,7 @@ opencv-python-headless==4.10.0.84
 
 # PyTorch (required by RF-DETR)
 # Note: Adjust based on your CUDA version or use CPU version
-torch==2.8.0
+torch==2.11.0
 torchvision
 
 # RF-DETR Model
