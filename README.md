@@ -12,6 +12,9 @@
 </div>
 
 ---
+- Backend/Database: [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2gwd9.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
+- Auto-crop feature: [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2gwd2.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
+- restrip.app: [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2gbbh.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
 
 ## What is ReStrip?
 
