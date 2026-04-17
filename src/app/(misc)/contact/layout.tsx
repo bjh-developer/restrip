@@ -5,15 +5,15 @@ export const metadata: Metadata = {
   description:
     "Have questions, feedback, or just want to say hi? Reach out to the ReStrip team! We're here to help and would love to hear from you.",
   alternates: {
-    canonical: "https://www.restrip.app/contact",
+    canonical: "https://restrip.vercel.app/contact",
   },
   openGraph: {
     title: "ReStrip Contact Us",
     description:
       "Have questions, feedback, or just want to say hi? Reach out to the ReStrip team! We're here to help and would love to hear from you.",
-    url: "https://www.restrip.app/contact",
+    url: "https://restrip.vercel.app/contact",
     siteName: "ReStrip",
-    images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+    images: [{ url: "https://restrip.vercel.app/og-image.jpg" }],
     type: "website",
   },
   twitter: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     title: "ReStrip Contact Us",
     description:
       "Have questions, feedback, or just want to say hi? Reach out to the ReStrip team! We're here to help and would love to hear from you.",
-    images: ["https://www.restrip.app/og-image.jpg"],
+    images: ["https://restrip.vercel.app/og-image.jpg"],
   },
 };
 

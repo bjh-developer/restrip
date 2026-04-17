@@ -6,15 +6,15 @@ export const metadata: Metadata = {
   description:
     "Upload your photo strips to ReStrip and receive them back in the future.",
   alternates: {
-    canonical: "https://www.restrip.app/upload",
+    canonical: "https://restrip.vercel.app/upload",
   },
   openGraph: {
     title: "ReStrip Quick Send",
     description:
       "Upload your photo strips to ReStrip and receive them back in the future.",
-    url: "https://www.restrip.app/upload",
+    url: "https://restrip.vercel.app/upload",
     siteName: "ReStrip",
-    images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+    images: [{ url: "https://restrip.vercel.app/og-image.jpg" }],
     type: "website",
   },
   twitter: {
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: "ReStrip Quick Send",
     description:
       "Upload your photo strips to ReStrip and receive them back in the future.",
-    images: ["https://www.restrip.app/og-image.jpg"],
+    images: ["https://restrip.vercel.app/og-image.jpg"],
   },
 };
 

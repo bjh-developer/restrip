@@ -32,15 +32,15 @@ export const metadata: Metadata = {
   description:
     "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
   alternates: {
-    canonical: "https://www.restrip.app",
+    canonical: "https://restrip.vercel.app",
   },
   openGraph: {
     title: "ReStrip - Photo booth strips that come back to you",
     description:
       "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
-    url: "https://www.restrip.app",
+    url: "https://restrip.vercel.app",
     siteName: "ReStrip",
-    images: [{ url: "https://www.restrip.app/og-image.jpg" }],
+    images: [{ url: "https://restrip.vercel.app/og-image.jpg" }],
     type: "website",
   },
   twitter: {
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     title: "ReStrip - Photo booth strips that come back to you",
     description:
       "Discover ReStrip, the innovative way to turn your photobooth strips into lasting digital memories. Scan, save, and cherish your favorite moments effortlessly. Experience a scrapbook for your cherished photobooth memories today!",
-    images: ["https://www.restrip.app/og-image.jpg"],
+    images: ["https://restrip.vercel.app/og-image.jpg"],
   },
 };
 
