@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' # only on PRs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' # only on merge to main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0
@@ -65,7 +65,7 @@ jobs:
     needs: deploy-migrations
     if: github.event_name == 'push' # only on merge to main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0

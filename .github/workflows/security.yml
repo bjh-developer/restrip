@@ -13,7 +13,7 @@ jobs:
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest # runs on both push and PR
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -50,7 +50,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Semgrep scan
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
